@@ -1,0 +1,7 @@
+{
+  "name": "Twisted",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
