@@ -30,6 +30,10 @@ import {
   fetchActorProfile,
   fetchRepoRecord,
   listRepoRecords,
+  listIssueRecords,
+  listIssueStateRecords,
+  listPullRecords,
+  listPullStatusRecords,
   resolveHandle,
   resolvePds,
 } from "./endpoints.js";
@@ -43,6 +47,8 @@ import {
   normalizeRepoRecordToDetail,
   normalizeActorProfile,
   normalizeRepoRecord,
+  normalizeIssueRecord,
+  normalizePullRecord,
 } from "./normalizers.js";
 
 export type { CommitEntry, BranchEntry, BlobContent, DefaultBranchInfo } from "./normalizers.js";
@@ -320,6 +326,84 @@ export function useRepoCompare(
     enabled: options.enabled,
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
+  });
+}
+
+/**
+ * Issues for a repo. Lists sh.tangled.repo.issue records from the owner's PDS,
+ * filtered by repo AT URI, joined with state from sh.tangled.repo.issue.state.
+ */
+export function useRepoIssues(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  repoAtUri: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["issues", toValue(pds), toValue(did), toValue(repoAtUri)]),
+    queryFn: async () => {
+      const [issuesRes, statesRes] = await Promise.all([
+        listIssueRecords(toValue(pds), toValue(did)),
+        listIssueStateRecords(toValue(pds), toValue(did)),
+      ]);
+
+      const stateMap = new Map<string, "open" | "closed">();
+      for (const s of statesRes.records) {
+        const closed = s.value.state === "sh.tangled.repo.issue.state.closed";
+        stateMap.set(s.value.issue, closed ? "closed" : "open");
+      }
+
+      const targetRepo = toValue(repoAtUri);
+      return issuesRes.records
+        .filter((r) => !targetRepo || r.value.repo === targetRepo)
+        .map((r) => normalizeIssueRecord(r.value, r.uri, toValue(did), toValue(handle), stateMap.get(r.uri) ?? "open"));
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+/**
+ * Pull requests for a repo. Lists sh.tangled.repo.pull records from the owner's
+ * PDS filtered by target repo AT URI, joined with status records.
+ */
+export function useRepoPRs(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  repoAtUri: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["prs", toValue(pds), toValue(did), toValue(repoAtUri)]),
+    queryFn: async () => {
+      const [pullsRes, statusesRes] = await Promise.all([
+        listPullRecords(toValue(pds), toValue(did)),
+        listPullStatusRecords(toValue(pds), toValue(did)),
+      ]);
+
+      const statusMap = new Map<string, "open" | "merged" | "closed">();
+      for (const s of statusesRes.records) {
+        const raw = s.value.status ?? "sh.tangled.repo.pull.status.open";
+        const status =
+          raw === "sh.tangled.repo.pull.status.merged"
+            ? "merged"
+            : raw === "sh.tangled.repo.pull.status.closed"
+              ? "closed"
+              : "open";
+        statusMap.set(s.value.pull, status);
+      }
+
+      const targetRepo = toValue(repoAtUri);
+      return pullsRes.records
+        .filter((r) => !targetRepo || r.value.target.repo === targetRepo)
+        .map((r) => normalizePullRecord(r.value, r.uri, toValue(did), toValue(handle), statusMap.get(r.uri) ?? "open"));
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
   });
 }
 

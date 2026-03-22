@@ -44,9 +44,15 @@ importers:
       '@ionic/vue-router':
         specifier: ^8.0.0
         version: 8.8.1(@stencil/core@4.43.3)(vue-router@4.6.4(vue@3.5.30(typescript@5.9.3)))(vue@3.5.30(typescript@5.9.3))
+      '@tanstack/query-persist-client-core':
+        specifier: ^5.95.0
+        version: 5.95.0
       '@tanstack/vue-query':
         specifier: ^5.94.5
         version: 5.94.5(vue@3.5.30(typescript@5.9.3))
+      idb-keyval:
+        specifier: ^6.2.2
+        version: 6.2.2
       ionicons:
         specifier: ^7.0.0
         version: 7.4.0
@@ -1177,6 +1183,12 @@ packages:
   '@tanstack/query-core@5.94.5':
     resolution: {integrity: sha512-Vx1JJiBURW/wdNGP45afjrqn0LfxYwL7K/bSrQvNRtyLGF1bxQPgUXCpzscG29e+UeFOh9hz1KOVala0N+bZiA==}
 
+  '@tanstack/query-core@5.95.0':
+    resolution: {integrity: sha512-H1/CWCe8tGL3YIVeo770Z6kPbt0B3M1d/iQXIIK1qlFiFt6G2neYdkHgLapOC8uMYNt9DmHjmGukEKgdMk1P+A==}
+
+  '@tanstack/query-persist-client-core@5.95.0':
+    resolution: {integrity: sha512-83qvMi11P+8kPqgnvgB8qz37UDUnw7htrBkoc8r2SMso+ZfxwUIi0rIrJljrQuS8rW99QweoP3ACfG5SeBORkw==}
+
   '@tanstack/vue-query@5.94.5':
     resolution: {integrity: sha512-xmnOj1fP0JvUqGrkHmdIY/3FyO4L0IjJBCqOFxnnMIJjrsvCvlpjp/XpI1Zv4eLuV0e8l1LIOOuEvN40ckVuOA==}
     peerDependencies:
@@ -2131,6 +2143,9 @@ packages:
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
+
+  idb-keyval@6.2.2:
+    resolution: {integrity: sha512-yjD9nARJ/jb1g+CvD0tlhUHOrJ9Sy0P8T9MF3YaLlHnSRpwPfpTX0XIvpmw3gAJUmEu3FiICLBDPXVwyEvrleg==}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -4456,6 +4471,12 @@ snapshots:
 
   '@tanstack/query-core@5.94.5': {}
 
+  '@tanstack/query-core@5.95.0': {}
+
+  '@tanstack/query-persist-client-core@5.95.0':
+    dependencies:
+      '@tanstack/query-core': 5.95.0
+
   '@tanstack/vue-query@5.94.5(vue@3.5.30(typescript@5.9.3))':
     dependencies:
       '@tanstack/match-sorter-utils': 8.19.4
@@ -5569,6 +5590,8 @@ snapshots:
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
+
+  idb-keyval@6.2.2: {}
 
   ieee754@1.2.1: {}
 

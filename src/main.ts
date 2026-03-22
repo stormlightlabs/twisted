@@ -6,6 +6,8 @@ import { IonicVue } from "@ionic/vue";
 import { createPinia } from "pinia";
 import { VueQueryPlugin } from "@tanstack/vue-query";
 import { queryClient } from "./core/query/client.js";
+import { persistQueryClient } from "@tanstack/query-persist-client-core";
+import { createIdbPersister } from "./core/query/persister.js";
 
 import "@ionic/vue/css/core.css";
 import "@ionic/vue/css/normalize.css";
@@ -31,6 +33,9 @@ import "@ionic/vue/css/palettes/dark.system.css";
 
 /* Theme variables */
 import "./theme/variables.css";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+persistQueryClient({ queryClient: queryClient as any, persister: createIdbPersister(), maxAge: 30 * 60 * 1000 });
 
 const app = createApp(App).use(IonicVue).use(router).use(createPinia()).use(VueQueryPlugin, { queryClient });
 

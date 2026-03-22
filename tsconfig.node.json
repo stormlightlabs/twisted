@@ -4,6 +4,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "types": ["@atcute/bluesky", "@atcute/tangled"]
   },
   "include": ["vite.config.ts"]

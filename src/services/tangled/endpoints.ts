@@ -28,6 +28,10 @@ import type {
   ShTangledRepoCompare,
   ShTangledRepo,
   ShTangledActorProfile,
+  ShTangledRepoIssue,
+  ShTangledRepoIssueState,
+  ShTangledRepoPull,
+  ShTangledRepoPullStatus,
 } from "@atcute/tangled";
 import { throwOnXrpcError } from "@/services/atproto/client.js";
 import { MalformedResponseError } from "@/core/errors/tangled.js";
@@ -197,6 +201,68 @@ export async function resolvePds(did: string): Promise<string> {
     throw new MalformedResponseError("resolvePds", `No PDS endpoint in DID document: ${did}`);
   }
   return new URL(svc.serviceEndpoint).hostname;
+}
+
+type ListRecordsResponse<T> = { records: Array<{ uri: string; cid: string; value: T }>; cursor?: string };
+
+async function listRecords<T>(
+  pds: string,
+  did: string,
+  collection: string,
+  limit = 50,
+  cursor?: string,
+): Promise<ListRecordsResponse<T>> {
+  const url = new URL(`https://${pds}/xrpc/com.atproto.repo.listRecords`);
+  url.searchParams.set("repo", did);
+  url.searchParams.set("collection", collection);
+  url.searchParams.set("limit", String(limit));
+  if (cursor) url.searchParams.set("cursor", cursor);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
+  }
+  return res.json() as Promise<ListRecordsResponse<T>>;
+}
+
+/** List sh.tangled.repo.issue records from a user's PDS. */
+export async function listIssueRecords(
+  pds: string,
+  did: string,
+  limit = 50,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledRepoIssue.Main>> {
+  return listRecords<ShTangledRepoIssue.Main>(pds, did, "sh.tangled.repo.issue", limit, cursor);
+}
+
+/** List sh.tangled.repo.issue.state records from a user's PDS. */
+export async function listIssueStateRecords(
+  pds: string,
+  did: string,
+  limit = 100,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledRepoIssueState.Main>> {
+  return listRecords<ShTangledRepoIssueState.Main>(pds, did, "sh.tangled.repo.issue.state", limit, cursor);
+}
+
+/** List sh.tangled.repo.pull records from a user's PDS. */
+export async function listPullRecords(
+  pds: string,
+  did: string,
+  limit = 50,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledRepoPull.Main>> {
+  return listRecords<ShTangledRepoPull.Main>(pds, did, "sh.tangled.repo.pull", limit, cursor);
+}
+
+/** List sh.tangled.repo.pull.status records from a user's PDS. */
+export async function listPullStatusRecords(
+  pds: string,
+  did: string,
+  limit = 100,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledRepoPullStatus.Main>> {
+  return listRecords<ShTangledRepoPullStatus.Main>(pds, did, "sh.tangled.repo.pull.status", limit, cursor);
 }
 
 /**

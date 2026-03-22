@@ -38,11 +38,7 @@
     <!-- File tree -->
     <template v-else>
       <ion-list lines="inset" class="file-list">
-        <FileTreeItem
-          v-for="file in sortedFiles"
-          :key="file.name"
-          :file="file"
-          @click="handleFileClick(file)" />
+        <FileTreeItem v-for="file in sortedFiles" :key="file.name" :file="file" @click="handleFileClick(file)" />
       </ion-list>
       <EmptyState
         v-if="!files.length"
@@ -63,12 +59,7 @@ import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
 import { useRepoBlob } from "@/services/tangled/queries.js";
 import type { RepoFile } from "@/domain/models/repo.js";
 
-const props = defineProps<{
-  files: RepoFile[];
-  knotHost: string;
-  knotRepo: string;
-  branch: string;
-}>();
+const props = defineProps<{ files: RepoFile[]; knotHost: string; knotRepo: string; branch: string }>();
 
 const selectedFile = ref<RepoFile | null>(null);
 

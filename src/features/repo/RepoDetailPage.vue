@@ -45,8 +45,8 @@
           :knot-host="knotHost"
           :knot-repo="knotRepo"
           :branch="defaultBranch" />
-        <RepoIssues v-else-if="segment === 'issues'" :issues="[]" />
-        <RepoPRs v-else-if="segment === 'prs'" :prs="[]" />
+        <RepoIssues v-else-if="segment === 'issues'" :issues="issues" :is-loading="issuesQuery.isPending.value" />
+        <RepoPRs v-else-if="segment === 'prs'" :prs="prs" :is-loading="prsQuery.isPending.value" />
       </template>
     </ion-content>
   </ion-page>
@@ -81,6 +81,8 @@ import {
   useRepoBlob,
   useRepoLanguages,
   useRepoLog,
+  useRepoIssues,
+  useRepoPRs,
 } from "@/services/tangled/queries.js";
 import type { RepoDetail } from "@/domain/models/repo.js";
 
@@ -120,8 +122,16 @@ const repo = computed((): RepoDetail | undefined => {
   };
 });
 
+const repoAtUri = computed(() => recordQuery.data.value?.atUri ?? "");
+const hasAtUri = computed(() => !!repoAtUri.value);
+
+const issuesQuery = useRepoIssues(pds, did, owner, repoAtUri, { enabled: hasAtUri });
+const prsQuery = useRepoPRs(pds, did, owner, repoAtUri, { enabled: hasAtUri });
+
 const files = computed(() => treeQuery.data.value ?? []);
 const commits = computed(() => logQuery.data.value ?? []);
+const issues = computed(() => issuesQuery.data.value ?? []);
+const prs = computed(() => prsQuery.data.value ?? []);
 
 const isLoading = computed(() => identity.isPending.value || recordQuery.isPending.value);
 const isError = computed(() => identity.isError.value || recordQuery.isError.value);

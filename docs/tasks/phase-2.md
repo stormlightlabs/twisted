@@ -41,22 +41,22 @@
 
 ## Issues (read-only)
 
-- [ ] Fetch issues for a repo from PDS records
-- [ ] Display issue list with state filter (open/closed)
+- [x] Fetch issues for a repo from PDS records (`listIssueRecords` + `listIssueStateRecords` from owner's PDS)
+- [x] Display issue list with state filter (open/closed)
 - [ ] Issue detail view: title, body, author, state
 - [ ] Issue comments: fetch `sh.tangled.repo.issue.comment` records, render threaded
 
 ## Pull Requests (read-only)
 
-- [ ] Fetch PRs for a repo from PDS records
-- [ ] Display PR list with status filter (open/closed/merged)
+- [x] Fetch PRs for a repo from PDS records (`listPullRecords` + `listPullStatusRecords` from owner's PDS)
+- [x] Display PR list with status filter (open/closed/merged)
 - [ ] PR detail view: title, body, author, source/target branches
 - [ ] PR comments: fetch `sh.tangled.repo.pull.comment` records
 
 ## Caching
 
-- [ ] Configure TanStack Query stale/gc times per data type (see spec)
-- [ ] Set up IndexedDB query persister for offline reads
+- [x] Configure TanStack Query stale/gc times per data type (see spec)
+- [x] Set up IndexedDB query persister for offline reads
 - [ ] Verify stale-while-revalidate behavior: cached data shows immediately, refreshes in background
 
 ## Quality

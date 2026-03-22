@@ -1,56 +1,62 @@
 <template>
   <div class="prs-view">
-    <!-- Filter -->
-    <div class="filters-row">
-      <ion-chip
-        v-for="f in FILTERS"
-        :key="f.value"
-        class="filter-chip"
-        :class="{ active: filter === f.value }"
-        @click="filter = f.value">
-        {{ f.label }}
-      </ion-chip>
+    <div v-if="isLoading" class="loading-center">
+      <ion-spinner name="crescent" />
     </div>
 
-    <ion-list lines="inset" class="pr-list">
-      <ion-item v-for="pr in filtered" :key="pr.atUri" class="pr-item" button lines="inset">
-        <div slot="start" class="status-icon" :class="pr.status">
-          <ion-icon :icon="gitMergeOutline" />
-        </div>
-        <ion-label class="pr-label">
-          <span class="pr-title">{{ pr.title }}</span>
-          <div class="pr-meta">
-            <span class="mono">{{ pr.authorHandle }}</span>
-            <span class="sep">·</span>
-            <span class="branch mono">{{ pr.sourceBranch }}</span>
-            <span class="sep">→</span>
-            <span class="branch mono">{{ pr.targetBranch }}</span>
-            <span class="sep">·</span>
-            <span>{{ relativeTime(pr.createdAt) }}</span>
-          </div>
-        </ion-label>
-        <ion-badge slot="end" class="status-badge" :class="pr.status">
-          {{ pr.status }}
-        </ion-badge>
-      </ion-item>
-    </ion-list>
+    <template v-else>
+      <!-- Filter -->
+      <div class="filters-row">
+        <ion-chip
+          v-for="f in FILTERS"
+          :key="f.value"
+          class="filter-chip"
+          :class="{ active: filter === f.value }"
+          @click="filter = f.value">
+          {{ f.label }}
+        </ion-chip>
+      </div>
 
-    <EmptyState
-      v-if="!filtered.length"
-      :icon="gitMergeOutline"
-      title="No pull requests"
-      :message="filter === 'all' ? 'No PRs yet.' : `No ${filter} PRs.`" />
+      <ion-list lines="inset" class="pr-list">
+        <ion-item v-for="pr in filtered" :key="pr.atUri" class="pr-item" button lines="inset">
+          <div slot="start" class="status-icon" :class="pr.status">
+            <ion-icon :icon="gitMergeOutline" />
+          </div>
+          <ion-label class="pr-label">
+            <span class="pr-title">{{ pr.title }}</span>
+            <div class="pr-meta">
+              <span class="mono">{{ pr.authorHandle }}</span>
+              <span class="sep">·</span>
+              <span class="branch mono">{{ pr.sourceBranch }}</span>
+              <span class="sep">→</span>
+              <span class="branch mono">{{ pr.targetBranch }}</span>
+              <span class="sep">·</span>
+              <span>{{ relativeTime(pr.createdAt) }}</span>
+            </div>
+          </ion-label>
+          <ion-badge slot="end" class="status-badge" :class="pr.status">
+            {{ pr.status }}
+          </ion-badge>
+        </ion-item>
+      </ion-list>
+
+      <EmptyState
+        v-if="!filtered.length"
+        :icon="gitMergeOutline"
+        title="No pull requests"
+        :message="filter === 'all' ? 'No PRs yet.' : `No ${filter} PRs.`" />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { IonList, IonItem, IonLabel, IonBadge, IonIcon, IonChip } from "@ionic/vue";
+import { IonList, IonItem, IonLabel, IonBadge, IonIcon, IonChip, IonSpinner } from "@ionic/vue";
 import { gitMergeOutline } from "ionicons/icons";
 import EmptyState from "@/components/common/EmptyState.vue";
-import type { PullRequestSummary } from "@/domain/models/pull-request";
+import type { PullRequestSummary } from "@/domain/models/pull-request.js";
 
-const props = defineProps<{ prs: PullRequestSummary[] }>();
+const props = defineProps<{ prs: PullRequestSummary[]; isLoading?: boolean }>();
 
 const filter = ref<"all" | "open" | "merged" | "closed">("open");
 
@@ -81,6 +87,12 @@ function relativeTime(iso: string): string {
 <style scoped>
 .prs-view {
   padding-bottom: 32px;
+}
+
+.loading-center {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
 }
 
 .filters-row {

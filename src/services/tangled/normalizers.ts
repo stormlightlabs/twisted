@@ -10,9 +10,13 @@ import type {
   ShTangledRepoLanguages,
   ShTangledRepo,
   ShTangledActorProfile,
+  ShTangledRepoIssue,
+  ShTangledRepoPull,
 } from "@atcute/tangled";
 import type { RepoFile, RepoSummary, RepoDetail } from "@/domain/models/repo.js";
 import type { UserSummary } from "@/domain/models/user.js";
+import type { IssueSummary } from "@/domain/models/issue.js";
+import type { PullRequestSummary } from "@/domain/models/pull-request.js";
 
 function modeToFileKind(mode: string): RepoFile["type"] {
   if (mode.startsWith("04")) return "dir";
@@ -175,6 +179,35 @@ export function normalizeRepoRecordToDetail(
   extras: Partial<Pick<RepoDetail, "readme" | "defaultBranch" | "languages">> = {},
 ): RepoDetail {
   return { ...normalizeRepoRecord(record, ownerDid, ownerHandle, atUri), topics: record.topics, ...extras };
+}
+
+export function normalizeIssueRecord(
+  record: ShTangledRepoIssue.Main,
+  atUri: string,
+  authorDid: string,
+  authorHandle: string,
+  state: "open" | "closed" = "open",
+): IssueSummary {
+  return { atUri, title: record.title, authorDid, authorHandle, state, createdAt: record.createdAt };
+}
+
+export function normalizePullRecord(
+  record: ShTangledRepoPull.Main,
+  atUri: string,
+  authorDid: string,
+  authorHandle: string,
+  status: "open" | "merged" | "closed" = "open",
+): PullRequestSummary {
+  return {
+    atUri,
+    title: record.title,
+    authorDid,
+    authorHandle,
+    status,
+    createdAt: record.createdAt,
+    sourceBranch: record.source?.branch ?? "",
+    targetBranch: record.target.branch,
+  };
 }
 
 export function normalizeActorProfile(

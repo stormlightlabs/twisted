@@ -25,14 +25,6 @@
 </template>
 
 <script setup lang="ts">
-import {
-  IonPage,
-  IonTabs,
-  IonRouterOutlet,
-  IonTabBar,
-  IonTabButton,
-  IonIcon,
-  IonLabel,
-} from '@ionic/vue';
-import { homeOutline, searchOutline, pulseOutline, personOutline } from 'ionicons/icons';
+import { IonPage, IonTabs, IonRouterOutlet, IonTabBar, IonTabButton, IonIcon, IonLabel } from "@ionic/vue";
+import { homeOutline, searchOutline, pulseOutline, personOutline } from "ionicons/icons";
 </script>

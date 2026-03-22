@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:e2e": "cypress run",
     "test:unit": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@atcute/bluesky": "^3.3.0",
@@ -24,7 +25,9 @@
     "@capacitor/status-bar": "8.0.1",
     "@ionic/vue": "^8.0.0",
     "@ionic/vue-router": "^8.0.0",
+    "@tanstack/query-persist-client-core": "^5.95.0",
     "@tanstack/vue-query": "^5.94.5",
+    "idb-keyval": "^6.2.2",
     "ionicons": "^7.0.0",
     "pinia": "^3.0.4",
     "vue": "^3.3.0",

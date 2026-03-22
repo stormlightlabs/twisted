@@ -1,55 +1,61 @@
 <template>
   <div class="issues-view">
-    <!-- Filter -->
-    <div class="filters-row">
-      <ion-chip
-        v-for="f in FILTERS"
-        :key="f.value"
-        class="filter-chip"
-        :class="{ active: filter === f.value }"
-        @click="filter = f.value">
-        {{ f.label }}
-      </ion-chip>
+    <div v-if="isLoading" class="loading-center">
+      <ion-spinner name="crescent" />
     </div>
 
-    <ion-list lines="inset" class="issue-list">
-      <ion-item v-for="issue in filtered" :key="issue.atUri" class="issue-item" button lines="inset">
-        <div slot="start" class="state-dot" :class="issue.state" />
-        <ion-label class="issue-label">
-          <span class="issue-title">{{ issue.title }}</span>
-          <div class="issue-meta">
-            <span class="mono">{{ issue.authorHandle }}</span>
-            <span class="sep">·</span>
-            <span>{{ relativeTime(issue.createdAt) }}</span>
-            <template v-if="issue.commentCount">
-              <span class="sep">·</span>
-              <ion-icon :icon="chatbubbleOutline" class="meta-icon" />
-              <span>{{ issue.commentCount }}</span>
-            </template>
-          </div>
-        </ion-label>
-        <ion-badge slot="end" class="state-badge" :class="issue.state">
-          {{ issue.state }}
-        </ion-badge>
-      </ion-item>
-    </ion-list>
+    <template v-else>
+      <!-- Filter -->
+      <div class="filters-row">
+        <ion-chip
+          v-for="f in FILTERS"
+          :key="f.value"
+          class="filter-chip"
+          :class="{ active: filter === f.value }"
+          @click="filter = f.value">
+          {{ f.label }}
+        </ion-chip>
+      </div>
 
-    <EmptyState
-      v-if="!filtered.length"
-      :icon="alertCircleOutline"
-      title="No issues"
-      :message="filter === 'all' ? 'No issues filed yet.' : `No ${filter} issues.`" />
+      <ion-list lines="inset" class="issue-list">
+        <ion-item v-for="issue in filtered" :key="issue.atUri" class="issue-item" button lines="inset">
+          <div slot="start" class="state-dot" :class="issue.state" />
+          <ion-label class="issue-label">
+            <span class="issue-title">{{ issue.title }}</span>
+            <div class="issue-meta">
+              <span class="mono">{{ issue.authorHandle }}</span>
+              <span class="sep">·</span>
+              <span>{{ relativeTime(issue.createdAt) }}</span>
+              <template v-if="issue.commentCount">
+                <span class="sep">·</span>
+                <ion-icon :icon="chatbubbleOutline" class="meta-icon" />
+                <span>{{ issue.commentCount }}</span>
+              </template>
+            </div>
+          </ion-label>
+          <ion-badge slot="end" class="state-badge" :class="issue.state">
+            {{ issue.state }}
+          </ion-badge>
+        </ion-item>
+      </ion-list>
+
+      <EmptyState
+        v-if="!filtered.length"
+        :icon="alertCircleOutline"
+        title="No issues"
+        :message="filter === 'all' ? 'No issues filed yet.' : `No ${filter} issues.`" />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { IonList, IonItem, IonLabel, IonBadge, IonIcon, IonChip } from "@ionic/vue";
+import { IonList, IonItem, IonLabel, IonBadge, IonIcon, IonChip, IonSpinner } from "@ionic/vue";
 import { chatbubbleOutline, alertCircleOutline } from "ionicons/icons";
 import EmptyState from "@/components/common/EmptyState.vue";
-import type { IssueSummary } from "@/domain/models/issue";
+import type { IssueSummary } from "@/domain/models/issue.js";
 
-const props = defineProps<{ issues: IssueSummary[] }>();
+const props = defineProps<{ issues: IssueSummary[]; isLoading?: boolean }>();
 
 const filter = ref<"all" | "open" | "closed">("open");
 
@@ -79,6 +85,12 @@ function relativeTime(iso: string): string {
 <style scoped>
 .issues-view {
   padding-bottom: 32px;
+}
+
+.loading-center {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
 }
 
 .filters-row {
