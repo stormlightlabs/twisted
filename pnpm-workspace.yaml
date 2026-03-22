@@ -2,3 +2,4 @@ onlyBuiltDependencies:
   - core-js
   - cypress
   - esbuild
+  - vue-demi

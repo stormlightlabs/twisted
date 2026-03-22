@@ -2,18 +2,18 @@
 
 ## Scaffold
 
-- [ ] Create Ionic Vue project with TypeScript (`ionic start twisted tabs --type vue`)
-- [ ] Configure Capacitor for iOS and Android
-- [ ] Set up path aliases (`@/` → `src/`)
-- [ ] Install and configure Pinia
-- [ ] Install and configure TanStack Query for Vue
-- [ ] Create the directory structure per spec (`app/`, `core/`, `services/`, `domain/`, `features/`, `components/`)
+- [x] Create Ionic Vue project with TypeScript (`ionic start twisted tabs --type vue`)
+- [x] Configure Capacitor for iOS and Android
+- [x] Set up path aliases (`@/` → `src/`)
+- [x] Install and configure Pinia
+- [x] Install and configure TanStack Query for Vue
+- [x] Create the directory structure per spec (`app/`, `core/`, `services/`, `domain/`, `features/`, `components/`)
 
 ## Routing & Navigation
 
-- [ ] Define five-tab layout: Home, Explore, Activity, Profile (visible tabs) + Repo (pushed route)
-- [ ] Configure Vue Router with Ionic tab routing
-- [ ] Add route definitions for all Phase 1 placeholder pages
+- [x] Define five-tab layout: Home, Explore, Activity, Profile (visible tabs) + Repo (pushed route)
+- [x] Configure Vue Router with Ionic tab routing
+- [x] Add route definitions for all Phase 1 placeholder pages
 - [ ] Verify tab-to-tab navigation preserves scroll position and component state
 
 ## Domain Models
@@ -26,12 +26,12 @@
 
 ## Mock Data
 
+- [ ] Use realistic data: fetch `desertthunder.dev` to create mock data for repo names, timestamps within last 30 days
 - [ ] Create `src/mocks/users.ts` — factory for `UserSummary` instances
 - [ ] Create `src/mocks/repos.ts` — factory for `RepoSummary` and `RepoDetail` instances
 - [ ] Create `src/mocks/pull-requests.ts` — factory for `PullRequestSummary` instances
 - [ ] Create `src/mocks/issues.ts` — factory for `IssueSummary` instances
 - [ ] Create `src/mocks/activity.ts` — factory for `ActivityItem` instances
-- [ ] Use realistic data: handles like `alice.tngl.sh`, repo names, timestamps within last 30 days
 
 ## Design System Components
 
