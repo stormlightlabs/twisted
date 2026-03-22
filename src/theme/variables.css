@@ -1,2 +1,54 @@
 /* For information on how to create your own theme, please refer to:
 http://ionicframework.com/docs/theming/ */
+
+/* Twisted design tokens — light */
+:root {
+  --t-accent: #0ea5e9;
+  --t-accent-dim: rgba(14, 165, 233, 0.1);
+  --t-amber: #d97706;
+  --t-amber-dim: rgba(217, 119, 6, 0.12);
+  --t-green: #059669;
+  --t-green-dim: rgba(5, 150, 105, 0.1);
+  --t-red: #dc2626;
+  --t-red-dim: rgba(220, 38, 38, 0.1);
+  --t-purple: #7c3aed;
+
+  --t-surface: #ffffff;
+  --t-surface-raised: #f6f8fa;
+  --t-border: rgba(0, 0, 0, 0.08);
+  --t-border-strong: rgba(0, 0, 0, 0.14);
+
+  --t-text-primary: #0d1117;
+  --t-text-secondary: #57606a;
+  --t-text-muted: #8c959f;
+
+  --t-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", ui-monospace, "Courier New", monospace;
+
+  --t-radius-sm: 6px;
+  --t-radius-md: 10px;
+  --t-radius-lg: 14px;
+}
+
+/* Twisted design tokens — dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --t-accent: #22d3ee;
+    --t-accent-dim: rgba(34, 211, 238, 0.08);
+    --t-amber: #fbbf24;
+    --t-amber-dim: rgba(251, 191, 36, 0.1);
+    --t-green: #34d399;
+    --t-green-dim: rgba(52, 211, 153, 0.1);
+    --t-red: #f87171;
+    --t-red-dim: rgba(248, 113, 113, 0.1);
+    --t-purple: #a78bfa;
+
+    --t-surface: #161b22;
+    --t-surface-raised: #1c2128;
+    --t-border: rgba(255, 255, 255, 0.07);
+    --t-border-strong: rgba(255, 255, 255, 0.12);
+
+    --t-text-primary: #e6edf3;
+    --t-text-secondary: #8b949e;
+    --t-text-muted: #484f58;
+  }
+}

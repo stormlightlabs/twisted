@@ -35,26 +35,26 @@
 
 ## Design System Components
 
-- [ ] `components/common/RepoCard.vue` — compact repo summary (name, owner, description, language, stars)
-- [ ] `components/common/UserCard.vue` — avatar + handle + bio snippet
-- [ ] `components/common/ActivityCard.vue` — icon + actor + verb + target + relative timestamp
-- [ ] `components/common/EmptyState.vue` — icon + message + optional action button
-- [ ] `components/common/ErrorBoundary.vue` — catch errors, show retry UI
-- [ ] `components/common/SkeletonLoader.vue` — shimmer placeholders (variants: card, list-item, profile)
-- [ ] `components/repo/FileTreeItem.vue` — file/dir icon + name
-- [ ] `components/repo/MarkdownRenderer.vue` — render markdown to HTML (stub with basic styling)
+- [x] `components/common/RepoCard.vue` — compact repo summary (name, owner, description, language, stars)
+- [x] `components/common/UserCard.vue` — avatar + handle + bio snippet
+- [x] `components/common/ActivityCard.vue` — icon + actor + verb + target + relative timestamp
+- [x] `components/common/EmptyState.vue` — icon + message + optional action button
+- [x] `components/common/ErrorBoundary.vue` — catch errors, show retry UI
+- [x] `components/common/SkeletonLoader.vue` — shimmer placeholders (variants: card, list-item, profile)
+- [x] `components/repo/FileTreeItem.vue` — file/dir icon + name
+- [x] `components/repo/MarkdownRenderer.vue` — render markdown to HTML (stub with basic styling)
 
 ## Feature Pages (placeholder with mock data)
 
-- [ ] `features/home/HomePage.vue` — trending repos list, recent activity list
-- [ ] `features/explore/ExplorePage.vue` — search bar (non-functional), repo/user tabs, repo list
-- [ ] `features/repo/RepoDetailPage.vue` — segmented layout: Overview, Files, Issues, PRs
-- [ ] `features/repo/RepoOverview.vue` — header, description, README placeholder, stats
-- [ ] `features/repo/RepoFiles.vue` — file tree list from mock data
-- [ ] `features/repo/RepoIssues.vue` — issue list from mock data
-- [ ] `features/repo/RepoPRs.vue` — PR list from mock data
-- [ ] `features/activity/ActivityPage.vue` — filter chips + activity card list
-- [ ] `features/profile/ProfilePage.vue` — sign-in prompt (unauthenticated state)
+- [x] `features/home/HomePage.vue` — trending repos list, recent activity list
+- [x] `features/explore/ExplorePage.vue` — search bar (non-functional), repo/user tabs, repo list
+- [x] `features/repo/RepoDetailPage.vue` — segmented layout: Overview, Files, Issues, PRs
+- [x] `features/repo/RepoOverview.vue` — header, description, README placeholder, stats
+- [x] `features/repo/RepoFiles.vue` — file tree list from mock data
+- [x] `features/repo/RepoIssues.vue` — issue list from mock data
+- [x] `features/repo/RepoPRs.vue` — PR list from mock data
+- [x] `features/activity/ActivityPage.vue` — filter chips + activity card list
+- [x] `features/profile/ProfilePage.vue` — sign-in prompt (unauthenticated state)
 
 ## Quality
 
