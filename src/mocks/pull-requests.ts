@@ -1,4 +1,4 @@
-import type { PullRequestSummary } from "@/domain/models/pull-request";
+import type { PullRequestSummary } from "@/domain/models/pull-request.js";
 
 const MOCK_PRS: PullRequestSummary[] = [
   {

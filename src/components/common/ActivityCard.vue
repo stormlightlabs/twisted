@@ -27,7 +27,7 @@ import {
   alertCircleOutline,
   closeCircleOutline,
 } from "ionicons/icons";
-import type { ActivityItem } from "@/domain/models/activity";
+import type { ActivityItem } from "@/domain/models/activity.js";
 
 const props = defineProps<{ item: ActivityItem }>();
 const emit = defineEmits<{ click: [] }>();
@@ -103,6 +103,8 @@ function relativeTime(iso: string): string {
   font-size: 13px;
   line-height: 1.45;
   color: var(--t-text-secondary);
+  display: inline-flex;
+  gap: 4px;
 }
 
 .actor {

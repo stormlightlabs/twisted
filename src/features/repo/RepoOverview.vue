@@ -46,6 +46,18 @@
       <MarkdownRenderer v-if="repo.readme" :content="repo.readme" />
       <EmptyState v-else :icon="documentOutline" title="No README" message="This repo doesn't have a README yet." />
     </div>
+
+    <!-- Recent Commits -->
+    <div v-if="commits && commits.length" class="section">
+      <h3 class="section-label">Recent Commits</h3>
+      <div class="commit-list">
+        <div v-for="commit in commits.slice(0, 10)" :key="commit.hash" class="commit-row">
+          <span class="commit-hash mono">{{ commit.shortHash ?? commit.hash.slice(0, 7) }}</span>
+          <span class="commit-message">{{ commit.message }}</span>
+          <span v-if="commit.when" class="commit-when">{{ relativeTime(commit.when) }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -55,9 +67,23 @@ import { IonIcon, IonChip } from "@ionic/vue";
 import { starOutline, gitBranchOutline, codeOutline, documentOutline } from "ionicons/icons";
 import MarkdownRenderer from "@/components/repo/MarkdownRenderer.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
-import type { RepoDetail } from "@/domain/models/repo";
+import type { RepoDetail } from "@/domain/models/repo.js";
+import type { CommitEntry } from "@/services/tangled/queries.js";
 
-const props = defineProps<{ repo: RepoDetail }>();
+const props = defineProps<{ repo: RepoDetail; commits?: CommitEntry[] }>();
+
+function relativeTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const diff = Date.now() - d.getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(m / 60);
+  const days = Math.floor(h / 24);
+  if (days > 0) return `${days}d ago`;
+  if (h > 0) return `${h}h ago`;
+  if (m > 0) return `${m}m ago`;
+  return "just now";
+}
 
 const LANG_COLORS: Record<string, string> = {
   TypeScript: "#3178c6",
@@ -192,5 +218,50 @@ const langEntries = computed(() => Object.entries(props.repo.languages ?? {}).so
   font-family: var(--t-mono);
   font-size: 12px;
   color: var(--t-text-muted);
+}
+
+.commit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--t-border);
+  border-radius: var(--t-radius-md);
+  margin: 0 16px;
+  overflow: hidden;
+}
+
+.commit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--t-border);
+}
+
+.commit-row:last-child {
+  border-bottom: none;
+}
+
+.commit-hash {
+  font-family: var(--t-mono);
+  font-size: 11px;
+  color: var(--t-accent);
+  flex-shrink: 0;
+  width: 52px;
+}
+
+.commit-message {
+  font-size: 12px;
+  color: var(--t-text-secondary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commit-when {
+  font-size: 11px;
+  color: var(--t-text-muted);
+  flex-shrink: 0;
 }
 </style>

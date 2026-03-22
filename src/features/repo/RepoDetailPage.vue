@@ -21,70 +21,113 @@
 
     <ion-content :fullscreen="true">
       <!-- Loading skeleton -->
-      <template v-if="loading">
+      <template v-if="isLoading">
         <SkeletonLoader variant="profile" />
         <SkeletonLoader v-for="n in 3" :key="n" variant="card" />
       </template>
+
+      <!-- Error -->
+      <EmptyState v-else-if="isError" :icon="alertCircleOutline" title="Could not load repo" :message="errorMessage" />
 
       <!-- Not found -->
       <EmptyState
         v-else-if="!repo"
         :icon="alertCircleOutline"
         title="Repo not found"
-        message="This repository doesn't exist or hasn't been loaded yet."
-      />
+        message="This repository doesn't exist or hasn't been loaded yet." />
 
       <!-- Content -->
       <template v-else>
-        <RepoOverview  v-if="segment === 'overview'" :repo="repo" />
-        <RepoFiles     v-else-if="segment === 'files'"   :files="files" />
-        <RepoIssues    v-else-if="segment === 'issues'"  :issues="issues" />
-        <RepoPRs       v-else-if="segment === 'prs'"     :prs="prs" />
+        <RepoOverview v-if="segment === 'overview'" :repo="repo" :commits="commits" />
+        <RepoFiles
+          v-else-if="segment === 'files'"
+          :files="files"
+          :knot-host="knotHost"
+          :knot-repo="knotRepo"
+          :branch="defaultBranch" />
+        <RepoIssues v-else-if="segment === 'issues'" :issues="[]" />
+        <RepoPRs v-else-if="segment === 'prs'" :prs="[]" />
       </template>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, computed } from "vue";
+import { useRoute } from "vue-router";
 import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
-  IonButtons, IonBackButton, IonSegment, IonSegmentButton,
-} from '@ionic/vue';
-import { alertCircleOutline } from 'ionicons/icons';
-import SkeletonLoader from '@/components/common/SkeletonLoader.vue';
-import EmptyState from '@/components/common/EmptyState.vue';
-import RepoOverview from './RepoOverview.vue';
-import RepoFiles from './RepoFiles.vue';
-import RepoIssues from './RepoIssues.vue';
-import RepoPRs from './RepoPRs.vue';
-import { getMockRepoDetail, getMockRepoFiles } from '@/mocks/repos';
-import { getMockIssues } from '@/mocks/issues';
-import { getMockPullRequests } from '@/mocks/pull-requests';
-import type { RepoDetail, RepoFile } from '@/domain/models/repo';
-import type { IssueSummary } from '@/domain/models/issue';
-import type { PullRequestSummary } from '@/domain/models/pull-request';
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonButtons,
+  IonBackButton,
+  IonSegment,
+  IonSegmentButton,
+} from "@ionic/vue";
+import { alertCircleOutline } from "ionicons/icons";
+import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
+import EmptyState from "@/components/common/EmptyState.vue";
+import RepoOverview from "./RepoOverview.vue";
+import RepoFiles from "./RepoFiles.vue";
+import RepoIssues from "./RepoIssues.vue";
+import RepoPRs from "./RepoPRs.vue";
+import {
+  useIdentity,
+  useRepoRecord,
+  useDefaultBranch,
+  useRepoTree,
+  useRepoBlob,
+  useRepoLanguages,
+  useRepoLog,
+} from "@/services/tangled/queries.js";
+import type { RepoDetail } from "@/domain/models/repo.js";
 
 const route = useRoute();
 const owner = route.params.owner as string;
 const repoName = route.params.repo as string;
 
-const segment = ref<'overview' | 'files' | 'issues' | 'prs'>('overview');
-const loading = ref(true);
-const repo = ref<RepoDetail | null>(null);
-const files = ref<RepoFile[]>([]);
-const issues = ref<IssueSummary[]>([]);
-const prs = ref<PullRequestSummary[]>([]);
+const segment = ref<"overview" | "files" | "issues" | "prs">("overview");
 
-onMounted(() => {
-  setTimeout(() => {
-    repo.value = getMockRepoDetail(owner, repoName) ?? null;
-    files.value = getMockRepoFiles();
-    issues.value = getMockIssues();
-    prs.value = getMockPullRequests();
-    loading.value = false;
-  }, 400);
+const identity = useIdentity(owner);
+const did = computed(() => identity.data.value?.did ?? "");
+const pds = computed(() => identity.data.value?.pds ?? "");
+const hasIdentity = computed(() => !!identity.data.value);
+
+const recordQuery = useRepoRecord(pds, did, repoName, owner, { enabled: hasIdentity });
+const knotHost = computed(() => recordQuery.data.value?.knot ?? "");
+const knotRepo = computed(() => (did.value ? `${did.value}/${repoName}` : ""));
+const hasRecord = computed(() => !!recordQuery.data.value?.knot && !!did.value);
+
+const branchQuery = useDefaultBranch(knotHost, knotRepo, { enabled: hasRecord });
+const defaultBranch = computed(() => branchQuery.data.value?.name ?? "");
+const hasBranch = computed(() => !!branchQuery.data.value?.name);
+
+const treeQuery = useRepoTree(knotHost, knotRepo, defaultBranch, undefined, { enabled: hasBranch });
+const languagesQuery = useRepoLanguages(knotHost, knotRepo, undefined, { enabled: hasBranch });
+const readmeQuery = useRepoBlob(knotHost, knotRepo, defaultBranch, "README.md", { readme: true, enabled: hasBranch });
+const logQuery = useRepoLog(knotHost, knotRepo, defaultBranch, { limit: 20, enabled: hasBranch });
+
+const repo = computed((): RepoDetail | undefined => {
+  const rec = recordQuery.data.value;
+  if (!rec) return undefined;
+  return {
+    ...rec,
+    defaultBranch: defaultBranch.value || undefined,
+    languages: languagesQuery.data.value,
+    readme: readmeQuery.data.value?.isBinary ? undefined : readmeQuery.data.value?.content,
+  };
+});
+
+const files = computed(() => treeQuery.data.value ?? []);
+const commits = computed(() => logQuery.data.value ?? []);
+
+const isLoading = computed(() => identity.isPending.value || recordQuery.isPending.value);
+const isError = computed(() => identity.isError.value || recordQuery.isError.value);
+const errorMessage = computed(() => {
+  const err = identity.error.value ?? recordQuery.error.value;
+  return err instanceof Error ? err.message : "An unexpected error occurred.";
 });
 </script>
 

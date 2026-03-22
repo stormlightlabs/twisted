@@ -47,9 +47,9 @@ import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonList } from "@
 import RepoCard from "@/components/common/RepoCard.vue";
 import ActivityCard from "@/components/common/ActivityCard.vue";
 import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
-import { getTrendingRepos } from "@/mocks/repos";
-import { getMockActivity } from "@/mocks/activity";
-import type { RepoSummary } from "@/domain/models/repo";
+import { getTrendingRepos } from "@/mocks/repos.js";
+import { getMockActivity } from "@/mocks/activity.js";
+import type { RepoSummary } from "@/domain/models/repo.js";
 
 const router = useRouter();
 const loading = ref(true);

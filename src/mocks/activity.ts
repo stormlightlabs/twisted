@@ -1,4 +1,4 @@
-import type { ActivityItem } from "@/domain/models/activity";
+import type { ActivityItem } from "@/domain/models/activity.js";
 
 const MOCK_ACTIVITY: ActivityItem[] = [
   {

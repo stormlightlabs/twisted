@@ -1,4 +1,4 @@
-import type { IssueSummary } from "@/domain/models/issue";
+import type { IssueSummary } from "@/domain/models/issue.js";
 
 const MOCK_ISSUES: IssueSummary[] = [
   {

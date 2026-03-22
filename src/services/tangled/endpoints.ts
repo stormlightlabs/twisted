@@ -30,6 +30,7 @@ import type {
   ShTangledActorProfile,
 } from "@atcute/tangled";
 import { throwOnXrpcError } from "@/services/atproto/client.js";
+import { MalformedResponseError } from "@/core/errors/tangled.js";
 
 export async function fetchRepoTree(
   client: Client,
@@ -95,30 +96,21 @@ export async function fetchRepoBranches(
 }
 
 /** Tag list. Wire format is a raw blob — decoded text returned for normalizer. */
-export async function fetchRepoTags(
-  client: Client,
-  params: ShTangledRepoTags.$params,
-): Promise<string> {
+export async function fetchRepoTags(client: Client, params: ShTangledRepoTags.$params): Promise<string> {
   const res = await client.get("sh.tangled.repo.tags", { params, as: "bytes" });
   if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
   return new TextDecoder().decode(res.data as Uint8Array);
 }
 
 /** Diff for a ref. Wire format is a raw blob — patch text. */
-export async function fetchRepoDiff(
-  client: Client,
-  params: ShTangledRepoDiff.$params,
-): Promise<string> {
+export async function fetchRepoDiff(client: Client, params: ShTangledRepoDiff.$params): Promise<string> {
   const res = await client.get("sh.tangled.repo.diff", { params, as: "bytes" });
   if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
   return new TextDecoder().decode(res.data as Uint8Array);
 }
 
 /** Comparison between two revisions. Wire format is a raw blob — patch text. */
-export async function fetchRepoCompare(
-  client: Client,
-  params: ShTangledRepoCompare.$params,
-): Promise<string> {
+export async function fetchRepoCompare(client: Client, params: ShTangledRepoCompare.$params): Promise<string> {
   const res = await client.get("sh.tangled.repo.compare", { params, as: "bytes" });
   if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
   return new TextDecoder().decode(res.data as Uint8Array);
@@ -163,6 +155,48 @@ export async function fetchRepoRecord(
   repoName: string,
 ): Promise<GetRecordResponse<ShTangledRepo.Main>> {
   return getRecord<ShTangledRepo.Main>(pds, did, "sh.tangled.repo", repoName);
+}
+
+/**
+ * Resolve an AT Protocol handle to a DID via bsky.social.
+ * Returns the DID string (e.g. "did:plc:xxx").
+ */
+export async function resolveHandle(handle: string): Promise<string> {
+  const url = new URL("https://bsky.social/xrpc/com.atproto.identity.resolveHandle");
+  url.searchParams.set("handle", handle);
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
+  }
+  const data = (await res.json()) as { did: string };
+  return data.did;
+}
+
+type DidDocument = { service?: Array<{ id: string; type: string; serviceEndpoint: string }> };
+
+/**
+ * Fetch the DID document for a DID and extract the PDS service endpoint hostname.
+ * Supports did:plc (via plc.directory) and did:web.
+ */
+export async function resolvePds(did: string): Promise<string> {
+  let docUrl: string;
+  if (did.startsWith("did:plc:")) {
+    docUrl = `https://plc.directory/${did}`;
+  } else if (did.startsWith("did:web:")) {
+    const host = did.slice("did:web:".length);
+    docUrl = `https://${host}/.well-known/did.json`;
+  } else {
+    throw new MalformedResponseError("resolveHandle", `Unsupported DID method: ${did}`);
+  }
+  const res = await fetch(docUrl);
+  if (!res.ok) throwOnXrpcError(res.status, "ResolveFailed", `Could not fetch DID document: ${did}`);
+  const doc = (await res.json()) as DidDocument;
+  const svc = doc.service?.find((s) => s.id === "#atproto_pds");
+  if (!svc?.serviceEndpoint) {
+    throw new MalformedResponseError("resolvePds", `No PDS endpoint in DID document: ${did}`);
+  }
+  return new URL(svc.serviceEndpoint).hostname;
 }
 
 /**

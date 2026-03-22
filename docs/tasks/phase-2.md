@@ -23,21 +23,21 @@
 
 ## Repository Browsing
 
-- [ ] Wire `RepoDetailPage` to live repo data (metadata from PDS record + git data from knot)
-- [ ] Implement repo overview: description, topics, default branch, language breakdown
-- [ ] Implement README fetch: `sh.tangled.repo.blob` for `README.md` on default branch
-- [ ] Wire `MarkdownRenderer` to render real README content
-- [ ] Implement file tree: `sh.tangled.repo.tree` → navigate directories
-- [ ] Implement file viewer: `sh.tangled.repo.blob` → syntax-highlighted display
-- [ ] Implement commit log: `sh.tangled.repo.log` with cursor pagination
-- [ ] Implement branch list: `sh.tangled.repo.branches`
+- [x] Wire `RepoDetailPage` to live repo data (metadata from PDS record + git data from knot)
+- [x] Implement repo overview: description, topics, default branch, language breakdown
+- [x] Implement README fetch: `sh.tangled.repo.blob` for `README.md` on default branch
+- [x] Wire `MarkdownRenderer` to render real README content
+- [x] Implement file tree: `sh.tangled.repo.tree` → navigate directories
+- [x] Implement file viewer: `sh.tangled.repo.blob` → syntax-highlighted display
+- [x] Implement commit log: `sh.tangled.repo.log` with cursor pagination
+- [x] Implement branch list: `sh.tangled.repo.branches`
 
 ## Profile Browsing
 
-- [ ] Fetch user profile from PDS: `com.atproto.repo.getRecord` for `sh.tangled.actor.profile`
-- [ ] Display profile: avatar (via `avatar.tangled.sh`), bio, links, location, pronouns, pinned repos
-- [ ] List user's repos: fetch `sh.tangled.repo` records from user's PDS
-- [ ] Wire `UserCard` component to real data
+- [x] Fetch user profile from PDS: `com.atproto.repo.getRecord` for `sh.tangled.actor.profile`
+- [x] Display profile: avatar (via `avatar.tangled.sh`), bio, links, location, pronouns, pinned repos
+- [x] List user's repos: fetch `sh.tangled.repo` records from user's PDS
+- [x] Wire `UserCard` component to real data
 
 ## Issues (read-only)
 

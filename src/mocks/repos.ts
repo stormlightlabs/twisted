@@ -1,4 +1,4 @@
-import type { RepoSummary, RepoDetail, RepoFile } from "@/domain/models/repo";
+import type { RepoSummary, RepoDetail, RepoFile } from "@/domain/models/repo.js";
 
 const MOCK_REPOS: RepoSummary[] = [
   {
