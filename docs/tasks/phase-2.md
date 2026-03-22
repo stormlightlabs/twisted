@@ -2,24 +2,24 @@
 
 ## Protocol Setup
 
-- [ ] Install `@atcute/client` and `@atcute/tangled`
-- [ ] Create `services/atproto/client.ts` — singleton XRPC client with configurable base URL
-- [ ] Add error interceptor that normalizes XRPC errors into typed app errors
-- [ ] Create `core/errors/tangled.ts` — error types: NotFound, NetworkError, MalformedResponse, RateLimited
+- [x] Install `@atcute/client` and `@atcute/tangled`
+- [x] Create `services/atproto/client.ts` — singleton XRPC client with configurable base URL
+- [x] Add error interceptor that normalizes XRPC errors into typed app errors
+- [x] Create `core/errors/tangled.ts` — error types: NotFound, NetworkError, MalformedResponse, RateLimited
 
 ## API Validation
 
-- [ ] Probe `tangled.org` for JSON API endpoints (check headers, try `Accept: application/json`)
-- [ ] Confirm knot XRPC endpoints work from browser (CORS check against `us-west.tangled.sh`)
-- [ ] Document which data comes from knots vs appview vs PDS
-- [ ] Test `com.atproto.repo.getRecord` for fetching user profiles and repo records from PDS
+- [x] Probe `tangled.org` for JSON API endpoints — returns HTML only (no JSON API); all metadata via PDS
+- [x] Confirm knot XRPC endpoints work from browser (CORS check against knot) — `Access-Control-Allow-Origin: *` confirmed on `knot1.tangled.sh`; knot hostname comes from `sh.tangled.repo` PDS record, not a fixed host
+- [x] Document which data comes from knots vs appview vs PDS (see endpoints.ts header comment)
+- [x] Test `com.atproto.repo.getRecord` for fetching user profiles and repo records from PDS — confirmed working on `bsky.social`
 
 ## Service Layer
 
-- [ ] Create `services/tangled/endpoints.ts` — typed wrappers for each XRPC query
-- [ ] Create `services/tangled/normalizers.ts` — transform raw responses → domain models
-- [ ] Create `services/tangled/queries.ts` — TanStack Query hooks with cache keys and stale times
-- [ ] Implement knot routing: determine correct knot hostname for a given repo
+- [x] Create `services/tangled/endpoints.ts` — typed wrappers for each XRPC query
+- [x] Create `services/tangled/normalizers.ts` — transform raw responses → domain models
+- [x] Create `services/tangled/queries.ts` — TanStack Query hooks with cache keys and stale times
+- [x] Implement knot routing: determine correct knot hostname for a given repo
 
 ## Repository Browsing
 

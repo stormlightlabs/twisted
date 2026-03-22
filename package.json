@@ -12,6 +12,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@atcute/bluesky": "^3.3.0",
     "@atcute/client": "^4.2.1",
     "@atcute/tangled": "^1.0.17",
     "@capacitor/app": "8.0.1",
