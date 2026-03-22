@@ -18,20 +18,20 @@
 
 ## Domain Models
 
-- [ ] Create `domain/models/user.ts` — `UserSummary` type
-- [ ] Create `domain/models/repo.ts` — `RepoSummary`, `RepoDetail`, `RepoFile` types
-- [ ] Create `domain/models/pull-request.ts` — `PullRequestSummary` type
-- [ ] Create `domain/models/issue.ts` — `IssueSummary` type
-- [ ] Create `domain/models/activity.ts` — `ActivityItem` type
+- [x] Create `domain/models/user.ts` — `UserSummary` type
+- [x] Create `domain/models/repo.ts` — `RepoSummary`, `RepoDetail`, `RepoFile` types
+- [x] Create `domain/models/pull-request.ts` — `PullRequestSummary` type
+- [x] Create `domain/models/issue.ts` — `IssueSummary` type
+- [x] Create `domain/models/activity.ts` — `ActivityItem` type
 
 ## Mock Data
 
-- [ ] Use realistic data: fetch `desertthunder.dev` to create mock data for repo names, timestamps within last 30 days
-- [ ] Create `src/mocks/users.ts` — factory for `UserSummary` instances
-- [ ] Create `src/mocks/repos.ts` — factory for `RepoSummary` and `RepoDetail` instances
-- [ ] Create `src/mocks/pull-requests.ts` — factory for `PullRequestSummary` instances
-- [ ] Create `src/mocks/issues.ts` — factory for `IssueSummary` instances
-- [ ] Create `src/mocks/activity.ts` — factory for `ActivityItem` instances
+- [x] Use realistic data: fetch `desertthunder.dev` to create mock data for repo names, timestamps within last 30 days
+- [x] Create `src/mocks/users.ts` — factory for `UserSummary` instances
+- [x] Create `src/mocks/repos.ts` — factory for `RepoSummary` and `RepoDetail` instances
+- [x] Create `src/mocks/pull-requests.ts` — factory for `PullRequestSummary` instances
+- [x] Create `src/mocks/issues.ts` — factory for `IssueSummary` instances
+- [x] Create `src/mocks/activity.ts` — factory for `ActivityItem` instances
 
 ## Design System Components
 

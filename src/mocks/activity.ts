@@ -1,0 +1,98 @@
+import type { ActivityItem } from "@/domain/models/activity";
+
+const MOCK_ACTIVITY: ActivityItem[] = [
+  {
+    id: "act-001",
+    kind: "repo_created",
+    actorDid: "did:plc:p2cp5gopk7mgjegy9waligxd",
+    actorHandle: "desertthunder.dev",
+    targetUri: "at://did:plc:p2cp5gopk7mgjegy9waligxd/sh.tangled.repo/twisted",
+    targetName: "twisted",
+    createdAt: "2026-03-22T09:15:00Z",
+  },
+  {
+    id: "act-002",
+    kind: "pr_opened",
+    actorDid: "did:plc:c3d4e5f6g7h8i9j0k1l2m3n4",
+    actorHandle: "clara.bsky.social",
+    targetUri: "at://did:plc:a1b2c3d4e5f6g7h8i9j0k1l2/sh.tangled.pr/3",
+    targetName: "atproto-explorer#3",
+    createdAt: "2026-03-20T10:12:00Z",
+  },
+  {
+    id: "act-003",
+    kind: "repo_starred",
+    actorDid: "did:plc:b2c3d4e5f6g7h8i9j0k1l2m3",
+    actorHandle: "bob.tngl.sh",
+    targetUri: "at://did:plc:c3d4e5f6g7h8i9j0k1l2m3n4/sh.tangled.repo/iris-ui",
+    targetName: "iris-ui",
+    createdAt: "2026-03-21T14:05:00Z",
+  },
+  {
+    id: "act-004",
+    kind: "issue_opened",
+    actorDid: "did:plc:p2cp5gopk7mgjegy9waligxd",
+    actorHandle: "desertthunder.dev",
+    targetUri: "at://did:plc:p2cp5gopk7mgjegy9waligxd/sh.tangled.issue/12",
+    targetName: "twisted#12",
+    createdAt: "2026-03-22T08:40:00Z",
+  },
+  {
+    id: "act-005",
+    kind: "pr_merged",
+    actorDid: "did:plc:a1b2c3d4e5f6g7h8i9j0k1l2",
+    actorHandle: "alice.tngl.sh",
+    targetUri: "at://did:plc:a1b2c3d4e5f6g7h8i9j0k1l2/sh.tangled.pr/2",
+    targetName: "atproto-explorer#2",
+    createdAt: "2026-03-16T11:00:00Z",
+  },
+  {
+    id: "act-006",
+    kind: "user_followed",
+    actorDid: "did:plc:p2cp5gopk7mgjegy9waligxd",
+    actorHandle: "desertthunder.dev",
+    targetUri: "at://did:plc:a1b2c3d4e5f6g7h8i9j0k1l2",
+    targetName: "alice.tngl.sh",
+    createdAt: "2026-03-19T20:30:00Z",
+  },
+  {
+    id: "act-007",
+    kind: "repo_starred",
+    actorDid: "did:plc:e5f6g7h8i9j0k1l2m3n4o5p6",
+    actorHandle: "riku.tngl.sh",
+    targetUri: "at://did:plc:d4e5f6g7h8i9j0k1l2m3n4o5/sh.tangled.repo/tangled-cli",
+    targetName: "tangled-cli",
+    createdAt: "2026-03-22T06:10:00Z",
+  },
+  {
+    id: "act-008",
+    kind: "issue_closed",
+    actorDid: "did:plc:a1b2c3d4e5f6g7h8i9j0k1l2",
+    actorHandle: "alice.tngl.sh",
+    targetUri: "at://did:plc:a1b2c3d4e5f6g7h8i9j0k1l2/sh.tangled.issue/5",
+    targetName: "atproto-explorer#5",
+    createdAt: "2026-03-13T15:20:00Z",
+  },
+  {
+    id: "act-009",
+    kind: "repo_created",
+    actorDid: "did:plc:e5f6g7h8i9j0k1l2m3n4o5p6",
+    actorHandle: "riku.tngl.sh",
+    targetUri: "at://did:plc:e5f6g7h8i9j0k1l2m3n4o5p6/sh.tangled.repo/nix-atproto",
+    targetName: "nix-atproto",
+    createdAt: "2026-03-17T08:30:00Z",
+  },
+  {
+    id: "act-010",
+    kind: "user_followed",
+    actorDid: "did:plc:c3d4e5f6g7h8i9j0k1l2m3n4",
+    actorHandle: "clara.bsky.social",
+    targetUri: "at://did:plc:d4e5f6g7h8i9j0k1l2m3n4o5",
+    targetName: "dev.tangled.sh",
+    createdAt: "2026-03-20T09:00:00Z",
+  },
+];
+
+export function getMockActivity(): ActivityItem[] {
+  return [...MOCK_ACTIVITY].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
