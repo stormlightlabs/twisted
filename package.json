@@ -12,6 +12,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@atcute/client": "^4.2.1",
+    "@atcute/tangled": "^1.0.17",
     "@capacitor/app": "8.0.1",
     "@capacitor/core": "8.2.0",
     "@capacitor/haptics": "8.0.1",
