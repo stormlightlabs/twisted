@@ -29,10 +29,14 @@ import {
   fetchRepoCompare,
   fetchActorProfile,
   fetchRepoRecord,
+  fetchIssueRecord,
+  fetchPullRecord,
   listRepoRecords,
   listIssueRecords,
+  listIssueCommentRecords,
   listIssueStateRecords,
   listPullRecords,
+  listPullCommentRecords,
   listPullStatusRecords,
   resolveHandle,
   resolvePds,
@@ -48,7 +52,12 @@ import {
   normalizeActorProfile,
   normalizeRepoRecord,
   normalizeIssueRecord,
+  normalizeIssueDetail,
+  normalizeIssueComment,
+  buildIssueCommentThread,
   normalizePullRecord,
+  normalizePullDetail,
+  normalizePullComment,
 } from "./normalizers.js";
 
 export type { CommitEntry, BranchEntry, BlobContent, DefaultBranchInfo } from "./normalizers.js";
@@ -400,6 +409,122 @@ export function useRepoPRs(
       return pullsRes.records
         .filter((r) => !targetRepo || r.value.target.repo === targetRepo)
         .map((r) => normalizePullRecord(r.value, r.uri, toValue(did), toValue(handle), statusMap.get(r.uri) ?? "open"));
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+export function useIssueDetail(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  issueRkey: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["issueDetail", toValue(pds), toValue(did), toValue(issueRkey)]),
+    queryFn: async () => {
+      const [issueRes, statesRes, commentsRes] = await Promise.all([
+        fetchIssueRecord(toValue(pds), toValue(did), toValue(issueRkey)),
+        listIssueStateRecords(toValue(pds), toValue(did)),
+        listIssueCommentRecords(toValue(pds), toValue(did)),
+      ]);
+
+      const currentState = statesRes.records.reduce<"open" | "closed">((state, record) => {
+        if (record.value.issue !== issueRes.uri) return state;
+        return record.value.state === "sh.tangled.repo.issue.state.closed" ? "closed" : "open";
+      }, "open");
+
+      const commentCount = commentsRes.records.filter((record) => record.value.issue === issueRes.uri).length;
+
+      return normalizeIssueDetail(
+        issueRes.value,
+        issueRes.uri,
+        toValue(did),
+        toValue(handle),
+        currentState,
+        commentCount,
+      );
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+export function useIssueComments(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  issueAtUri: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["issueComments", toValue(pds), toValue(did), toValue(issueAtUri)]),
+    queryFn: async () => {
+      const response = await listIssueCommentRecords(toValue(pds), toValue(did));
+      const comments = response.records
+        .filter((record) => record.value.issue === toValue(issueAtUri))
+        .map((record) => normalizeIssueComment(record.value, record.uri, toValue(did), toValue(handle)));
+
+      return buildIssueCommentThread(comments);
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+export function usePullRequestDetail(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  pullRkey: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["pullDetail", toValue(pds), toValue(did), toValue(pullRkey)]),
+    queryFn: async () => {
+      const [pullRes, statusesRes, commentsRes] = await Promise.all([
+        fetchPullRecord(toValue(pds), toValue(did), toValue(pullRkey)),
+        listPullStatusRecords(toValue(pds), toValue(did)),
+        listPullCommentRecords(toValue(pds), toValue(did)),
+      ]);
+
+      const currentStatus = statusesRes.records.reduce<"open" | "merged" | "closed">((status, record) => {
+        if (record.value.pull !== pullRes.uri) return status;
+        if (record.value.status === "sh.tangled.repo.pull.status.merged") return "merged";
+        if (record.value.status === "sh.tangled.repo.pull.status.closed") return "closed";
+        return "open";
+      }, "open");
+
+      const roundCount = commentsRes.records.filter((record) => record.value.pull === pullRes.uri).length;
+
+      return normalizePullDetail(pullRes.value, pullRes.uri, toValue(did), toValue(handle), currentStatus, roundCount);
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+export function usePullRequestComments(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  pullAtUri: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["pullComments", toValue(pds), toValue(did), toValue(pullAtUri)]),
+    queryFn: async () => {
+      const response = await listPullCommentRecords(toValue(pds), toValue(did));
+      return response.records
+        .filter((record) => record.value.pull === toValue(pullAtUri))
+        .map((record) => normalizePullComment(record.value, record.uri, toValue(did), toValue(handle)))
+        .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
     },
     enabled: options.enabled,
     staleTime: 2 * MIN,

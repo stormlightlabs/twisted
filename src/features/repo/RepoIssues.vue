@@ -18,7 +18,13 @@
       </div>
 
       <ion-list lines="inset" class="issue-list">
-        <ion-item v-for="issue in filtered" :key="issue.atUri" class="issue-item" button lines="inset">
+        <ion-item
+          v-for="issue in filtered"
+          :key="issue.atUri"
+          class="issue-item"
+          button
+          lines="inset"
+          @click="emit('select', issue)">
           <div slot="start" class="state-dot" :class="issue.state" />
           <ion-label class="issue-label">
             <span class="issue-title">{{ issue.title }}</span>
@@ -56,6 +62,7 @@ import EmptyState from "@/components/common/EmptyState.vue";
 import type { IssueSummary } from "@/domain/models/issue.js";
 
 const props = defineProps<{ issues: IssueSummary[]; isLoading?: boolean }>();
+const emit = defineEmits<{ select: [issue: IssueSummary] }>();
 
 const filter = ref<"all" | "open" | "closed">("open");
 

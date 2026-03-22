@@ -45,16 +45,24 @@
           :knot-host="knotHost"
           :knot-repo="knotRepo"
           :branch="defaultBranch" />
-        <RepoIssues v-else-if="segment === 'issues'" :issues="issues" :is-loading="issuesQuery.isPending.value" />
-        <RepoPRs v-else-if="segment === 'prs'" :prs="prs" :is-loading="prsQuery.isPending.value" />
+        <RepoIssues
+          v-else-if="segment === 'issues'"
+          :issues="issues"
+          :is-loading="issuesQuery.isPending.value"
+          @select="openIssue" />
+        <RepoPRs
+          v-else-if="segment === 'prs'"
+          :prs="prs"
+          :is-loading="prsQuery.isPending.value"
+          @select="openPullRequest" />
       </template>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { useRoute } from "vue-router";
+import { ref, computed, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import {
   IonPage,
   IonHeader,
@@ -87,10 +95,35 @@ import {
 import type { RepoDetail } from "@/domain/models/repo.js";
 
 const route = useRoute();
+const router = useRouter();
 const owner = route.params.owner as string;
 const repoName = route.params.repo as string;
 
-const segment = ref<"overview" | "files" | "issues" | "prs">("overview");
+type Segment = "overview" | "files" | "issues" | "prs";
+
+function segmentFromQuery(value: unknown): Segment {
+  return value === "files" || value === "issues" || value === "prs" ? value : "overview";
+}
+
+const segment = ref<Segment>("overview");
+
+watch(
+  () => route.query.tab,
+  (value) => {
+    segment.value = segmentFromQuery(value);
+  },
+  { immediate: true },
+);
+
+watch(segment, (value) => {
+  const nextQuery = { ...route.query };
+  if (value === "overview") {
+    delete nextQuery.tab;
+  } else {
+    nextQuery.tab = value;
+  }
+  router.replace({ path: route.path, query: nextQuery });
+});
 
 const identity = useIdentity(owner);
 const did = computed(() => identity.data.value?.did ?? "");
@@ -133,12 +166,26 @@ const commits = computed(() => logQuery.data.value ?? []);
 const issues = computed(() => issuesQuery.data.value ?? []);
 const prs = computed(() => prsQuery.data.value ?? []);
 
+const tabPrefix = computed(() => {
+  if (route.path.startsWith("/tabs/explore")) return "/tabs/explore";
+  if (route.path.startsWith("/tabs/activity")) return "/tabs/activity";
+  return "/tabs/home";
+});
+
 const isLoading = computed(() => identity.isPending.value || recordQuery.isPending.value);
 const isError = computed(() => identity.isError.value || recordQuery.isError.value);
 const errorMessage = computed(() => {
   const err = identity.error.value ?? recordQuery.error.value;
   return err instanceof Error ? err.message : "An unexpected error occurred.";
 });
+
+function openIssue(issue: { rkey: string }) {
+  router.push(`${tabPrefix.value}/repo/${owner}/${repoName}/issues/${issue.rkey}?tab=issues`);
+}
+
+function openPullRequest(pr: { rkey: string }) {
+  router.push(`${tabPrefix.value}/repo/${owner}/${repoName}/pulls/${pr.rkey}?tab=prs`);
+}
 </script>
 
 <style scoped>

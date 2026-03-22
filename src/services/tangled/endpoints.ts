@@ -29,8 +29,10 @@ import type {
   ShTangledRepo,
   ShTangledActorProfile,
   ShTangledRepoIssue,
+  ShTangledRepoIssueComment,
   ShTangledRepoIssueState,
   ShTangledRepoPull,
+  ShTangledRepoPullComment,
   ShTangledRepoPullStatus,
 } from "@atcute/tangled";
 import { throwOnXrpcError } from "@/services/atproto/client.js";
@@ -161,6 +163,22 @@ export async function fetchRepoRecord(
   return getRecord<ShTangledRepo.Main>(pds, did, "sh.tangled.repo", repoName);
 }
 
+export async function fetchIssueRecord(
+  pds: string,
+  did: string,
+  rkey: string,
+): Promise<GetRecordResponse<ShTangledRepoIssue.Main>> {
+  return getRecord<ShTangledRepoIssue.Main>(pds, did, "sh.tangled.repo.issue", rkey);
+}
+
+export async function fetchPullRecord(
+  pds: string,
+  did: string,
+  rkey: string,
+): Promise<GetRecordResponse<ShTangledRepoPull.Main>> {
+  return getRecord<ShTangledRepoPull.Main>(pds, did, "sh.tangled.repo.pull", rkey);
+}
+
 /**
  * Resolve an AT Protocol handle to a DID via bsky.social.
  * Returns the DID string (e.g. "did:plc:xxx").
@@ -245,6 +263,16 @@ export async function listIssueStateRecords(
   return listRecords<ShTangledRepoIssueState.Main>(pds, did, "sh.tangled.repo.issue.state", limit, cursor);
 }
 
+/** List sh.tangled.repo.issue.comment records from a user's PDS. */
+export async function listIssueCommentRecords(
+  pds: string,
+  did: string,
+  limit = 100,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledRepoIssueComment.Main>> {
+  return listRecords<ShTangledRepoIssueComment.Main>(pds, did, "sh.tangled.repo.issue.comment", limit, cursor);
+}
+
 /** List sh.tangled.repo.pull records from a user's PDS. */
 export async function listPullRecords(
   pds: string,
@@ -263,6 +291,16 @@ export async function listPullStatusRecords(
   cursor?: string,
 ): Promise<ListRecordsResponse<ShTangledRepoPullStatus.Main>> {
   return listRecords<ShTangledRepoPullStatus.Main>(pds, did, "sh.tangled.repo.pull.status", limit, cursor);
+}
+
+/** List sh.tangled.repo.pull.comment records from a user's PDS. */
+export async function listPullCommentRecords(
+  pds: string,
+  did: string,
+  limit = 100,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledRepoPullComment.Main>> {
+  return listRecords<ShTangledRepoPullComment.Main>(pds, did, "sh.tangled.repo.pull.comment", limit, cursor);
 }
 
 /**

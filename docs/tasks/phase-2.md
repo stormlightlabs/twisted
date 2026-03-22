@@ -43,15 +43,15 @@
 
 - [x] Fetch issues for a repo from PDS records (`listIssueRecords` + `listIssueStateRecords` from owner's PDS)
 - [x] Display issue list with state filter (open/closed)
-- [ ] Issue detail view: title, body, author, state
-- [ ] Issue comments: fetch `sh.tangled.repo.issue.comment` records, render threaded
+- [x] Issue detail view: title, body, author, state
+- [x] Issue comments: fetch `sh.tangled.repo.issue.comment` records, render threaded
 
 ## Pull Requests (read-only)
 
 - [x] Fetch PRs for a repo from PDS records (`listPullRecords` + `listPullStatusRecords` from owner's PDS)
 - [x] Display PR list with status filter (open/closed/merged)
-- [ ] PR detail view: title, body, author, source/target branches
-- [ ] PR comments: fetch `sh.tangled.repo.pull.comment` records
+- [x] PR detail view: title, body, author, source/target branches
+- [x] PR comments: fetch `sh.tangled.repo.pull.comment` records
 
 ## Caching
 

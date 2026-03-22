@@ -18,7 +18,13 @@
       </div>
 
       <ion-list lines="inset" class="pr-list">
-        <ion-item v-for="pr in filtered" :key="pr.atUri" class="pr-item" button lines="inset">
+        <ion-item
+          v-for="pr in filtered"
+          :key="pr.atUri"
+          class="pr-item"
+          button
+          lines="inset"
+          @click="emit('select', pr)">
           <div slot="start" class="status-icon" :class="pr.status">
             <ion-icon :icon="gitMergeOutline" />
           </div>
@@ -57,6 +63,7 @@ import EmptyState from "@/components/common/EmptyState.vue";
 import type { PullRequestSummary } from "@/domain/models/pull-request.js";
 
 const props = defineProps<{ prs: PullRequestSummary[]; isLoading?: boolean }>();
+const emit = defineEmits<{ select: [pr: PullRequestSummary] }>();
 
 const filter = ref<"all" | "open" | "merged" | "closed">("open");
 

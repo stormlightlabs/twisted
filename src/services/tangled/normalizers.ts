@@ -11,12 +11,16 @@ import type {
   ShTangledRepo,
   ShTangledActorProfile,
   ShTangledRepoIssue,
+  ShTangledRepoIssueComment,
   ShTangledRepoPull,
+  ShTangledRepoPullComment,
 } from "@atcute/tangled";
 import type { RepoFile, RepoSummary, RepoDetail } from "@/domain/models/repo.js";
 import type { UserSummary } from "@/domain/models/user.js";
-import type { IssueSummary } from "@/domain/models/issue.js";
-import type { PullRequestSummary } from "@/domain/models/pull-request.js";
+import type { IssueSummary, IssueDetail } from "@/domain/models/issue.js";
+import type { PullRequestSummary, PullRequestDetail } from "@/domain/models/pull-request.js";
+import type { IssueComment, PullRequestComment } from "@/domain/models/comment.js";
+import { getAtUriRkey } from "./uris.js";
 
 function modeToFileKind(mode: string): RepoFile["type"] {
   if (mode.startsWith("04")) return "dir";
@@ -188,7 +192,33 @@ export function normalizeIssueRecord(
   authorHandle: string,
   state: "open" | "closed" = "open",
 ): IssueSummary {
-  return { atUri, title: record.title, authorDid, authorHandle, state, createdAt: record.createdAt };
+  return {
+    atUri,
+    rkey: getAtUriRkey(atUri),
+    repoAtUri: record.repo,
+    title: record.title,
+    authorDid,
+    authorHandle,
+    state,
+    createdAt: record.createdAt,
+  };
+}
+
+export function normalizeIssueDetail(
+  record: ShTangledRepoIssue.Main,
+  atUri: string,
+  authorDid: string,
+  authorHandle: string,
+  state: "open" | "closed" = "open",
+  commentCount = 0,
+): IssueDetail {
+  return {
+    ...normalizeIssueRecord(record, atUri, authorDid, authorHandle, state),
+    body: record.body,
+    mentions: record.mentions,
+    references: record.references,
+    commentCount,
+  };
 }
 
 export function normalizePullRecord(
@@ -200,14 +230,122 @@ export function normalizePullRecord(
 ): PullRequestSummary {
   return {
     atUri,
+    rkey: getAtUriRkey(atUri),
     title: record.title,
     authorDid,
     authorHandle,
     status,
     createdAt: record.createdAt,
     sourceBranch: record.source?.branch ?? "",
+    sourceRepoAtUri: record.source?.repo,
+    sourceSha: record.source?.sha,
     targetBranch: record.target.branch,
+    targetRepoAtUri: record.target.repo,
   };
+}
+
+export function normalizePullDetail(
+  record: ShTangledRepoPull.Main,
+  atUri: string,
+  authorDid: string,
+  authorHandle: string,
+  status: "open" | "merged" | "closed" = "open",
+  roundCount = 0,
+): PullRequestDetail {
+  return {
+    ...normalizePullRecord(record, atUri, authorDid, authorHandle, status),
+    body: record.body,
+    mentions: record.mentions,
+    references: record.references,
+    patch: record.patch,
+    roundCount,
+  };
+}
+
+export function normalizeIssueComment(
+  record: ShTangledRepoIssueComment.Main,
+  atUri: string,
+  authorDid: string,
+  authorHandle: string,
+): IssueComment {
+  return {
+    atUri,
+    rkey: getAtUriRkey(atUri),
+    issueAtUri: record.issue,
+    replyTo: record.replyTo,
+    body: record.body,
+    authorDid,
+    authorHandle,
+    createdAt: record.createdAt,
+    mentions: record.mentions,
+    references: record.references,
+    depth: 0,
+  };
+}
+
+export function normalizePullComment(
+  record: ShTangledRepoPullComment.Main,
+  atUri: string,
+  authorDid: string,
+  authorHandle: string,
+): PullRequestComment {
+  return {
+    atUri,
+    rkey: getAtUriRkey(atUri),
+    pullAtUri: record.pull,
+    body: record.body,
+    authorDid,
+    authorHandle,
+    createdAt: record.createdAt,
+    mentions: record.mentions,
+    references: record.references,
+    depth: 0,
+  };
+}
+
+function compareByCreatedAt<T extends { createdAt: string; atUri: string }>(left: T, right: T): number {
+  const leftTime = Date.parse(left.createdAt);
+  const rightTime = Date.parse(right.createdAt);
+
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime) || leftTime === rightTime) {
+    return left.atUri.localeCompare(right.atUri);
+  }
+
+  return leftTime - rightTime;
+}
+
+export function buildIssueCommentThread(comments: IssueComment[]): IssueComment[] {
+  const sorted = [...comments].sort(compareByCreatedAt);
+  const knownUris = new Set(sorted.map((comment) => comment.atUri));
+  const byParent = new Map<string | undefined, IssueComment[]>();
+
+  for (const comment of sorted) {
+    const parent = comment.replyTo && knownUris.has(comment.replyTo) ? comment.replyTo : undefined;
+    const siblings = byParent.get(parent) ?? [];
+    siblings.push(comment);
+    byParent.set(parent, siblings);
+  }
+
+  const ordered: IssueComment[] = [];
+  const seen = new Set<string>();
+
+  const visit = (parent: string | undefined, depth: number) => {
+    const children = byParent.get(parent) ?? [];
+    for (const comment of children) {
+      if (seen.has(comment.atUri)) continue;
+      seen.add(comment.atUri);
+      ordered.push({ ...comment, depth });
+      visit(comment.atUri, depth + 1);
+    }
+  };
+
+  visit(undefined, 0);
+
+  for (const comment of sorted) {
+    if (!seen.has(comment.atUri)) ordered.push(comment);
+  }
+
+  return ordered;
 }
 
 export function normalizeActorProfile(
