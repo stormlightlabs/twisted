@@ -6,7 +6,7 @@
 
     <ion-label class="activity-label">
       <div class="activity-text">
-        <span class="actor">{{ item.actorHandle }}</span>
+        <button class="actor" type="button" @click.stop="emit('actorClick')">{{ item.actorHandle }}</button>
         <span class="verb"> {{ config.verb }} </span>
         <span v-if="item.targetName" class="target">{{ item.targetName }}</span>
       </div>
@@ -30,7 +30,7 @@ import {
 import type { ActivityItem } from "@/domain/models/activity.js";
 
 const props = defineProps<{ item: ActivityItem }>();
-const emit = defineEmits<{ click: [] }>();
+const emit = defineEmits<{ click: []; actorClick: [] }>();
 
 type KindConfig = { icon: string; color: string; dimColor: string; verb: string };
 
@@ -108,6 +108,12 @@ function relativeTime(iso: string): string {
 }
 
 .actor {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
   font-family: var(--t-mono);
   font-size: 12px;
   font-weight: 600;

@@ -2,7 +2,8 @@
   <ion-card class="repo-card" button @click="emit('click')">
     <ion-card-content class="card-body">
       <div class="repo-header">
-        <span class="repo-owner">{{ repo.ownerHandle }}/</span><span class="repo-name">{{ repo.name }}</span>
+        <button class="repo-owner" type="button" @click.stop="emit('ownerClick')">{{ repo.ownerHandle }}/</button>
+        <span class="repo-name">{{ repo.name }}</span>
         <div v-if="repo.stars != null" class="stars">
           <ion-icon :icon="starOutline" class="star-icon" />
           <span class="star-count">{{ formatCount(repo.stars) }}</span>
@@ -29,7 +30,7 @@ import { starOutline } from "ionicons/icons";
 import type { RepoSummary } from "@/domain/models/repo";
 
 defineProps<{ repo: RepoSummary }>();
-const emit = defineEmits<{ click: [] }>();
+const emit = defineEmits<{ click: []; ownerClick: [] }>();
 
 const LANG_COLORS: Record<string, string> = {
   TypeScript: "#3178c6",
@@ -88,6 +89,12 @@ function relativeTime(iso: string): string {
 }
 
 .repo-owner {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
   font-family: var(--t-mono);
   font-size: 13px;
   color: var(--t-text-secondary);

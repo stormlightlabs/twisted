@@ -10,22 +10,18 @@
     </ion-header>
 
     <ion-content :fullscreen="true">
-      <!-- Loading -->
       <template v-if="isLoading">
         <SkeletonLoader variant="profile" />
         <SkeletonLoader v-for="n in 3" :key="n" variant="card" />
       </template>
 
-      <!-- Error -->
       <EmptyState
         v-else-if="isError"
         :icon="alertCircleOutline"
         title="Could not load profile"
         :message="errorMessage" />
 
-      <!-- Content -->
       <template v-else>
-        <!-- Profile header -->
         <div class="profile-header">
           <ion-avatar class="avatar">
             <img
@@ -46,7 +42,6 @@
 
         <div v-if="profile?.bio" class="profile-bio">{{ profile.bio }}</div>
 
-        <!-- Meta: location, pronouns -->
         <div v-if="profile?.location || profile?.pronouns" class="profile-meta">
           <span v-if="profile.location" class="meta-item">
             <ion-icon :icon="locationOutline" class="meta-icon" />
@@ -58,7 +53,6 @@
           </span>
         </div>
 
-        <!-- Links -->
         <div v-if="profile?.links?.length" class="profile-links">
           <a
             v-for="link in profile.links"
@@ -72,32 +66,89 @@
           </a>
         </div>
 
-        <!-- Pinned repos -->
-        <template v-if="pinnedRepos.length">
-          <h3 class="section-label">Pinned</h3>
-          <RepoCard v-for="repo in pinnedRepos" :key="repo.atUri" :repo="repo" @click="navigateToRepo(repo)" />
+        <div class="stats-row">
+          <div v-for="stat in stats" :key="stat.label" class="stat-pill">
+            <span class="stat-value">{{ stat.value }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
+        </div>
+
+        <ion-segment v-model="section" class="profile-segment" scrollable>
+          <ion-segment-button value="repos">Repos</ion-segment-button>
+          <ion-segment-button value="strings">Strings</ion-segment-button>
+          <ion-segment-button value="issues">Issues</ion-segment-button>
+          <ion-segment-button value="prs">PRs</ion-segment-button>
+          <ion-segment-button value="following">Following</ion-segment-button>
+        </ion-segment>
+
+        <template v-if="section === 'repos'">
+          <template v-if="pinnedRepos.length">
+            <h3 class="section-label">Pinned</h3>
+            <RepoCard
+              v-for="repo in pinnedRepos"
+              :key="repo.atUri"
+              :repo="repo"
+              @click="navigateToRepo(repo)"
+              @owner-click="navigateToUser(repo.ownerHandle)" />
+          </template>
+
+          <h3 class="section-label">Repositories</h3>
+          <template v-if="reposQuery.isPending.value">
+            <SkeletonLoader v-for="n in 3" :key="n" variant="card" />
+          </template>
+          <template v-else-if="otherRepos.length">
+            <RepoCard
+              v-for="repo in otherRepos"
+              :key="repo.atUri"
+              :repo="repo"
+              @click="navigateToRepo(repo)"
+              @owner-click="navigateToUser(repo.ownerHandle)" />
+          </template>
+          <EmptyState
+            v-else-if="!pinnedRepos.length"
+            :icon="codeSlashOutline"
+            title="No repositories"
+            message="This user hasn't created any repositories yet." />
         </template>
 
-        <!-- All repos -->
-        <h3 class="section-label">Repositories</h3>
-        <template v-if="reposQuery.isPending.value">
-          <SkeletonLoader v-for="n in 3" :key="n" variant="card" />
+        <UserStrings v-else-if="section === 'strings'" :strings="strings" :is-loading="stringsQuery.isPending.value" />
+
+        <RepoIssues
+          v-else-if="section === 'issues'"
+          :issues="issues"
+          :is-loading="issuesQuery.isPending.value"
+          @select="navigateToIssue" />
+
+        <RepoPRs
+          v-else-if="section === 'prs'"
+          :prs="pullRequests"
+          :is-loading="pullRequestsQuery.isPending.value"
+          @select="navigateToPullRequest" />
+
+        <template v-else>
+          <template v-if="followingQuery.isPending.value">
+            <SkeletonLoader v-for="n in 3" :key="n" variant="list-item" />
+          </template>
+          <template v-else-if="following.length">
+            <UserCard
+              v-for="user in following"
+              :key="user.followAtUri"
+              :user="user"
+              @click="navigateToUser(user.handle)" />
+          </template>
+          <EmptyState
+            v-else
+            :icon="peopleOutline"
+            title="Not following anyone"
+            message="This user isn't following any profiles yet." />
         </template>
-        <template v-else-if="repos.length">
-          <RepoCard v-for="repo in repos" :key="repo.atUri" :repo="repo" @click="navigateToRepo(repo)" />
-        </template>
-        <EmptyState
-          v-else
-          :icon="codeSlashOutline"
-          title="No repositories"
-          message="This user hasn't created any repositories yet." />
       </template>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   IonPage,
@@ -109,17 +160,42 @@ import {
   IonBackButton,
   IonAvatar,
   IonIcon,
+  IonSegment,
+  IonSegmentButton,
 } from "@ionic/vue";
-import { alertCircleOutline, locationOutline, personOutline, linkOutline, codeSlashOutline } from "ionicons/icons";
+import {
+  alertCircleOutline,
+  locationOutline,
+  personOutline,
+  linkOutline,
+  codeSlashOutline,
+  peopleOutline,
+} from "ionicons/icons";
 import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import RepoCard from "@/components/common/RepoCard.vue";
-import { useIdentity, useActorProfile, useUserRepos } from "@/services/tangled/queries.js";
+import UserCard from "@/components/common/UserCard.vue";
+import RepoIssues from "@/features/repo/RepoIssues.vue";
+import RepoPRs from "@/features/repo/RepoPRs.vue";
+import UserStrings from "@/features/profile/UserStrings.vue";
+import {
+  useIdentity,
+  useActorProfile,
+  useUserRepos,
+  useUserStrings,
+  useUserIssues,
+  useUserPullRequests,
+  useUserFollowing,
+} from "@/services/tangled/queries.js";
+import { parseAtUri } from "@/services/tangled/uris.js";
+import type { IssueSummary } from "@/domain/models/issue.js";
+import type { PullRequestSummary } from "@/domain/models/pull-request.js";
 import type { RepoSummary } from "@/domain/models/repo.js";
 
 const route = useRoute();
 const router = useRouter();
-const handle = route.params.handle as string;
+const handle = computed(() => String(route.params.handle ?? ""));
+const section = ref<"repos" | "strings" | "issues" | "prs" | "following">("repos");
 
 const avatarError = ref(false);
 
@@ -127,15 +203,36 @@ const identity = useIdentity(handle);
 const did = computed(() => identity.data.value?.did ?? "");
 const pds = computed(() => identity.data.value?.pds ?? "");
 const hasIdentity = computed(() => !!identity.data.value);
+const tabPrefix = computed(() => {
+  if (route.path.startsWith("/tabs/explore")) return "/tabs/explore";
+  if (route.path.startsWith("/tabs/activity")) return "/tabs/activity";
+  return "/tabs/home";
+});
 
 const profileQuery = useActorProfile(pds, did, handle, undefined, { enabled: hasIdentity });
 const reposQuery = useUserRepos(pds, did, handle, { enabled: hasIdentity });
+const stringsQuery = useUserStrings(pds, did, { enabled: hasIdentity });
+const issuesQuery = useUserIssues(pds, did, handle, { enabled: hasIdentity });
+const pullRequestsQuery = useUserPullRequests(pds, did, handle, { enabled: hasIdentity });
+const followingQuery = useUserFollowing(pds, did, { enabled: hasIdentity });
 
 const profile = computed(() => profileQuery.data.value);
 const repos = computed(() => reposQuery.data.value ?? []);
+const strings = computed(() => stringsQuery.data.value ?? []);
+const issues = computed(() => issuesQuery.data.value ?? []);
+const pullRequests = computed(() => pullRequestsQuery.data.value ?? []);
+const following = computed(() => followingQuery.data.value ?? []);
 
 const pinnedUris = computed(() => (profile.value as { pinnedRepos?: string[] } | undefined)?.pinnedRepos ?? []);
 const pinnedRepos = computed(() => repos.value.filter((r) => pinnedUris.value.includes(r.atUri)));
+const otherRepos = computed(() => repos.value.filter((repo) => !pinnedUris.value.includes(repo.atUri)));
+const stats = computed(() => [
+  { label: "repos", value: repos.value.length },
+  { label: "strings", value: strings.value.length },
+  { label: "issues", value: issues.value.length },
+  { label: "prs", value: pullRequests.value.length },
+  { label: "following", value: following.value.length },
+]);
 
 const isLoading = computed(() => identity.isPending.value || profileQuery.isPending.value);
 const isError = computed(() => identity.isError.value || profileQuery.isError.value);
@@ -144,13 +241,29 @@ const errorMessage = computed(() => {
   return err instanceof Error ? err.message : "An unexpected error occurred.";
 });
 
+watch(handle, () => {
+  avatarError.value = false;
+  section.value = "repos";
+});
+
 function navigateToRepo(repo: RepoSummary) {
-  const tabPrefix = route.path.startsWith("/tabs/explore")
-    ? "/tabs/explore"
-    : route.path.startsWith("/tabs/activity")
-      ? "/tabs/activity"
-      : "/tabs/home";
-  router.push(`${tabPrefix}/repo/${repo.ownerHandle}/${repo.name}`);
+  router.push(`${tabPrefix.value}/repo/${repo.ownerHandle}/${repo.name}`);
+}
+
+function navigateToUser(profileHandle: string) {
+  router.push(`${tabPrefix.value}/user/${profileHandle}`);
+}
+
+function navigateToIssue(issue: IssueSummary) {
+  const repoName = parseAtUri(issue.repoAtUri)?.rkey;
+  if (!repoName) return;
+  router.push(`${tabPrefix.value}/repo/${handle.value}/${repoName}/issues/${issue.rkey}`);
+}
+
+function navigateToPullRequest(pullRequest: PullRequestSummary) {
+  const repoName = parseAtUri(pullRequest.targetRepoAtUri)?.rkey;
+  if (!repoName) return;
+  router.push(`${tabPrefix.value}/repo/${handle.value}/${repoName}/pulls/${pullRequest.rkey}`);
 }
 
 function displayLink(url: string): string {
@@ -285,5 +398,45 @@ function initials(h: string): string {
   letter-spacing: 0.07em;
   color: var(--t-text-muted);
   margin: 16px 16px 8px;
+}
+
+.stats-row {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.stats-row::-webkit-scrollbar {
+  display: none;
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--t-border);
+  background: var(--t-surface-raised);
+  flex-shrink: 0;
+}
+
+.stat-value {
+  font-family: var(--t-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t-text-primary);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--t-text-muted);
+  text-transform: lowercase;
+}
+
+.profile-segment {
+  padding: 0 12px 8px;
 }
 </style>

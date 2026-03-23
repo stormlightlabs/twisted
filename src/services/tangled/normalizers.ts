@@ -14,12 +14,16 @@ import type {
   ShTangledRepoIssueComment,
   ShTangledRepoPull,
   ShTangledRepoPullComment,
+  ShTangledGraphFollow,
+  ShTangledString,
 } from "@atcute/tangled";
 import type { RepoFile, RepoSummary, RepoDetail } from "@/domain/models/repo.js";
 import type { UserSummary } from "@/domain/models/user.js";
 import type { IssueSummary, IssueDetail } from "@/domain/models/issue.js";
 import type { PullRequestSummary, PullRequestDetail } from "@/domain/models/pull-request.js";
 import type { IssueComment, PullRequestComment } from "@/domain/models/comment.js";
+import type { FollowSummary } from "@/domain/models/follow.js";
+import type { StringSummary } from "@/domain/models/string.js";
 import { getAtUriRkey } from "./uris.js";
 
 function modeToFileKind(mode: string): RepoFile["type"] {
@@ -312,6 +316,21 @@ function compareByCreatedAt<T extends { createdAt: string; atUri: string }>(left
   }
 
   return leftTime - rightTime;
+}
+
+export function normalizeStringRecord(record: ShTangledString.Main, atUri: string): StringSummary {
+  return {
+    atUri,
+    rkey: getAtUriRkey(atUri),
+    filename: record.filename,
+    description: record.description,
+    contents: record.contents,
+    createdAt: record.createdAt,
+  };
+}
+
+export function normalizeFollowRecord(record: ShTangledGraphFollow.Main, atUri: string): FollowSummary {
+  return { atUri, subjectDid: record.subject, createdAt: record.createdAt };
 }
 
 export function buildIssueCommentThread(comments: IssueComment[]): IssueComment[] {

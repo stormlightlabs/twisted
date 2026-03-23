@@ -34,6 +34,8 @@ import type {
   ShTangledRepoPull,
   ShTangledRepoPullComment,
   ShTangledRepoPullStatus,
+  ShTangledGraphFollow,
+  ShTangledString,
 } from "@atcute/tangled";
 import { throwOnXrpcError } from "@/services/atproto/client.js";
 import { MalformedResponseError } from "@/core/errors/tangled.js";
@@ -195,13 +197,9 @@ export async function resolveHandle(handle: string): Promise<string> {
   return data.did;
 }
 
-type DidDocument = { service?: Array<{ id: string; type: string; serviceEndpoint: string }> };
+type DidDocument = { alsoKnownAs?: string[]; service?: Array<{ id: string; type: string; serviceEndpoint: string }> };
 
-/**
- * Fetch the DID document for a DID and extract the PDS service endpoint hostname.
- * Supports did:plc (via plc.directory) and did:web.
- */
-export async function resolvePds(did: string): Promise<string> {
+async function fetchDidDocument(did: string): Promise<DidDocument> {
   let docUrl: string;
   if (did.startsWith("did:plc:")) {
     docUrl = `https://plc.directory/${did}`;
@@ -211,14 +209,40 @@ export async function resolvePds(did: string): Promise<string> {
   } else {
     throw new MalformedResponseError("resolveHandle", `Unsupported DID method: ${did}`);
   }
+
   const res = await fetch(docUrl);
   if (!res.ok) throwOnXrpcError(res.status, "ResolveFailed", `Could not fetch DID document: ${did}`);
-  const doc = (await res.json()) as DidDocument;
+  return (await res.json()) as DidDocument;
+}
+
+/**
+ * Fetch the DID document for a DID and extract the PDS service endpoint hostname.
+ * Supports did:plc (via plc.directory) and did:web.
+ */
+export async function resolvePds(did: string): Promise<string> {
+  const doc = await fetchDidDocument(did);
   const svc = doc.service?.find((s) => s.id === "#atproto_pds");
   if (!svc?.serviceEndpoint) {
     throw new MalformedResponseError("resolvePds", `No PDS endpoint in DID document: ${did}`);
   }
   return new URL(svc.serviceEndpoint).hostname;
+}
+
+export async function resolveHandleFromDid(did: string): Promise<string> {
+  if (did.startsWith("did:web:")) return did.slice("did:web:".length);
+
+  const doc = await fetchDidDocument(did);
+  const alias = doc.alsoKnownAs?.find((entry) => entry.startsWith("at://"));
+  if (!alias) {
+    throw new MalformedResponseError("resolveHandleFromDid", `No handle alias in DID document: ${did}`);
+  }
+
+  return alias.slice("at://".length);
+}
+
+export async function resolveDidIdentity(did: string): Promise<{ did: string; handle: string; pds: string }> {
+  const [handle, pds] = await Promise.all([resolveHandleFromDid(did), resolvePds(did)]);
+  return { did, handle, pds };
 }
 
 type ListRecordsResponse<T> = { records: Array<{ uri: string; cid: string; value: T }>; cursor?: string };
@@ -301,6 +325,24 @@ export async function listPullCommentRecords(
   cursor?: string,
 ): Promise<ListRecordsResponse<ShTangledRepoPullComment.Main>> {
   return listRecords<ShTangledRepoPullComment.Main>(pds, did, "sh.tangled.repo.pull.comment", limit, cursor);
+}
+
+export async function listFollowRecords(
+  pds: string,
+  did: string,
+  limit = 100,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledGraphFollow.Main>> {
+  return listRecords<ShTangledGraphFollow.Main>(pds, did, "sh.tangled.graph.follow", limit, cursor);
+}
+
+export async function listStringRecords(
+  pds: string,
+  did: string,
+  limit = 100,
+  cursor?: string,
+): Promise<ListRecordsResponse<ShTangledString.Main>> {
+  return listRecords<ShTangledString.Main>(pds, did, "sh.tangled.string", limit, cursor);
 }
 
 /**

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace mock data with live Tangled API calls. Users can browse repos, profiles, file trees, README content, issues, and pull requests without signing in.
+Replace mock data on the shippable public-browsing surface with live Tangled API calls. Users can browse repos, profiles, file trees, README content, issues, and pull requests without signing in. Public entry points are intentionally scoped down for now: Home is a known-handle jump surface, while Explore and Activity remain clearly labeled placeholders until their dedicated work lands.
 
 ## Protocol Stack
 
@@ -58,9 +58,7 @@ Tangled has two API surfaces:
 | Appview | `tangled.org`              | HTTP (HTML, HTMX)           | Profile pages, repo listings, timeline, search    |
 | Knots   | `us-west.tangled.sh`, etc. | XRPC (`/xrpc/sh.tangled.*`) | Git data — trees, blobs, commits, branches, diffs |
 
-For Phase 2, git data comes from knots via XRPC. Profile and repo metadata comes from the appview. The service layer must route requests to the correct host based on the operation.
-
-> **Open question**: The appview serves HTML, not JSON API responses. We may need to scrape, use AT Protocol PDS queries (`com.atproto.repo.getRecord`), or discover if the appview exposes a JSON API. This must be validated early in Phase 2.
+For Phase 2, git data comes from knots via XRPC. Profile and repo metadata come from PDS records queried through `com.atproto.repo.getRecord` and `com.atproto.repo.listRecords`, not from the HTML appview. The service layer must route requests to the correct host based on the operation.
 
 ## Features
 
@@ -79,6 +77,13 @@ For Phase 2, git data comes from knots via XRPC. Profile and repo metadata comes
 - View user profile: avatar, bio, links, pronouns, location, pinned repos
 - Profile data comes from `sh.tangled.actor.profile` record (key: `self`) on the user's PDS
 - List user's repos
+
+### Public Discovery (scoped down)
+
+- Home acts as the temporary public entry point: enter a known AT Protocol handle, then jump to profile or browse that handle's repos
+- Explore remains visible as a placeholder for future search work, but should not pretend global search already exists
+- Activity remains visible as a placeholder for future feed work, but should not pretend a public timeline already exists
+- Unsupported global search/trending behavior should be omitted or clearly labeled as future work, never filled with silent mock data
 
 ### Pull Requests (read-only)
 

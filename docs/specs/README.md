@@ -12,11 +12,11 @@ A mobile-first Tangled client for iOS, Android, and web. Built with Ionic Vue, C
 
 ## What Twisted Does
 
-**Reader and social companion** for Tangled. Focused on discovery, browsing, and lightweight interactions.
+**Reader and social companion** for Tangled. Focused on browsing, known-handle lookup, and lightweight interactions.
 
 - Browse repos, files, READMEs, issues, PRs
-- Discover trending/recent repos and users
-- Activity feed (global and personalized)
+- Jump to profiles and repos from a known AT Protocol handle
+- Explore and Activity placeholders until search/feed work lands
 - Sign in via AT Protocol OAuth
 - Star repos, follow users, react to content
 - Offline-capable with cached data
@@ -63,7 +63,7 @@ Repo param format: `did:plc:xxx/repoName`.
 | ----- | ------------------------------------------------------------------------ | ------------------------------------ | ------------------------------------ |
 | 1     | Project shell, tabs, mock data, design system                            | [specs/phase-1.md](specs/phase-1.md) | [tasks/phase-1.md](tasks/phase-1.md) |
 | 2     | Public browsing — repos, files, profiles, issues, PRs                    | [specs/phase-2.md](specs/phase-2.md) | [tasks/phase-2.md](tasks/phase-2.md) |
-| 3     | Search, discovery, activity feed                                         | [specs/phase-3.md](specs/phase-3.md) | [tasks/phase-3.md](tasks/phase-3.md) |
+| 3     | Deferred search/feed placeholders and Home-first public browsing         | [specs/phase-3.md](specs/phase-3.md) | [tasks/phase-3.md](tasks/phase-3.md) |
 | 4     | OAuth sign-in, star, follow, react, personalized feed                    | [specs/phase-4.md](specs/phase-4.md) | [tasks/phase-4.md](tasks/phase-4.md) |
 | 5     | Offline persistence, performance, bundle optimization                    | [specs/phase-5.md](specs/phase-5.md) | [tasks/phase-5.md](tasks/phase-5.md) |
 | 6     | Write features (issues, comments, profile edit), BFF, push notifications | [specs/phase-6.md](specs/phase-6.md) | [tasks/phase-6.md](tasks/phase-6.md) |
@@ -75,4 +75,4 @@ Repo param format: `did:plc:xxx/repoName`.
 2. **Tangled lexicon handling in one module boundary** (`src/services/tangled/`) — don't scatter `sh.tangled.*` awareness across pages.
 3. **Read-first** — the primary product is a fast reader. Social mutations are a controlled second layer.
 4. **Thin BFF when needed** (Phase 6+) for search indexing, personalized feeds, push notifications, and unstable procedure wrapping.
-5. **Mobile-first, not desktop-forge-first** — prioritize discovery, readability, feed-driven interactions, small focused actions.
+5. **Mobile-first, not desktop-forge-first** — prioritize readability, direct browsing, and small focused actions before broader discovery surfaces.

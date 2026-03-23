@@ -1,75 +1,66 @@
-# Phase 3 — Search & Activity Feed
+# Phase 3 — Deferred Search and Activity
 
 ## Goal
 
-Add repository/user search and a public activity feed so unauthenticated users can discover content and follow what's happening across Tangled.
+Preserve honest product boundaries before search is implemented as a separate project. Public browsing continues through known AT Protocol handles on Home, while Explore and Activity stay visible as clearly labeled in-progress placeholders.
 
-## Search
+## Current Product Shape
 
-### Discovery Problem
+### Home
 
-Tangled's appview serves HTML — there is no documented public JSON search API. Search implementation must be validated against one of these strategies:
+Home is the temporary public entry point for unauthenticated browsing:
 
-1. **Appview JSON endpoint** — check if `tangled.org` exposes a search query endpoint (undocumented but possible)
-2. **AT Protocol relay/firehose indexing** — build a lightweight search index from ingested records (requires backend)
-3. **Client-side PDS enumeration** — impractical at scale
-4. **Scrape appview HTML** — fragile, last resort
+- Enter a known AT Protocol handle
+- Open that user's profile directly
+- Resolve the handle to DID + PDS via AT Protocol identity
+- List that user's public Tangled repos inline and open one directly
 
-**Recommended approach**: Start with strategy 1 (probe for JSON endpoints). If unavailable, implement curated discovery (trending, recent) from cached data and defer full search to Phase 6 with a backend.
+This keeps public browsing fully real without implying that global discovery already exists.
 
-### Search UI
+### Explore
 
-- Search bar at top of Explore tab
-- Segmented results: Repos | Users
-- Recent searches (persisted locally)
-- Debounced input (300ms)
-- Empty state with suggested queries
+Explore remains a tab-level placeholder:
 
-### Discovery Sections (fallback if search API unavailable)
+- No global repo search
+- No global user search
+- No curated fallback discovery pretending to be search
+- Empty state should explicitly say search is in progress
 
-- Trending repos (most stars in recent window)
-- Recently created repos
-- Active repos (recent commits)
-- Suggested users
+### Activity
 
-## Activity Feed
+Activity also remains a tab-level placeholder:
 
-### Data Source
+- No public timeline yet
+- No curated public feed fallback
+- Empty state should explicitly say activity is in progress
 
-Activity is derived from AT Protocol records created by users. The appview's `/timeline` page shows this data. Options for the mobile client:
+## Identity and Routing
 
-1. **Appview timeline endpoint** — check if there's a JSON variant
-2. **Jetstream subscription** — `@atcute/jetstream` can subscribe to the AT Protocol event stream and filter for `sh.tangled.*` record types
-3. **PDS record queries** — poll known users' PDS for recent records
+The Home handle flow continues to use the existing AT Protocol resolution path:
 
-**Recommended approach**: Try option 1 first. Fall back to option 2 (Jetstream) for a real-time feed. Option 3 is too slow for a general feed.
+1. Resolve `handle -> DID` via `com.atproto.identity.resolveHandle`
+2. Fetch the DID document and extract the PDS endpoint
+3. Query the user's PDS for `sh.tangled.repo` records via `com.atproto.repo.listRecords`
+4. Route to existing profile and repo detail screens
 
-### Feed Item Types
+No backend search index, feed service, or additional dependency is introduced in this phase.
 
-Map these AT Protocol record creations to activity cards:
+## UI Expectations
 
-| Record Type                            | Activity Kind | Display                          |
-| -------------------------------------- | ------------- | -------------------------------- |
-| `sh.tangled.repo` created              | repo_created  | "{actor} created {repo}"         |
-| `sh.tangled.feed.star` created         | repo_starred  | "{actor} starred {repo}"         |
-| `sh.tangled.graph.follow` created      | user_followed | "{actor} followed {target}"      |
-| `sh.tangled.repo.pull` created         | pr_opened     | "{actor} opened PR on {repo}"    |
-| `sh.tangled.repo.pull.status` → merged | pr_merged     | "{actor} merged PR on {repo}"    |
-| `sh.tangled.repo.issue` created        | issue_opened  | "{actor} opened issue on {repo}" |
-| `sh.tangled.repo.issue.state` → closed | issue_closed  | "{actor} closed issue on {repo}" |
-| `sh.tangled.feed.reaction` created     | reaction      | "{actor} reacted to {target}"    |
+- Home shows one handle input plus explicit actions for profile jump and repo browsing
+- Home shows loading, invalid-handle, no-repos, and resolved-repo-list states
+- Explore shows a static in-progress empty state
+- Activity shows a static in-progress empty state
+- Profile remains unchanged
 
-### Feed UI
+## Deferred Work
 
-- Filter chips: All, Repos, PRs, Issues, Social
-- Infinite scroll with cursor-based pagination
-- Pull-to-refresh
-- Activity cards: actor avatar + verb + target + relative timestamp
-- Tap card → navigate to repo/profile/PR/issue detail
+The following work is intentionally deferred out of this phase:
 
-### Feed Caching
+- Search indexing and ranking
+- Search result UI and recent searches
+- Trending or suggested discovery sections
+- Public activity feed ingestion, pagination, and caching
+- Jetstream or appview timeline investigation
 
-- Cache last 100 feed items in IndexedDB
-- Show cached feed immediately, refresh in background (stale-while-revalidate)
-- Stale time: 1 min
-- Persist across app restarts
+These capabilities will be revisited when search and feed work are scheduled independently.

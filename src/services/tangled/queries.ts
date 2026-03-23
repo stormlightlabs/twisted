@@ -17,6 +17,8 @@ import { useQuery } from "@tanstack/vue-query";
 import { computed, toValue } from "vue";
 import type { MaybeRef } from "vue";
 import { getKnotClient } from "@/services/atproto/client.js";
+import type { FollowedUserSummary } from "@/domain/models/follow.js";
+import type { StringSummary } from "@/domain/models/string.js";
 import {
   fetchRepoTree,
   fetchRepoBlob,
@@ -38,7 +40,10 @@ import {
   listPullRecords,
   listPullCommentRecords,
   listPullStatusRecords,
+  listFollowRecords,
+  listStringRecords,
   resolveHandle,
+  resolveDidIdentity,
   resolvePds,
 } from "./endpoints.js";
 import {
@@ -58,6 +63,8 @@ import {
   normalizePullRecord,
   normalizePullDetail,
   normalizePullComment,
+  normalizeFollowRecord,
+  normalizeStringRecord,
 } from "./normalizers.js";
 
 export type { CommitEntry, BranchEntry, BlobContent, DefaultBranchInfo } from "./normalizers.js";
@@ -71,7 +78,7 @@ export type Identity = { did: string; pds: string };
  * Resolve an AT Protocol handle to its DID and PDS hostname.
  * Result is cached for 10 minutes (handles rarely change).
  */
-export function useIdentity(handle: MaybeRef<string>) {
+export function useIdentity(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
   return useQuery({
     queryKey: computed(() => ["identity", toValue(handle)]),
     queryFn: async (): Promise<Identity> => {
@@ -79,6 +86,7 @@ export function useIdentity(handle: MaybeRef<string>) {
       const pds = await resolvePds(did);
       return { did, pds };
     },
+    enabled: options.enabled,
     staleTime: 10 * MIN,
     gcTime: 60 * MIN,
   });
@@ -409,6 +417,149 @@ export function useRepoPRs(
       return pullsRes.records
         .filter((r) => !targetRepo || r.value.target.repo === targetRepo)
         .map((r) => normalizePullRecord(r.value, r.uri, toValue(did), toValue(handle), statusMap.get(r.uri) ?? "open"));
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+export function useUserStrings(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["userStrings", toValue(pds), toValue(did)]),
+    queryFn: async (): Promise<StringSummary[]> => {
+      const { records } = await listStringRecords(toValue(pds), toValue(did));
+      return records
+        .map((record) => normalizeStringRecord(record.value, record.uri))
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+export function useUserFollowing(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["userFollowing", toValue(pds), toValue(did)]),
+    queryFn: async (): Promise<FollowedUserSummary[]> => {
+      const { records } = await listFollowRecords(toValue(pds), toValue(did));
+      const follows = records
+        .map((record) => normalizeFollowRecord(record.value, record.uri))
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+
+      return Promise.all(
+        follows.map(async (follow) => {
+          const subject = await resolveDidIdentity(follow.subjectDid);
+
+          try {
+            const { value } = await fetchActorProfile(subject.pds, subject.did);
+            return {
+              ...normalizeActorProfile(value, subject.did, subject.handle),
+              followAtUri: follow.atUri,
+              followedAt: follow.createdAt,
+            };
+          } catch {
+            return {
+              did: subject.did,
+              handle: subject.handle,
+              avatar: `https://avatar.tangled.sh/${subject.did}`,
+              followAtUri: follow.atUri,
+              followedAt: follow.createdAt,
+            };
+          }
+        }),
+      );
+    },
+    enabled: options.enabled,
+    staleTime: 5 * MIN,
+    gcTime: 30 * MIN,
+  });
+}
+
+export function useUserIssues(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["userIssues", toValue(pds), toValue(did)]),
+    queryFn: async () => {
+      const [issuesRes, statesRes] = await Promise.all([
+        listIssueRecords(toValue(pds), toValue(did)),
+        listIssueStateRecords(toValue(pds), toValue(did)),
+      ]);
+
+      const stateMap = new Map<string, "open" | "closed">();
+      for (const stateRecord of statesRes.records) {
+        const closed = stateRecord.value.state === "sh.tangled.repo.issue.state.closed";
+        stateMap.set(stateRecord.value.issue, closed ? "closed" : "open");
+      }
+
+      return issuesRes.records
+        .map((record) =>
+          normalizeIssueRecord(
+            record.value,
+            record.uri,
+            toValue(did),
+            toValue(handle),
+            stateMap.get(record.uri) ?? "open",
+          ),
+        )
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+    },
+    enabled: options.enabled,
+    staleTime: 2 * MIN,
+    gcTime: 10 * MIN,
+  });
+}
+
+export function useUserPullRequests(
+  pds: MaybeRef<string>,
+  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  return useQuery({
+    queryKey: computed(() => ["userPullRequests", toValue(pds), toValue(did)]),
+    queryFn: async () => {
+      const [pullsRes, statusesRes] = await Promise.all([
+        listPullRecords(toValue(pds), toValue(did)),
+        listPullStatusRecords(toValue(pds), toValue(did)),
+      ]);
+
+      const statusMap = new Map<string, "open" | "merged" | "closed">();
+      for (const statusRecord of statusesRes.records) {
+        const raw = statusRecord.value.status ?? "sh.tangled.repo.pull.status.open";
+        const status =
+          raw === "sh.tangled.repo.pull.status.merged"
+            ? "merged"
+            : raw === "sh.tangled.repo.pull.status.closed"
+              ? "closed"
+              : "open";
+        statusMap.set(statusRecord.value.pull, status);
+      }
+
+      return pullsRes.records
+        .map((record) =>
+          normalizePullRecord(
+            record.value,
+            record.uri,
+            toValue(did),
+            toValue(handle),
+            statusMap.get(record.uri) ?? "open",
+          ),
+        )
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
     },
     enabled: options.enabled,
     staleTime: 2 * MIN,

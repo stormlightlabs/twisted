@@ -57,11 +57,11 @@
 
 - [x] Configure TanStack Query stale/gc times per data type (see spec)
 - [x] Set up IndexedDB query persister for offline reads
-- [ ] Verify stale-while-revalidate behavior: cached data shows immediately, refreshes in background
 
 ## Quality
 
-- [ ] Replace all mock data usage with live queries (remove or gate mocks behind a flag)
+- [x] Replace default mock-backed Home/Explore/Activity surfaces with scoped-down curated live discovery/activity
+- [ ] Verify stale-while-revalidate behavior: cached data shows immediately, refreshes in background
 - [ ] Test with real Tangled repos (e.g., `tangled.org/core`)
 - [ ] Verify error states render correctly: 404, network failure, empty repos
 - [ ] Test on slow network (throttled devtools) — verify skeleton → content transition
