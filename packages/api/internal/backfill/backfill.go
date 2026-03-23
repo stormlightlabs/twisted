@@ -83,14 +83,19 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 	}
 
 	alreadyTracked := 0
+	inProgress := 0
 	toSubmit := make([]string, 0, len(discovered))
 	for _, user := range discovered {
-		tracked, err := r.tap.IsTracked(ctx, user.DID)
+		status, err := r.tap.RepoStatus(ctx, user.DID)
 		if err != nil {
 			return fmt.Errorf("tap info for %s: %w", user.DID, err)
 		}
-		if tracked {
+		if status.Tracked && status.Backfilled {
 			alreadyTracked++
+			continue
+		}
+		if status.Tracked && status.Backfilling {
+			inProgress++
 			continue
 		}
 		toSubmit = append(toSubmit, user.DID)
@@ -98,6 +103,7 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 
 	r.log.Info("tap classification complete",
 		slog.Int("already_tracked", alreadyTracked),
+		slog.Int("backfill_in_progress", inProgress),
 		slog.Int("to_submit", len(toSubmit)),
 	)
 
@@ -130,6 +136,7 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 	r.log.Info("backfill complete",
 		slog.Int("discovered_total", len(discovered)),
 		slog.Int("already_tracked", alreadyTracked),
+		slog.Int("backfill_in_progress", inProgress),
 		slog.Int("submitted", submitted),
 	)
 	return nil

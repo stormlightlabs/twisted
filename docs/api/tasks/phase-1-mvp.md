@@ -203,7 +203,7 @@ Expose a usable public search API backed by Turso's Tantivy-backed FTS.
 
 ### Deliverables
 
-- HTTP server (chi or net/http)
+- HTTP server (net/http)
 - `GET /healthz` — liveness
 - `GET /readyz` — readiness (DB connectivity)
 - `GET /search` — keyword search with configurable mode
@@ -214,7 +214,7 @@ Expose a usable public search API backed by Turso's Tantivy-backed FTS.
 
 ### Tasks
 
-- [ ] Set up HTTP server with chi router
+- [ ] Set up HTTP server with net/http router
 - [ ] Implement `/healthz` (always 200) and `/readyz` (SELECT 1 against DB)
 - [ ] Implement search repository with FTS queries:
 

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,20 +31,23 @@ type Client struct {
 	password string
 	log      *slog.Logger
 
-	mu        sync.Mutex
-	conn      *websocket.Conn
-	ackAsJSON bool
+	mu          sync.Mutex
+	conn        *websocket.Conn
+	ackAsJSON   bool
+	disableAcks bool
 }
 
 func New(url, password string, log *slog.Logger) *Client {
 	if log == nil {
 		log = slog.Default()
 	}
+	disableAcks, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("TAP_DISABLE_ACKS")))
 	return &Client{
-		url:       url,
-		password:  password,
-		log:       log,
-		ackAsJSON: true,
+		url:         url,
+		password:    password,
+		log:         log,
+		ackAsJSON:   true,
+		disableAcks: disableAcks,
 	}
 }
 
@@ -75,6 +79,10 @@ func (c *Client) ReadEvent(ctx context.Context) (normalize.TapRecordEvent, error
 }
 
 func (c *Client) AckEvent(ctx context.Context, id int64) error {
+	if c.disableAcks {
+		return nil
+	}
+
 	conn, err := c.ensureConnected(ctx)
 	if err != nil {
 		return err
@@ -90,6 +98,8 @@ func (c *Client) AckEvent(ctx context.Context, id int64) error {
 			return nil
 		} else if isConnectionWriteError(err) {
 			c.resetConn(websocket.StatusInternalError, "ack json write failed")
+			return fmt.Errorf("ack event %d: %w", id, err)
+		} else if !isAckFormatError(err) {
 			return fmt.Errorf("ack event %d: %w", id, err)
 		}
 
@@ -221,4 +231,15 @@ func isConnectionWriteError(err error) bool {
 		strings.Contains(msg, "connection reset") ||
 		strings.Contains(msg, "closed network connection") ||
 		strings.Contains(msg, "i/o timeout")
+}
+
+func isAckFormatError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "invalid") ||
+		strings.Contains(msg, "unsupported") ||
+		strings.Contains(msg, "bad payload") ||
+		strings.Contains(msg, "unexpected message")
 }

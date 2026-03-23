@@ -26,12 +26,15 @@ func (f *fakeFollowFetcher) ListFollowSubjects(_ context.Context, did string) ([
 }
 
 type fakeTapAdmin struct {
-	tracked map[string]bool
-	added   [][]string
+	statuses map[string]RepoStatus
+	added    [][]string
 }
 
-func (f *fakeTapAdmin) IsTracked(_ context.Context, did string) (bool, error) {
-	return f.tracked[did], nil
+func (f *fakeTapAdmin) RepoStatus(_ context.Context, did string) (RepoStatus, error) {
+	if status, ok := f.statuses[did]; ok {
+		return status, nil
+	}
+	return RepoStatus{Found: false, Tracked: false}, nil
 }
 
 func (f *fakeTapAdmin) AddRepos(_ context.Context, dids []string) error {
@@ -59,7 +62,7 @@ func TestRunner_DiscoveryAndSubmit(t *testing.T) {
 		},
 	}
 	follows := &fakeFollowFetcher{follows: map[string][]string{"did:plc:seed": {"did:plc:f1"}}}
-	tap := &fakeTapAdmin{tracked: map[string]bool{"did:plc:f1": true}}
+	tap := &fakeTapAdmin{statuses: map[string]RepoStatus{"did:plc:f1": {Found: true, Tracked: true, Backfilled: true}}}
 	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := NewRunnerWithDeps(st, tap, resolver, follows, log)
@@ -91,7 +94,7 @@ func TestRunner_DiscoveryAndSubmit(t *testing.T) {
 func TestRunner_DryRunSkipsMutations(t *testing.T) {
 	st := &fakeStore{collaborators: map[string][]string{}}
 	follows := &fakeFollowFetcher{follows: map[string][]string{}}
-	tap := &fakeTapAdmin{tracked: map[string]bool{}}
+	tap := &fakeTapAdmin{statuses: map[string]RepoStatus{}}
 	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := NewRunnerWithDeps(st, tap, resolver, follows, log)
@@ -114,5 +117,30 @@ func TestRunner_DryRunSkipsMutations(t *testing.T) {
 	}
 	if len(tap.added) != 0 {
 		t.Fatalf("expected no tap submissions in dry-run, got %#v", tap.added)
+	}
+}
+
+func TestRunner_SkipsInProgressBackfills(t *testing.T) {
+	st := &fakeStore{collaborators: map[string][]string{}}
+	follows := &fakeFollowFetcher{follows: map[string][]string{}}
+	tap := &fakeTapAdmin{statuses: map[string]RepoStatus{
+		"did:plc:seed": {Found: true, Tracked: true, Backfilling: true},
+	}}
+	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := NewRunnerWithDeps(st, tap, resolver, follows, log)
+
+	dir := t.TempDir()
+	seedsPath := filepath.Join(dir, "seeds.txt")
+	if err := os.WriteFile(seedsPath, []byte("alice.tangled.sh\n"), 0o644); err != nil {
+		t.Fatalf("write seeds: %v", err)
+	}
+
+	err := r.Run(context.Background(), Options{SeedsPath: seedsPath, MaxHops: 0})
+	if err != nil {
+		t.Fatalf("run backfill: %v", err)
+	}
+	if len(tap.added) != 0 {
+		t.Fatalf("expected no submission for in-progress did, got %#v", tap.added)
 	}
 }

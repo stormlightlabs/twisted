@@ -12,6 +12,7 @@ import (
 
 type fakeTapClient struct {
 	acked []int64
+	onAck func(id int64)
 }
 
 func (f *fakeTapClient) ReadEvent(_ context.Context) (normalize.TapRecordEvent, error) {
@@ -19,6 +20,9 @@ func (f *fakeTapClient) ReadEvent(_ context.Context) (normalize.TapRecordEvent, 
 }
 
 func (f *fakeTapClient) AckEvent(_ context.Context, id int64) error {
+	if f.onAck != nil {
+		f.onAck(id)
+	}
 	f.acked = append(f.acked, id)
 	return nil
 }
@@ -29,9 +33,11 @@ type fakeStore struct {
 	docs         map[string]*store.Document
 	deleted      map[string]bool
 	syncCursor   string
+	initialSync  *store.SyncState
 	recordStates map[string]string
 	handles      map[string]string
 	enqueued     map[string]bool
+	onSetSync    func()
 }
 
 func newFakeStore() *fakeStore {
@@ -60,10 +66,20 @@ func (f *fakeStore) MarkDeleted(_ context.Context, id string) error {
 }
 
 func (f *fakeStore) GetSyncState(_ context.Context, _ string) (*store.SyncState, error) {
-	return nil, nil
+	if f.initialSync != nil {
+		state := *f.initialSync
+		return &state, nil
+	}
+	if f.syncCursor == "" {
+		return nil, nil
+	}
+	return &store.SyncState{ConsumerName: "indexer-tap-v1", Cursor: f.syncCursor}, nil
 }
 
 func (f *fakeStore) SetSyncState(_ context.Context, _ string, cursor string) error {
+	if f.onSetSync != nil {
+		f.onSetSync()
+	}
 	f.syncCursor = cursor
 	return nil
 }
@@ -262,5 +278,62 @@ func TestAllowlistMatching(t *testing.T) {
 	}
 	if a.match("app.bsky.feed.post") {
 		t.Fatal("unexpected match")
+	}
+}
+
+func TestRunner_InitializeCursorResume(t *testing.T) {
+	st := newFakeStore()
+	st.initialSync = &store.SyncState{ConsumerName: "indexer-tap-v1", Cursor: "150"}
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	if err := r.initializeCursor(context.Background()); err != nil {
+		t.Fatalf("initialize cursor: %v", err)
+	}
+	if r.resumeCursor != 150 {
+		t.Fatalf("resume cursor: got %d want 150", r.resumeCursor)
+	}
+	if !r.shouldSkipEvent(149) {
+		t.Fatalf("expected event 149 to be skipped")
+	}
+	if !r.shouldSkipEvent(150) {
+		t.Fatalf("expected event 150 to be skipped")
+	}
+	if r.shouldSkipEvent(151) {
+		t.Fatalf("expected event 151 to be processed")
+	}
+}
+
+func TestRunner_AckBeforeCursorPersist(t *testing.T) {
+	st := newFakeStore()
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	acked := false
+	tap.onAck = func(_ int64) { acked = true }
+	st.onSetSync = func() {
+		if !acked {
+			t.Fatalf("cursor persisted before ack")
+		}
+	}
+
+	event := normalize.TapRecordEvent{
+		ID:   901,
+		Type: "record",
+		Record: &normalize.TapRecord{
+			DID:        "did:plc:author",
+			Collection: "sh.tangled.repo",
+			RKey:       "repo1",
+			Action:     "create",
+			CID:        "cid-1",
+			Record: map[string]any{
+				"name":        "repo-one",
+				"description": "test repo",
+			},
+		},
+	}
+
+	if err := r.processEvent(context.Background(), event); err != nil {
+		t.Fatalf("process event: %v", err)
 	}
 }

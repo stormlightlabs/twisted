@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ type Runner struct {
 	allowlist    allowlist
 	consumerName string
 	log          *slog.Logger
+	resumeCursor int64
 
 	statusMu      sync.Mutex
 	lastCursor    string
@@ -55,6 +57,9 @@ func NewRunner(st store.Store, registry *normalize.Registry, tap client, indexed
 
 func (r *Runner) Run(ctx context.Context) error {
 	defer r.tap.Close()
+	if err := r.initializeCursor(ctx); err != nil {
+		return err
+	}
 
 	go r.runStatusLogger(ctx)
 
@@ -72,6 +77,18 @@ func (r *Runner) Run(ctx context.Context) error {
 			continue
 		}
 
+		if r.shouldSkipEvent(event.ID) {
+			if err := r.tap.AckEvent(ctx, event.ID); err != nil {
+				r.log.Warn("tap ack skipped event failed",
+					slog.Int64("event_id", event.ID),
+					slog.String("error", err.Error()),
+				)
+				continue
+			}
+			r.log.Info("skipped previously-processed event", slog.Int64("event_id", event.ID), slog.Int64("resume_cursor", r.resumeCursor))
+			continue
+		}
+
 		if err := r.processWithRetry(ctx, event); err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -79,6 +96,37 @@ func (r *Runner) Run(ctx context.Context) error {
 			return err
 		}
 	}
+}
+
+func (r *Runner) initializeCursor(ctx context.Context) error {
+	state, err := r.store.GetSyncState(ctx, r.consumerName)
+	if err != nil {
+		return fmt.Errorf("load sync cursor: %w", err)
+	}
+	if state == nil || strings.TrimSpace(state.Cursor) == "" {
+		r.log.Info("indexer cursor resume disabled", slog.String("reason", "no prior sync_state"))
+		return nil
+	}
+
+	cursor, err := strconv.ParseInt(strings.TrimSpace(state.Cursor), 10, 64)
+	if err != nil {
+		r.log.Warn("indexer cursor parse failed; resume disabled",
+			slog.String("cursor", state.Cursor),
+			slog.String("error", err.Error()),
+		)
+		return nil
+	}
+
+	r.resumeCursor = cursor
+	r.statusMu.Lock()
+	r.lastCursor = state.Cursor
+	r.statusMu.Unlock()
+	r.log.Info("indexer cursor resume enabled", slog.Int64("resume_cursor", cursor))
+	return nil
+}
+
+func (r *Runner) shouldSkipEvent(eventID int64) bool {
+	return r.resumeCursor > 0 && eventID <= r.resumeCursor
 }
 
 func (r *Runner) processWithRetry(ctx context.Context, event normalize.TapRecordEvent) error {
@@ -227,14 +275,40 @@ func (r *Runner) processRecordEvent(ctx context.Context, event normalize.TapReco
 
 func (r *Runner) advanceCursorAndAck(ctx context.Context, eventID int64) error {
 	cursor := fmt.Sprintf("%d", eventID)
-	if err := r.store.SetSyncState(ctx, r.consumerName, cursor); err != nil {
+	if err := r.tap.AckEvent(ctx, eventID); err != nil {
 		return err
 	}
-	if err := r.tap.AckEvent(ctx, eventID); err != nil {
+	if err := r.persistCursorWithRetry(ctx, cursor, eventID); err != nil {
 		return err
 	}
 	r.markProcessed(cursor)
 	return nil
+}
+
+func (r *Runner) persistCursorWithRetry(ctx context.Context, cursor string, eventID int64) error {
+	attempt := 0
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := r.store.SetSyncState(ctx, r.consumerName, cursor); err == nil {
+			return nil
+		} else {
+			attempt++
+			backoff := retryBackoff(attempt)
+			r.log.Error("cursor persist failed after ack",
+				slog.Int64("event_id", eventID),
+				slog.Int("attempt", attempt),
+				slog.Duration("retry_in", backoff),
+				slog.String("error", err.Error()),
+			)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+	}
 }
 
 func (r *Runner) runStatusLogger(ctx context.Context) {

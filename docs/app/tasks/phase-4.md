@@ -3,7 +3,7 @@
 ## OAuth Setup
 
 - [ ] Install `@atcute/oauth-browser-client`
-- [ ] Host OAuth client metadata JSON at a public URL (or configure for local dev)
+- [ ] Host OAuth client metadata JSON at a public URL & configure for local dev
 - [ ] Create `core/auth/oauth.ts` — call `configureOAuth()` with client metadata URL and redirect URI
 - [ ] Create `core/auth/session.ts` — session management: get, list, delete stored sessions
 - [ ] Create `core/auth/store.ts` — Pinia auth store with state machine (idle → authenticating → authenticated → error)
@@ -62,18 +62,18 @@
 - [ ] Add reaction button/picker to PR and issue detail views
 - [ ] Show reaction counts grouped by type
 
-## Personalized Feed
-
-- [ ] When signed in, filter activity feed to show activity from followed users and starred repos
-- [ ] Add "For You" / "Global" toggle on Activity tab
-- [ ] If appview provides a personalized endpoint, use it; otherwise filter client-side
-
 ## Profile Tab (Authenticated)
 
 - [ ] Wire Profile tab to show current user's profile data
 - [ ] Show pinned repos, stats, starred repos, following list
 - [ ] Add logout button
 - [ ] Add account switcher UI
+
+## Personalized Feed
+
+- [ ] When signed in, filter activity feed to show activity from followed users and starred repos
+- [ ] Add "For You" / "Global" toggle on Activity tab
+- [ ] If appview provides a personalized endpoint, use it; otherwise filter client-side
 
 ## Quality
 

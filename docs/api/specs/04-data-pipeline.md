@@ -114,6 +114,9 @@ For each event, the indexer:
 ### Cursor Persistence Rules
 
 - If DB commit fails → cursor does not advance → event will be retried
+- After successful DB writes, ack Tap first, then persist cursor for operator-visible resume
+- If ack fails → cursor does not advance
+- If ack succeeds but cursor persistence fails → retry cursor persistence until successful or process exit
 - If normalization fails → log error, optionally dead-letter, skip → cursor advances
 - If embedding scheduling fails → document remains keyword-searchable → cursor advances
 

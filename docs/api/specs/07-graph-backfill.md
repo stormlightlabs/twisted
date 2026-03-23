@@ -59,7 +59,10 @@ Discovered DIDs are added to a queue, deduplicated by DID. Each entry tracks:
 
 For each discovered user:
 
-1. **Check if already tracked**: Query Tap's `/info/:did` endpoint — if the repo is already tracked and backfilled, skip
+1. **Check Tap status**: Query Tap's `/info/:did` endpoint and classify by status:
+	- tracked + backfilled: skip
+	- tracked + backfilling/in-progress: skip and let current backfill finish
+	- untracked or tracked-without-backfill-state: submit to `/repos/add`
 2. **Register with Tap**: POST to `/repos/add` with the DID — Tap handles the actual repo export and event delivery
 3. **Tap backfill flow**: Tap fetches full repo history from PDS via `com.atproto.sync.getRepo`, then delivers historical events (`live: false`) through the normal WebSocket channel
 4. **Indexer processes normally**: The indexer's existing ingestion loop handles backfill events the same as live events — no special backfill code path needed
