@@ -1,18 +1,16 @@
-# Twisted
+# Twisted Monorepo
 
-A mobile client for [Tangled](https://tangled.org).
+- `apps/twisted`: Ionic/Vue client
+- `packages/api`: Go API copied from `~/Projects/TWISTER`
 
 ## Development
 
-Run the mobile apps with Capacitor:
+Use the top-level `justfile` for common tasks:
 
 ```bash
-pnpm cap run ios
-pnpm cap run android
+just dev
+just build
+just test
 ```
 
-Or to test the web version:
-
-```bash
-pnpm dev
-```
+The existing client package still works directly from `apps/twisted`.

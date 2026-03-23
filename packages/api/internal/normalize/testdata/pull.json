@@ -1,0 +1,27 @@
+{
+  "id": 1003,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3fge5lm32z",
+    "did": "did:plc:abc123",
+    "collection": "sh.tangled.repo.pull",
+    "rkey": "3kb3fge5lm32z",
+    "action": "create",
+    "cid": "bafyreigabc125",
+    "record": {
+      "$type": "sh.tangled.repo.pull",
+      "title": "Add star-based ranking signal",
+      "body": "Implements the star count signal discussed in issue #42. Adds a weight multiplier based on repository star count, capped at 1000 stars.",
+      "target": {
+        "repo": "at://did:plc:repoowner/sh.tangled.repo/3kb3fge5lm30a",
+        "branch": "main"
+      },
+      "source": {
+        "repo": "at://did:plc:abc123/sh.tangled.repo/3kb3fge5lm30b",
+        "branch": "feature/star-ranking"
+      },
+      "createdAt": "2026-03-22T14:00:00.000Z"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": 1001,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3fge5lm32x",
+    "did": "did:plc:abc123",
+    "collection": "sh.tangled.repo",
+    "rkey": "3kb3fge5lm32x",
+    "action": "create",
+    "cid": "bafyreigabc123",
+    "record": {
+      "$type": "sh.tangled.repo",
+      "name": "my-project",
+      "knot": "knot.tangled.org",
+      "description": "A cool project for searching things",
+      "topics": ["go", "search", "atproto"],
+      "createdAt": "2026-03-22T12:00:00.000Z"
+    }
+  }
+}

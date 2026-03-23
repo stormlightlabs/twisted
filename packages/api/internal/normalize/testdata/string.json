@@ -1,0 +1,20 @@
+{
+  "id": 1004,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3fge5lm33a",
+    "did": "did:plc:abc123",
+    "collection": "sh.tangled.string",
+    "rkey": "3kb3fge5lm33a",
+    "action": "create",
+    "cid": "bafyreigabc126",
+    "record": {
+      "$type": "sh.tangled.string",
+      "filename": "search.go",
+      "contents": "package search\n\nfunc BM25Score(tf, df, n, avgdl float64) float64 {\n\tk1 := 1.2\n\tb := 0.75\n\treturn tf * (k1 + 1) / (tf + k1*(1-b+b*n/avgdl))\n}",
+      "description": "BM25 scoring function for full-text search",
+      "createdAt": "2026-03-22T15:00:00.000Z"
+    }
+  }
+}

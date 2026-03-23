@@ -1,0 +1,18 @@
+{
+  "id": 1007,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3fge5lm33d",
+    "did": "did:plc:abc123",
+    "collection": "sh.tangled.repo.pull.status",
+    "rkey": "3kb3fge5lm33d",
+    "action": "create",
+    "cid": "bafyreigabc129",
+    "record": {
+      "$type": "sh.tangled.repo.pull.status",
+      "subject": "at://did:plc:abc123/sh.tangled.repo.pull/3kb3fge5lm32z",
+      "status": "merged"
+    }
+  }
+}

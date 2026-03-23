@@ -1,0 +1,20 @@
+{
+    "id": 1002,
+    "type": "record",
+    "record": {
+        "live": true,
+        "rev": "3kb3fge5lm32y",
+        "did": "did:plc:abc123",
+        "collection": "sh.tangled.repo.issue",
+        "rkey": "3kb3fge5lm32y",
+        "action": "create",
+        "cid": "bafyreigabc124",
+        "record": {
+            "$type": "sh.tangled.repo.issue",
+            "title": "Fix search ranking for repos",
+            "body": "The current ranking algorithm does not account for star count. We should add a star-based signal to improve relevance for popular repositories.",
+            "repo": "at://did:plc:repoowner/sh.tangled.repo/3kb3fge5lm30a",
+            "createdAt": "2026-03-22T13:00:00.000Z"
+        }
+    }
+}

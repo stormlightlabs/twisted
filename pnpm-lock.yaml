@@ -6,7 +6,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  apps/twisted:
     dependencies:
       '@atcute/bluesky':
         specifier: ^3.3.0

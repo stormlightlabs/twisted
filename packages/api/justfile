@@ -1,0 +1,18 @@
+version := `git describe --tags --always --dirty 2>/dev/null || echo dev`
+commit  := `git rev-parse --short HEAD 2>/dev/null || echo none`
+ldflags := "-s -w -X main.version=" + version + " -X main.commit=" + commit
+
+build:
+    CGO_ENABLED=0 go build -ldflags "{{ldflags}}" -o twister ./main.go
+
+run-api:
+    go run -ldflags "{{ldflags}}" ./main.go api
+
+run-indexer:
+    go run -ldflags "{{ldflags}}" ./main.go indexer
+
+test:
+    go test ./...
+
+clean:
+    rm -f twister

@@ -1,0 +1,18 @@
+{
+  "id": 1006,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3fge5lm33c",
+    "did": "did:plc:abc123",
+    "collection": "sh.tangled.repo.issue.state",
+    "rkey": "3kb3fge5lm33c",
+    "action": "create",
+    "cid": "bafyreigabc128",
+    "record": {
+      "$type": "sh.tangled.repo.issue.state",
+      "subject": "at://did:plc:abc123/sh.tangled.repo.issue/3kb3fge5lm32y",
+      "status": "closed"
+    }
+  }
+}

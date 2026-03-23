@@ -1,0 +1,19 @@
+{
+  "id": 1005,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3fge5lm33b",
+    "did": "did:plc:abc123",
+    "collection": "sh.tangled.actor.profile",
+    "rkey": "self",
+    "action": "create",
+    "cid": "bafyreigabc127",
+    "record": {
+      "$type": "sh.tangled.actor.profile",
+      "description": "Building search infrastructure for the open social web. Go enthusiast.",
+      "location": "San Francisco, CA",
+      "website": "https://example.tangled.org"
+    }
+  }
+}
