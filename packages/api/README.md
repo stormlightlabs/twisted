@@ -1,3 +1,3 @@
 # Twister
 
-Tap-based search engine for Tangled.
+Tap-based indexing and search service for Tangled.

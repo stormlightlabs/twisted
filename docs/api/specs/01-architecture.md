@@ -7,42 +7,43 @@ updated: 2026-03-22
 
 Build a Go-based search service for Tangled content on AT Protocol that:
 
-* ingests Tangled records through **Tap** (already deployed on Railway)
-* denormalizes them into internal search documents
-* indexes them in **Turso/libSQL**
-* exposes a search API with **keyword**, **semantic**, and **hybrid** retrieval modes
+- ingests Tangled records through **Tap** (already deployed on Railway)
+- denormalizes them into internal search documents
+- indexes them in **Turso/libSQL**
+- exposes a search API with **keyword**, **semantic**, and **hybrid** retrieval modes
+- exposes index-backed summary APIs for data the public Tangled APIs do not answer efficiently, such as followers
 
 ## 2. Functional Goals
 
 The system shall:
 
-* index Tangled-specific ATProto collections under the `sh.tangled.*` namespace
-* support initial backfill and continuous incremental sync via Tap
-* support lexical retrieval using Turso's Tantivy-backed FTS
-* support semantic retrieval using vector embeddings
-* support hybrid ranking combining lexical and semantic signals
-* expose stable HTTP APIs for search and document lookup
-* support deployment on **Railway**
+- index Tangled-specific ATProto collections under the `sh.tangled.*` namespace
+- support initial backfill and continuous incremental sync via Tap
+- support lexical retrieval using Turso's Tantivy-backed FTS
+- support semantic retrieval using vector embeddings
+- support hybrid ranking combining lexical and semantic signals
+- expose stable HTTP APIs for search, document lookup, and graph/profile summaries
+- support deployment on **Railway**
 
 ## 3. Non-Functional Goals
 
 The system shall prioritize:
 
-* **correctness of sync** — cursors never advance ahead of committed data
-* **operational simplicity** — single binary, subcommand-driven
-* **incremental delivery** — keyword search ships before embeddings
-* **small deployable services** — process groups, not microservices
-* **reindexability** — any document or collection can be re-normalized and re-indexed
-* **low coupling** — sync, indexing, and serving are independent concerns
+- **correctness of sync** — cursors never advance ahead of committed data
+- **operational simplicity** — single binary, subcommand-driven
+- **incremental delivery** — keyword search ships before embeddings
+- **small deployable services** — process groups, not microservices
+- **reindexability** — any document or collection can be re-normalized and re-indexed
+- **low coupling** — sync, indexing, and serving are independent concerns
 
 ## 4. Out of Scope (v1)
 
-* code-aware symbol search
-* sourcegraph-style structural search
-* personalized ranking
-* access control beyond public/private visibility flags in indexed records
-* full analytics pipeline
-* custom ANN infrastructure outside Turso/libSQL
+- code-aware symbol search
+- sourcegraph-style structural search
+- personalized ranking
+- access control beyond public/private visibility flags in indexed records
+- full analytics pipeline
+- custom ANN infrastructure outside Turso/libSQL
 
 ## 5. Design Principles
 
@@ -50,11 +51,13 @@ The system shall prioritize:
 
 2. **The indexer owns denormalization.** Raw ATProto records are never queried directly by the public API.
 
-3. **Search serves denormalized documents.** Search ranking depends on the document model, not transport.
+3. **The public API serves denormalized projections.** Search ranking and graph summaries depend on the indexed document model, not transport.
 
 4. **Keyword search is the baseline.** Semantic and hybrid search are layered on top.
 
 5. **Embeddings are asynchronous.** Ingestion is never blocked on vector generation unless explicitly configured.
+
+6. **Twister complements public Tangled APIs.** Repo detail stays on knots/PDSes; the index adds discovery and cross-network summaries.
 
 ## 6. External Systems
 
@@ -93,17 +96,18 @@ ATProto Firehose / PDS
    ├─ keyword search (fts_match / fts_score)
    ├─ semantic search (vector_top_k)
    ├─ hybrid search (weighted merge)
+   ├─ profile and graph summaries
    └─ document fetch
 ```
 
 ## 8. Runtime Units
 
-| Unit           | Role                                | Deployment                      |
-| -------------- | ----------------------------------- | ------------------------------- |
-| `api`          | HTTP search and document API        | Railway service (public)        |
-| `indexer`      | Tap consumer, normalizer, DB writer | Railway service (internal)      |
-| `embed-worker` | Async embedding generation          | Optional Railway service        |
-| `tap`          | ATProto sync                        | Railway (already deployed)      |
+| Unit           | Role                                         | Deployment                 |
+| -------------- | -------------------------------------------- | -------------------------- |
+| `api`          | HTTP search, graph summary, and document API | Railway service (public)   |
+| `indexer`      | Tap consumer, normalizer, DB writer          | Railway service (internal) |
+| `embed-worker` | Async embedding generation                   | Optional Railway service   |
+| `tap`          | ATProto sync                                 | Railway (already deployed) |
 
 ## 9. Repository Structure
 

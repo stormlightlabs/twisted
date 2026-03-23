@@ -7,8 +7,6 @@ updated: 2026-03-22
 
 Add embedding generation and vector-based retrieval on top of the keyword baseline.
 
----
-
 ## M8 — Embedding Pipeline
 
 refs: [specs/03-data-model.md](../specs/03-data-model.md), [specs/05-search.md](../specs/05-search.md)
@@ -16,10 +14,6 @@ refs: [specs/03-data-model.md](../specs/03-data-model.md), [specs/05-search.md](
 ### Goal
 
 Add asynchronous embedding generation without blocking ingestion.
-
-### Why Now
-
-Only after keyword search is stable should semantic complexity be added.
 
 ### Deliverables
 
@@ -70,8 +64,6 @@ Only after keyword search is stable should semantic complexity be added.
 
 Embeddings are produced asynchronously and stored durably.
 
----
-
 ## M9 — Semantic Search
 
 refs: [specs/05-search.md](../specs/05-search.md)
@@ -79,10 +71,6 @@ refs: [specs/05-search.md](../specs/05-search.md)
 ### Goal
 
 Expose vector-based semantic retrieval.
-
-### Why Now
-
-Natural next step once embeddings exist. Turso/libSQL has native vector search with `vector_top_k`.
 
 ### Deliverables
 

@@ -2,6 +2,14 @@
 /// <reference types="@atcute/bluesky" />
 /// <reference types="@atcute/tangled" />
 
+interface ImportMetaEnv {
+  readonly VITE_TWISTER_API_BASE_URL?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 declare module "markdown-it" {
   type MarkdownIt = {
     render(content: string): string;

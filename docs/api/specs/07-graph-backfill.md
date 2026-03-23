@@ -21,6 +21,7 @@ bob.tangled.sh
 ```
 
 Format:
+
 - One entry per line
 - Lines starting with `#` are comments
 - Blank lines are ignored
@@ -49,6 +50,7 @@ Higher hop counts discover more users but increase time and may pull in loosely 
 ### Crawl Queue
 
 Discovered DIDs are added to a queue, deduplicated by DID. Each entry tracks:
+
 - DID
 - Discovery hop (distance from seed)
 - Source (which seed/user led to discovery)
@@ -92,14 +94,14 @@ twister backfill --seeds seeds.txt --concurrency 5
 
 ### Flags
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--seeds` | required | Path to seed file |
-| `--max-hops` | `2` | Max fan-out depth from seed users |
-| `--dry-run` | `false` | List discovered users without submitting to Tap |
-| `--concurrency` | `5` | Parallel discovery workers |
-| `--batch-size` | `10` | DIDs per `/repos/add` call |
-| `--batch-delay` | `1s` | Delay between batches |
+| Flag            | Default  | Description                                     |
+| --------------- | -------- | ----------------------------------------------- |
+| `--seeds`       | required | Path to seed file                               |
+| `--max-hops`    | `2`      | Max fan-out depth from seed users               |
+| `--dry-run`     | `false`  | List discovered users without submitting to Tap |
+| `--concurrency` | `5`      | Parallel discovery workers                      |
+| `--batch-size`  | `10`     | DIDs per `/repos/add` call                      |
+| `--batch-delay` | `1s`     | Delay between batches                           |
 
 ### Output
 
@@ -127,11 +129,11 @@ The entire backfill process is safe to re-run:
 
 ## 8. Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TAP_URL` | (existing) | Tap base URL for API calls |
-| `TAP_AUTH_PASSWORD` | (existing) | Tap admin auth |
+| Variable             | Default    | Description                   |
+| -------------------- | ---------- | ----------------------------- |
+| `TAP_URL`            | (existing) | Tap base URL for API calls    |
+| `TAP_AUTH_PASSWORD`  | (existing) | Tap admin auth                |
 | `TURSO_DATABASE_URL` | (existing) | For checking existing records |
-| `TURSO_AUTH_TOKEN` | (existing) | DB auth |
+| `TURSO_AUTH_TOKEN`   | (existing) | DB auth                       |
 
 No new environment variables are needed — backfill reuses existing Tap and DB configuration.

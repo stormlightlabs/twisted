@@ -183,6 +183,7 @@ import {
   useUserPullRequests,
   useUserFollowing,
 } from "@/services/tangled/queries.js";
+import { useIndexedProfileSummary } from "@/services/project-api/queries.js";
 import type { IssueSummary } from "@/domain/models/issue.js";
 import type { PullRequestSummary } from "@/domain/models/pull-request.js";
 import type { RepoSummary } from "@/domain/models/repo.js";
@@ -208,6 +209,7 @@ const stringsQuery = useUserStrings(pds, did, { enabled: hasIdentity });
 const issuesQuery = useUserIssues(pds, did, handle, { enabled: hasIdentity });
 const pullRequestsQuery = useUserPullRequests(pds, did, handle, { enabled: hasIdentity });
 const followingQuery = useUserFollowing(pds, did, { enabled: hasIdentity });
+const indexedProfileSummaryQuery = useIndexedProfileSummary(did, { enabled: hasIdentity });
 
 const profile = computed(() => profileQuery.data.value);
 const repos = computed(() => reposQuery.data.value ?? []);
@@ -215,17 +217,31 @@ const strings = computed(() => stringsQuery.data.value ?? []);
 const issues = computed(() => issuesQuery.data.value ?? []);
 const pullRequests = computed(() => pullRequestsQuery.data.value ?? []);
 const following = computed(() => followingQuery.data.value ?? []);
+const indexedProfileSummary = computed(() => indexedProfileSummaryQuery.data.value);
 
 const pinnedUris = computed(() => (profile.value as { pinnedRepos?: string[] } | undefined)?.pinnedRepos ?? []);
 const pinnedRepos = computed(() => repos.value.filter((r) => pinnedUris.value.includes(r.atUri)));
 const otherRepos = computed(() => repos.value.filter((repo) => !pinnedUris.value.includes(repo.atUri)));
-const stats = computed(() => [
-  { label: "repos", value: repos.value.length },
-  { label: "strings", value: strings.value.length },
-  { label: "issues", value: issues.value.length },
-  { label: "prs", value: pullRequests.value.length },
-  { label: "following", value: following.value.length },
-]);
+const stats = computed(() => {
+  const values = [
+    { label: "repos", value: repos.value.length },
+    { label: "strings", value: strings.value.length },
+    { label: "issues", value: issues.value.length },
+    { label: "prs", value: pullRequests.value.length },
+  ];
+
+  if (indexedProfileSummary.value?.followerCount != null) {
+    values.splice(1, 0, { label: "followers", value: indexedProfileSummary.value.followerCount });
+  }
+
+  values.splice(
+    indexedProfileSummary.value?.followerCount != null ? 2 : 1,
+    0,
+    { label: "following", value: indexedProfileSummary.value?.followingCount ?? following.value.length },
+  );
+
+  return values;
+});
 
 const isLoading = computed(() => identity.isPending.value || profileQuery.isPending.value);
 const isError = computed(() => identity.isError.value || profileQuery.isError.value);

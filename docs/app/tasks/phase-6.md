@@ -1,31 +1,30 @@
-# Phase 6 Tasks — Write Features & Backend Adapter
+# Phase 6 Tasks — Write Features & Project Services
 
-## Backend (BFF) Setup
+## Project Services Setup
 
-- [ ] Choose runtime (Node/Deno/Bun) and framework (Hono/Fastify/Express)
-- [ ] Scaffold BFF project with TypeScript
-- [ ] Implement health check endpoint
-- [ ] Deploy to hosting (Fly.io, Railway, etc.)
+- [ ] Decide which write and notification operations belong in `packages/api` versus a separate service
+- [ ] Implement health and readiness endpoints for all public client-facing services
 - [ ] Configure CORS for the mobile app's origins
+- [ ] Document the mobile-facing service contract in `docs/api`
 
-## Backend — Auth Proxy
+## Project Services — Auth Proxy
 
 - [ ] Implement OAuth token exchange endpoint (if moving auth server-side)
 - [ ] Implement session endpoint that returns user info
-- [ ] Decide: keep client-side OAuth or migrate to BFF-mediated auth
+- [ ] Decide: keep client-side OAuth or migrate to service-mediated auth
 
-## Backend — Search
+## Project Services — Search and Graph
 
-- [ ] Implement search indexer: subscribe to Jetstream, index `sh.tangled.repo` and `sh.tangled.actor.profile` records
-- [ ] Implement `GET /search/repos?q=` endpoint
-- [ ] Implement `GET /search/users?q=` endpoint
-- [ ] Wire mobile client's search service to BFF endpoints
+- [ ] Implement `GET /search` endpoint for repo/profile discovery
+- [ ] Return enough repo/profile metadata for the mobile client to render result cards directly
+- [ ] Implement `GET /profiles/:did/summary` for follower/following counts and other graph-derived gaps
+- [ ] Wire mobile client's search and profile summary services to these endpoints
 
-## Backend — Personalized Feed
+## Project Services — Personalized Feed
 
 - [ ] Implement `GET /feed/personalized` — aggregate activity for the user's follows and stars
 - [ ] Index relevant events from Jetstream
-- [ ] Wire mobile client's feed to BFF endpoint when authenticated
+- [ ] Wire mobile client's feed to the project service endpoint when authenticated
 
 ## Create Issue
 
@@ -69,12 +68,12 @@
 - [ ] Prompt user to re-authorize with expanded scopes
 - [ ] Handle scope upgrade flow gracefully (no data loss)
 
-## Push Notifications (if BFF exists)
+## Push Notifications (if services exist)
 
-- [ ] Implement `POST /notifications/register` on BFF — register device token
+- [ ] Implement `POST /notifications/register` — register device token
 - [ ] Configure Capacitor Push Notifications plugin
 - [ ] Register device token on login
-- [ ] BFF: subscribe to Jetstream events relevant to user, deliver via APNs/FCM
+- [ ] Services: subscribe to events relevant to user, deliver via APNs/FCM
 - [ ] Handle notification tap → deep link to relevant content
 
 ## Quality

@@ -41,7 +41,7 @@ app-cap-android:
 api-build:
     just --justfile packages/api/justfile build
 
-api-run-api:
+api-dev:
     just --justfile packages/api/justfile run-api
 
 api-run-indexer:

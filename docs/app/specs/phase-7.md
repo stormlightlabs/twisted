@@ -44,7 +44,7 @@ Allow users to create saved feed configurations:
 - "Team" — activity from users I follow
 - Custom filters: by repo, by user, by event type
 
-Feeds are stored locally in IndexedDB. If a BFF exists, they can optionally sync server-side for push notification filtering.
+Feeds are stored locally in IndexedDB. If project services exist, they can optionally sync server-side for push notification filtering.
 
 ## Advanced Features
 

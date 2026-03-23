@@ -16,7 +16,7 @@
       <EmptyState
         :icon="pulseOutline"
         title="Activity is in progress"
-        message="The public activity feed is being rebuilt separately. This tab stays as a placeholder until that work is ready." />
+        message="The public activity feed is still in progress. This tab stays as a placeholder until the indexed feed work is ready." />
     </ion-content>
   </ion-page>
 </template>

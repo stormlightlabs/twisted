@@ -1,9 +1,23 @@
 ---
 title: "Spec 06 — Operations"
-updated: 2026-03-22
+updated: 2026-03-23
 ---
 
 Covers configuration, observability, security, and deployment.
+
+## 0. Quick Setup
+
+Tap is already deployed. For a new environment, the minimum operator work is:
+
+1. Create or choose a Turso database for that environment
+2. Generate a Turso auth token for that database
+3. Point `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` at that database
+4. Create Railway services for `api` and `indexer`
+5. Point `TAP_URL` at the existing Tap deployment
+6. Run migrations/start the services
+7. Run `twister backfill` before treating the environment as search-ready
+
+No separate `*_DEV` or `*_PROD` variables are required. Each environment keeps using the same variable names and simply points them at the appropriate Turso database.
 
 ## 1. Configuration
 
@@ -84,6 +98,94 @@ HTTP_BIND_ADDR=:8080
 LOG_LEVEL=info
 ENABLE_ADMIN_ENDPOINTS=false
 ```
+
+### Environment Selection
+
+Use the same variable names in every environment:
+
+- local development can point `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` at `twister-dev`
+- production can point those same variables at `twister-prod`
+
+The application should not care which database it is talking to; only the environment wiring changes.
+
+## 1.5. Turso Setup
+
+### Recommended Databases
+
+Use one Turso database per environment, for example:
+
+- `twister-dev`
+- `twister-prod`
+
+Keep the app config identical across environments and swap only these values:
+
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+
+### Basic Flow
+
+Using the Turso dashboard or CLI:
+
+1. Create the database for the target environment
+2. Capture its libSQL URL
+3. Create an auth token for the service
+4. Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in that environment
+
+Example values:
+
+```bash
+# Development environment
+TURSO_DATABASE_URL=libsql://twister-dev-your-org.turso.io
+TURSO_AUTH_TOKEN=...
+
+# Production environment
+TURSO_DATABASE_URL=libsql://twister-prod-your-org.turso.io
+TURSO_AUTH_TOKEN=...
+```
+
+### Practical Rule
+
+Do not introduce `TURSO_DATABASE_URL_DEV`, `TURSO_DATABASE_URL_PROD`, or similar split variables. Railway environments, local shells, and CI should all set the same names with environment-specific values.
+
+## 1.6. Railway Setup
+
+### Project Layout
+
+Create or reuse one Railway project containing:
+
+- existing `tap` service
+- `api` service running `twister api`
+- `indexer` service running `twister indexer`
+
+### Basic Steps
+
+1. Connect the monorepo to Railway
+2. Create the `api` and `indexer` services from the same source repo/Docker image
+3. Set shared variables on both services:
+   - `TURSO_DATABASE_URL`
+   - `TURSO_AUTH_TOKEN`
+   - `LOG_LEVEL`
+   - `LOG_FORMAT`
+4. Set API-specific variables:
+   - `HTTP_BIND_ADDR`
+   - `SEARCH_DEFAULT_LIMIT`
+   - `SEARCH_MAX_LIMIT`
+5. Set indexer-specific variables:
+   - `TAP_URL`
+   - `TAP_AUTH_PASSWORD`
+   - `INDEXED_COLLECTIONS`
+6. Configure health checks
+7. Deploy
+8. Run backfill against the environment before public validation
+
+### Dev vs Production on Railway
+
+If you use multiple Railway environments, keep the same service definitions and variable names in each one. Only the values change:
+
+- dev Railway environment -> `TURSO_DATABASE_URL=...twister-dev...`
+- prod Railway environment -> `TURSO_DATABASE_URL=...twister-prod...`
+
+This keeps deployment logic simple and avoids conditional application config.
 
 ## 2. Observability
 
@@ -261,6 +363,16 @@ INDEXED_COLLECTIONS=sh.tangled.repo,sh.tangled.repo.issue,sh.tangled.repo.pull,s
 ```
 
 Railway supports referencing other services' variables with `${{service.VAR}}` syntax, which is useful for linking the indexer to Tap's domain.
+
+#### First-Time Bootstrap Checklist
+
+After the first successful deploy of a new environment:
+
+1. Confirm API readiness on `/readyz`
+2. Confirm indexer health and Tap connectivity
+3. Run graph backfill with the environment's seed file
+4. Wait for Tap historical sync to settle
+5. Verify that search returns known historical repos/profiles
 
 #### Health Checks
 

@@ -7,8 +7,6 @@ updated: 2026-03-22
 
 Merge lexical and semantic search into the default high-quality retrieval mode.
 
----
-
 ## M10 — Hybrid Search
 
 refs: [specs/05-search.md](../specs/05-search.md)

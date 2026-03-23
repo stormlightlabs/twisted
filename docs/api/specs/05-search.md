@@ -3,15 +3,15 @@ title: "Spec 05 — Search"
 updated: 2026-03-22
 ---
 
-Covers all search modes, the API contract, scoring, and filtering.
+Covers all search modes, the public search API contract, scoring, and filtering.
 
 ## 1. Search Modes
 
-| Mode | Backing | Available |
-|------|---------|-----------|
-| `keyword` | Turso Tantivy-backed FTS | MVP |
-| `semantic` | Vector similarity (DiskANN index) | Phase 2 |
-| `hybrid` | Weighted merge of keyword + semantic | Phase 3 |
+| Mode       | Backing                              | Available |
+| ---------- | ------------------------------------ | --------- |
+| `keyword`  | Turso Tantivy-backed FTS             | MVP       |
+| `semantic` | Vector similarity (DiskANN index)    | Phase 2   |
+| `hybrid`   | Weighted merge of keyword + semantic | Phase 3   |
 
 ## 2. Keyword Search
 
@@ -35,14 +35,14 @@ LIMIT ? OFFSET ?;
 
 Configured in the FTS index definition:
 
-| Field | Weight | Rationale |
-|-------|--------|-----------|
-| `title` | 3.0 | Highest signal for relevance |
-| `repo_name` | 2.5 | Exact repo lookups should rank first |
-| `author_handle` | 2.0 | Author search is common |
-| `summary` | 1.5 | More focused than body |
-| `tags_json` | 1.2 | Topic matching |
-| `body` | 1.0 | Baseline |
+| Field           | Weight | Rationale                            |
+| --------------- | ------ | ------------------------------------ |
+| `title`         | 3.0    | Highest signal for relevance         |
+| `repo_name`     | 2.5    | Exact repo lookups should rank first |
+| `author_handle` | 2.0    | Author search is common              |
+| `summary`       | 1.5    | More focused than body               |
+| `tags_json`     | 1.2    | Topic matching                       |
+| `body`          | 1.0    | Baseline                             |
 
 ### Query Features
 
@@ -84,7 +84,7 @@ WHERE d.deleted_at IS NULL;
 
 Cosine distance ranges from 0 (identical) to 2 (opposite). Normalize to a 0–1 relevance score:
 
-```
+```text
 semantic_score = 1.0 - (distance / 2.0)
 ```
 
@@ -92,7 +92,7 @@ semantic_score = 1.0 - (distance / 2.0)
 
 ### v1: Weighted Score Blending
 
-```
+```text
 hybrid_score = 0.65 * keyword_score_normalized + 0.35 * semantic_score_normalized
 ```
 
@@ -100,7 +100,7 @@ hybrid_score = 0.65 * keyword_score_normalized + 0.35 * semantic_score_normalize
 
 Keyword (BM25) scores are unbounded. Normalize using min-max within the result set:
 
-```
+```text
 keyword_normalized = (score - min_score) / (max_score - min_score)
 ```
 
@@ -121,7 +121,7 @@ Semantic scores are already bounded after the distance-to-relevance conversion.
 
 If keyword and semantic score scales prove unstable under weighted blending, replace with RRF:
 
-```
+```text
 rrf_score = Σ 1 / (k + rank_i)
 ```
 
@@ -131,15 +131,15 @@ where `k` is a constant (typically 60) and `rank_i` is the document's rank in ea
 
 All search modes support these filters, applied as SQL WHERE clauses:
 
-| Filter | Parameter | SQL |
-|--------|-----------|-----|
-| Collection | `collection` | `d.collection = ?` |
-| Author | `author` | `d.author_handle = ?` or `d.did = ?` |
-| Repo | `repo` | `d.repo_name = ?` or `d.repo_did = ?` |
-| Record type | `type` | `d.record_type = ?` |
-| Language | `language` | `d.language = ?` |
-| Date range | `from`, `to` | `d.created_at >= ?` and `d.created_at <= ?` |
-| State | `state` | Join to `record_state` table |
+| Filter      | Parameter    | SQL                                         |
+| ----------- | ------------ | ------------------------------------------- |
+| Collection  | `collection` | `d.collection = ?`                          |
+| Author      | `author`     | `d.author_handle = ?` or `d.did = ?`        |
+| Repo        | `repo`       | `d.repo_name = ?` or `d.repo_did = ?`       |
+| Record type | `type`       | `d.record_type = ?`                         |
+| Language    | `language`   | `d.language = ?`                            |
+| Date range  | `from`, `to` | `d.created_at >= ?` and `d.created_at <= ?` |
+| State       | `state`      | Join to `record_state` table                |
 
 ## 6. Embedding Eligibility
 
@@ -204,46 +204,52 @@ Admin endpoints are disabled by default. Enable with `ENABLE_ADMIN_ENDPOINTS=tru
 
 ```json
 {
-    "query": "rust markdown tui",
-    "mode": "hybrid",
-    "total": 142,
-    "limit": 20,
-    "offset": 0,
-    "results": [
-        {
-            "id": "did:plc:abc|sh.tangled.repo|3kb3fge5lm32x",
-            "collection": "sh.tangled.repo",
-            "record_type": "repo",
-            "title": "glow-rs",
-            "body_snippet": "A TUI markdown viewer inspired by <mark>Glow</mark>...",
-            "summary": "Rust TUI markdown viewer",
-            "repo_name": "glow-rs",
-            "author_handle": "desertthunder.dev",
-            "score": 0.842,
-            "matched_by": ["keyword", "semantic"],
-            "created_at": "2026-03-20T10:00:00Z",
-            "updated_at": "2026-03-22T15:03:11Z"
-        }
-    ]
+  "query": "rust markdown tui",
+  "mode": "hybrid",
+  "total": 142,
+  "limit": 20,
+  "offset": 0,
+  "results": [
+    {
+      "id": "did:plc:abc|sh.tangled.repo|3kb3fge5lm32x",
+      "collection": "sh.tangled.repo",
+      "record_type": "repo",
+      "title": "glow-rs",
+      "body_snippet": "A TUI markdown viewer inspired by <mark>Glow</mark>...",
+      "summary": "Rust TUI markdown viewer",
+      "repo_name": "glow-rs",
+      "author_handle": "desertthunder.dev",
+      "score": 0.842,
+      "matched_by": ["keyword", "semantic"],
+      "created_at": "2026-03-20T10:00:00Z",
+      "updated_at": "2026-03-22T15:03:11Z"
+    }
+  ]
 }
 ```
 
 ### Result Fields
 
-| Field           | Type     | Description                             |
-| --------------- | -------- | --------------------------------------- |
-| `id`            | string   | Document stable ID                      |
-| `collection`    | string   | ATProto collection NSID                 |
-| `record_type`   | string   | Normalized type label                   |
-| `title`         | string   | Document title                          |
-| `body_snippet`  | string   | Highlighted body excerpt                |
-| `summary`       | string   | Short description                       |
-| `repo_name`     | string   | Repository name (if applicable)         |
-| `author_handle` | string   | Author handle                           |
-| `score`         | float    | Relevance score (0–1)                   |
-| `matched_by`    | string[] | Which search modes produced this result |
-| `created_at`    | string   | ISO 8601 creation timestamp             |
-| `updated_at`    | string   | ISO 8601 last update timestamp          |
+| Field              | Type     | Description                                 |
+| ------------------ | -------- | ------------------------------------------- |
+| `id`               | string   | Document stable ID                          |
+| `collection`       | string   | ATProto collection NSID                     |
+| `record_type`      | string   | Normalized type label                       |
+| `title`            | string   | Document title                              |
+| `body_snippet`     | string   | Highlighted body excerpt                    |
+| `summary`          | string   | Short description                           |
+| `repo_name`        | string   | Repository name (if applicable)             |
+| `author_handle`    | string   | Author handle                               |
+| `did`              | string   | Author DID when available                   |
+| `at_uri`           | string   | Canonical AT URI when available             |
+| `primary_language` | string   | Primary language for repo results           |
+| `stars`            | number   | Indexed star count for repo results         |
+| `follower_count`   | number   | Indexed follower count for profile results  |
+| `following_count`  | number   | Indexed following count for profile results |
+| `score`            | float    | Relevance score (0–1)                       |
+| `matched_by`       | string[] | Which search modes produced this result     |
+| `created_at`       | string   | ISO 8601 creation timestamp                 |
+| `updated_at`       | string   | ISO 8601 last update timestamp              |
 
 ## 10. Document Response
 
@@ -251,24 +257,24 @@ Admin endpoints are disabled by default. Enable with `ENABLE_ADMIN_ENDPOINTS=tru
 
 ```json
 {
-    "id": "did:plc:abc|sh.tangled.repo|3kb3fge5lm32x",
-    "did": "did:plc:abc",
-    "collection": "sh.tangled.repo",
-    "rkey": "3kb3fge5lm32x",
-    "at_uri": "at://did:plc:abc/sh.tangled.repo/3kb3fge5lm32x",
-    "cid": "bafyreig...",
-    "record_type": "repo",
-    "title": "glow-rs",
-    "body": "A TUI markdown viewer inspired by Glow, written in Rust.",
-    "summary": "Rust TUI markdown viewer",
-    "repo_name": "glow-rs",
-    "author_handle": "desertthunder.dev",
-    "tags_json": "[\"rust\", \"tui\", \"markdown\"]",
-    "language": "en",
-    "created_at": "2026-03-20T10:00:00Z",
-    "updated_at": "2026-03-22T15:03:11Z",
-    "indexed_at": "2026-03-22T15:05:00Z",
-    "has_embedding": true
+  "id": "did:plc:abc|sh.tangled.repo|3kb3fge5lm32x",
+  "did": "did:plc:abc",
+  "collection": "sh.tangled.repo",
+  "rkey": "3kb3fge5lm32x",
+  "at_uri": "at://did:plc:abc/sh.tangled.repo/3kb3fge5lm32x",
+  "cid": "bafyreig...",
+  "record_type": "repo",
+  "title": "glow-rs",
+  "body": "A TUI markdown viewer inspired by Glow, written in Rust.",
+  "summary": "Rust TUI markdown viewer",
+  "repo_name": "glow-rs",
+  "author_handle": "desertthunder.dev",
+  "tags_json": "[\"rust\", \"tui\", \"markdown\"]",
+  "language": "en",
+  "created_at": "2026-03-20T10:00:00Z",
+  "updated_at": "2026-03-22T15:03:11Z",
+  "indexed_at": "2026-03-22T15:05:00Z",
+  "has_embedding": true
 }
 ```
 
@@ -281,10 +287,7 @@ Admin endpoints are disabled by default. Enable with `ENABLE_ADMIN_ENDPOINTS=tru
 | 503    | DB unreachable (readiness failure)                                 |
 
 ```json
-{
-    "error": "invalid_parameter",
-    "message": "limit must be between 1 and 100"
-}
+{ "error": "invalid_parameter", "message": "limit must be between 1 and 100" }
 ```
 
 ## 12. API Behavior
@@ -294,3 +297,4 @@ Admin endpoints are disabled by default. Enable with `ENABLE_ADMIN_ENDPOINTS=tru
 - `hybrid` merges both result sets and reranks
 - All modes exclude documents with `deleted_at IS NOT NULL` by default
 - Pagination uses `limit`/`offset` (cursor-based pagination deferred)
+- Mobile clients may use `type=repo` and `type=profile` to render repo/profile search directly

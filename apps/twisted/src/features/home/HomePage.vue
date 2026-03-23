@@ -45,7 +45,9 @@
           </ion-button>
         </div>
 
-        <p class="hint-copy">Repo browsing is temporary here until search ships in a separate project.</p>
+        <p class="hint-copy">
+          Home is still the fastest way to jump to a known handle directly.
+        </p>
       </section>
 
       <section v-if="hasAttemptedBrowse" class="results-section">

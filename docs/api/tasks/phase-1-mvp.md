@@ -17,13 +17,9 @@ Get a searchable product online: ingestion, keyword search, deployment, and oper
 - Reindex exists for repair
 - Graph backfill populates initial content from seed users
 
----
-
 ## M0 — Repository Bootstrap ✅
 
 Executable layout, local tooling, and development conventions (completed 2026-03-22).
-
----
 
 ## M1 — Database Schema and Store Layer ✅
 
@@ -31,15 +27,11 @@ refs: [specs/03-data-model.md](../specs/03-data-model.md)
 
 Implemented the Turso/libSQL schema and Go store package for document persistence.
 
----
-
 ## M2 — Normalization Layer ✅
 
 refs: [specs/02-tangled-lexicons.md](../specs/02-tangled-lexicons.md), [specs/04-data-pipeline.md](../specs/04-data-pipeline.md)
 
 Translate `sh.tangled.*` records into internal search documents.
-
----
 
 ## M3 — Tap Client and Ingestion Loop
 
@@ -48,10 +40,6 @@ refs: [specs/04-data-pipeline.md](../specs/04-data-pipeline.md), [specs/01-archi
 ### Goal
 
 Connect the indexer to Tap (on Railway) and process live events into the store.
-
-### Why Now
-
-Tap is the point of truth for synchronized ATProto ingestion. It is already deployed on Railway.
 
 ### Deliverables
 
@@ -126,19 +114,90 @@ Tap is the point of truth for synchronized ATProto ingestion. It is already depl
 
 The system continuously ingests and persists `sh.tangled.*` records from Tap.
 
----
+## M4 — Graph Backfill from Seed Users
 
-## M4 — Keyword Search API
+refs: [specs/07-graph-backfill.md](../specs/07-graph-backfill.md)
+
+### Goal
+
+Bootstrap the index with historical Tangled content by discovering and backfilling users from a curated seed set.
+
+### Deliverables
+
+- `twister backfill` CLI command
+- Seed file parser and documented seed-file format
+- Graph fan-out discovery (follows and collaborators)
+- Tap `/repos/add` integration for discovered users
+- Deduplication against already-tracked repos
+- Dry-run mode and progress logging
+- Basic operator runbook for first bootstrap and repeat runs
+
+### Tasks
+
+- [ ] Implement `backfill` subcommand with flags:
+  - `--seeds <file>` — required seed file path
+  - `--max-hops <n>` — depth limit for fan-out (default: 2)
+  - `--dry-run` — print the discovery plan without mutating Tap
+  - `--concurrency <n>` — parallel discovery workers (default: 5)
+  - `--batch-size <n>` — DIDs per `/repos/add` request
+  - `--batch-delay <duration>` — delay between Tap registration batches
+- [ ] Implement seed file parsing:
+  - One DID or handle per line
+  - `#` comments allowed
+  - Blank lines ignored
+  - Handles resolved to DIDs before graph expansion
+- [ ] Decide and document the initial seed file location for operators:
+  - Repository-managed example file for format/reference
+  - Deployment-specific runtime file or mounted secret for real runs
+- [ ] Implement graph discovery:
+  1. Start from hop-0 seed users
+  2. Fetch `sh.tangled.graph.follow` records and collect subject DIDs
+  3. Fetch repo collaborators by inspecting repos, issues, PRs, and comments
+  4. Enqueue newly discovered DIDs with hop metadata
+  5. Stop expanding beyond `max-hops`
+- [ ] Track discovery metadata for logs:
+  - source DID
+  - hop depth
+  - discovery reason (`seed`, `follow`, `collaborator`)
+- [ ] Integrate with Tap admin endpoints:
+  - `GET /info/:did` to skip already-tracked repos when practical
+  - `POST /repos/add` to register new DIDs for backfill
+- [ ] Make the command safe to re-run:
+  - in-memory visited DID set during crawl
+  - tolerate duplicate `/repos/add`
+  - rely on index upsert idempotency for re-delivered records
+- [ ] Add operator-friendly logging:
+  - seed count
+  - users discovered per hop
+  - already-tracked vs newly-submitted DIDs
+  - batch progress
+  - final totals
+- [ ] Add a short runbook covering:
+  - first bootstrap against an empty database
+  - repeat run after expanding the seed list
+  - dry-run before production mutation
+
+### Verification
+
+- [ ] A small seed file of known Tangled users produces a non-empty discovery graph
+- [ ] `--max-hops 1` limits discovery to direct neighbors
+- [ ] `--dry-run` does not call Tap mutation endpoints
+- [ ] Already-tracked DIDs are reported and not re-submitted unnecessarily
+- [ ] Re-running the same seeds is effectively idempotent
+- [ ] Newly submitted DIDs cause Tap to begin historical backfill
+- [ ] Search results become materially richer after bootstrap than they were under live-only ingestion
+
+### Exit Criteria
+
+Operators can bootstrap an empty environment to a usable historical baseline before public rollout.
+
+## M5 — Keyword Search API
 
 refs: [specs/05-search.md](../specs/05-search.md)
 
 ### Goal
 
 Expose a usable public search API backed by Turso's Tantivy-backed FTS.
-
-### Why Now
-
-First real product milestone. Searchable Tangled content without waiting for embeddings.
 
 ### Deliverables
 
@@ -200,19 +259,13 @@ First real product milestone. Searchable Tangled content without waiting for emb
 
 A user can search Tangled content reliably with keyword search.
 
----
-
-## M5 — Railway Deployment
+## M6 — Railway Deployment
 
 refs: [specs/06-operations.md](../specs/06-operations.md)
 
 ### Goal
 
 Deploy the API and indexer as Railway services alongside Tap.
-
-### Why Now
-
-At this point, the product is useful enough to run continuously.
 
 ### Deliverables
 
@@ -253,19 +306,13 @@ At this point, the product is useful enough to run continuously.
 
 The system runs as a deployed service with health-checked processes on Railway.
 
----
-
-## M6 — Reindex and Repair
+## M7 — Reindex and Repair
 
 refs: [specs/05-search.md](../specs/05-search.md)
 
 ### Goal
 
 Make the system recoverable and operable with repair tools.
-
-### Why Now
-
-Search systems are never perfect on first ingestion. Repair tools are needed before production.
 
 ### Deliverables
 
@@ -304,9 +351,7 @@ Search systems are never perfect on first ingestion. Repair tools are needed bef
 
 Operators can repair bad indexes without rebuilding everything manually.
 
----
-
-## M7 — Observability
+## M8 — Observability
 
 refs: [specs/06-operations.md](../specs/06-operations.md)
 
@@ -349,59 +394,3 @@ Make the system diagnosable in production.
 ### Exit Criteria
 
 The system is maintainable without guesswork.
-
----
-
-## M-New — Graph Backfill from Seed Users
-
-refs: [specs/07-graph-backfill.md](../specs/07-graph-backfill.md)
-
-### Goal
-
-Bootstrap the search index with existing Tangled content by discovering and backfilling users from a seed set.
-
-### Why Now
-
-Before MVP launch, the index needs existing content. Live ingestion only captures new events — backfill populates historical data.
-
-### Deliverables
-
-- `twister backfill` CLI command
-- Seed file parser
-- Graph fan-out discovery (follows/collaborators)
-- Tap `/repos/add` integration for discovered users
-- Deduplication against already-indexed users
-- Progress logging
-
-### Tasks
-
-- [ ] Implement `backfill` subcommand with flags:
-  - `--seeds <file>` — path to seed file (one DID or handle per line)
-  - `--max-hops <n>` — depth limit for fan-out (default: 2)
-  - `--dry-run` — show discovered users without triggering backfill
-  - `--concurrency <n>` — parallel discovery workers (default: 5)
-- [ ] Implement seed file parser (supports DIDs and handles, comments with `#`)
-- [ ] Implement graph fan-out:
-  1. For each seed user, resolve DID if handle provided
-  2. Fetch `sh.tangled.graph.follow` records for the user
-  3. Fetch collaborators from repos owned by the user
-  4. Add discovered DIDs to the crawl queue
-  5. Repeat up to `max-hops` depth
-- [ ] Integrate with Tap `/repos/add` to register discovered DIDs for tracking
-- [ ] Deduplicate: skip DIDs already tracked by Tap (check via `/info/:did`)
-- [ ] Log progress: seeds processed, users discovered per hop, DIDs submitted to Tap
-- [ ] Handle rate limiting and errors gracefully (retry with backoff)
-- [ ] Make idempotent: safe to re-run; Tap handles duplicate `/repos/add` calls
-
-### Verification
-
-- [ ] Running with a seed file of 3 known users discovers their followers
-- [ ] `--max-hops 1` limits discovery to direct connections only
-- [ ] `--dry-run` lists discovered DIDs without calling Tap
-- [ ] Already-tracked users are skipped
-- [ ] Re-running the same seed file produces no duplicate work
-- [ ] Tap begins backfilling records for newly added DIDs
-
-### Exit Criteria
-
-The index contains historical content from the seed user graph, not just new events.

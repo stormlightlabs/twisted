@@ -7,8 +7,6 @@ updated: 2026-03-22
 
 Improve search quality without changing the core architecture.
 
----
-
 ## M11 — Ranking and Quality Polish
 
 refs: [specs/05-search.md](../specs/05-search.md)
