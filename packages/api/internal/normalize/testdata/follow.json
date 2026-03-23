@@ -1,0 +1,14 @@
+{
+  "id": 2001,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3follow1",
+    "did": "did:plc:alice",
+    "collection": "sh.tangled.graph.follow",
+    "rkey": "f1",
+    "action": "create",
+    "cid": "bafyreifollow",
+    "record": { "$type": "sh.tangled.graph.follow", "subject": "did:plc:bob", "createdAt": "2026-03-20T12:00:00.000Z" }
+  }
+}

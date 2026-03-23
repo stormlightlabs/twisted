@@ -236,4 +236,83 @@ func TestIntegration(t *testing.T) {
 			t.Fatalf("last_error: got %q, want NULL", lastError.String)
 		}
 	})
+
+	t.Run("follow subject discovery query", func(t *testing.T) {
+		followDoc := &store.Document{
+			ID:         "did:plc:owner|sh.tangled.graph.follow|f1",
+			DID:        "did:plc:owner",
+			Collection: "sh.tangled.graph.follow",
+			RKey:       "f1",
+			ATURI:      "at://did:plc:owner/sh.tangled.graph.follow/f1",
+			CID:        "cid-follow",
+			RecordType: "follow",
+			RepoDID:    "did:plc:target",
+		}
+		if err := st.UpsertDocument(ctx, followDoc); err != nil {
+			t.Fatalf("upsert follow doc: %v", err)
+		}
+
+		subjects, err := st.GetFollowSubjects(ctx, "did:plc:owner")
+		if err != nil {
+			t.Fatalf("get follow subjects: %v", err)
+		}
+		if len(subjects) != 1 || subjects[0] != "did:plc:target" {
+			t.Fatalf("subjects: got %#v", subjects)
+		}
+	})
+
+	t.Run("repo collaborator discovery query", func(t *testing.T) {
+		docs := []*store.Document{
+			{
+				ID:         "did:plc:collab1|sh.tangled.repo.issue|i1",
+				DID:        "did:plc:collab1",
+				Collection: "sh.tangled.repo.issue",
+				RKey:       "i1",
+				ATURI:      "at://did:plc:collab1/sh.tangled.repo.issue/i1",
+				CID:        "cid-c1",
+				RecordType: "issue",
+				RepoDID:    "did:plc:owner",
+			},
+			{
+				ID:         "did:plc:collab2|sh.tangled.repo.pull.comment|pc1",
+				DID:        "did:plc:collab2",
+				Collection: "sh.tangled.repo.pull.comment",
+				RKey:       "pc1",
+				ATURI:      "at://did:plc:collab2/sh.tangled.repo.pull.comment/pc1",
+				CID:        "cid-c2",
+				RecordType: "pull_comment",
+				RepoDID:    "did:plc:owner",
+			},
+			{
+				ID:         "did:plc:owner|sh.tangled.repo.issue|i-owner",
+				DID:        "did:plc:owner",
+				Collection: "sh.tangled.repo.issue",
+				RKey:       "i-owner",
+				ATURI:      "at://did:plc:owner/sh.tangled.repo.issue/i-owner",
+				CID:        "cid-owner",
+				RecordType: "issue",
+				RepoDID:    "did:plc:owner",
+			},
+		}
+		for _, doc := range docs {
+			if err := st.UpsertDocument(ctx, doc); err != nil {
+				t.Fatalf("upsert collaborator doc %s: %v", doc.ID, err)
+			}
+		}
+
+		collaborators, err := st.GetRepoCollaborators(ctx, "did:plc:owner")
+		if err != nil {
+			t.Fatalf("get collaborators: %v", err)
+		}
+		if len(collaborators) != 2 {
+			t.Fatalf("collaborators length: got %d want 2 (%#v)", len(collaborators), collaborators)
+		}
+		got := map[string]bool{}
+		for _, did := range collaborators {
+			got[did] = true
+		}
+		if !got["did:plc:collab1"] || !got["did:plc:collab2"] {
+			t.Fatalf("collaborators: got %#v", collaborators)
+		}
+	})
 }

@@ -3,8 +3,11 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -32,6 +35,8 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	loadDotEnv()
+
 	cfg := &Config{
 		TursoURL:             os.Getenv("TURSO_DATABASE_URL"),
 		TursoToken:           os.Getenv("TURSO_AUTH_TOKEN"),
@@ -67,6 +72,33 @@ func Load() (*Config, error) {
 		return nil, errors.Join(errs...)
 	}
 	return cfg, nil
+}
+
+func loadDotEnv() {
+	seen := map[string]bool{}
+	candidates := make([]string, 0, 8)
+
+	if explicit := strings.TrimSpace(os.Getenv("TWISTER_ENV_FILE")); explicit != "" {
+		candidates = append(candidates, explicit)
+	}
+
+	if cwd, err := os.Getwd(); err == nil {
+		for _, rel := range []string{".env", "../.env", "../../.env"} {
+			candidates = append(candidates, filepath.Join(cwd, rel))
+		}
+	}
+
+	for _, candidate := range candidates {
+		if candidate == "" || seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+		if _, err := os.Stat(candidate); err != nil {
+			continue
+		}
+		// Load does not override existing process env vars.
+		_ = godotenv.Load(candidate)
+	}
 }
 
 func envOrDefault(key, def string) string {

@@ -1,0 +1,19 @@
+{
+  "id": 2002,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3ic1",
+    "did": "did:plc:commenter",
+    "collection": "sh.tangled.repo.issue.comment",
+    "rkey": "ic1",
+    "action": "create",
+    "cid": "bafyreic1",
+    "record": {
+      "$type": "sh.tangled.repo.issue.comment",
+      "issue": "at://did:plc:repoowner/sh.tangled.repo.issue/issue1",
+      "body": "I can help with this fix.",
+      "createdAt": "2026-03-20T13:00:00.000Z"
+    }
+  }
+}

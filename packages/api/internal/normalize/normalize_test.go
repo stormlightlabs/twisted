@@ -276,6 +276,66 @@ func TestProfileAdapter(t *testing.T) {
 	}
 }
 
+func TestFollowAdapter(t *testing.T) {
+	event := loadFixture(t, "follow.json")
+	adapter := &normalize.FollowAdapter{}
+
+	doc, err := adapter.Normalize(event)
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+
+	if doc.RecordType != "follow" {
+		t.Errorf("RecordType = %q", doc.RecordType)
+	}
+	if doc.RepoDID != "did:plc:bob" {
+		t.Errorf("RepoDID = %q, want did:plc:bob", doc.RepoDID)
+	}
+	if adapter.Searchable(event.Record.Record) {
+		t.Error("Searchable = true, want false")
+	}
+}
+
+func TestIssueCommentAdapter(t *testing.T) {
+	event := loadFixture(t, "issue_comment.json")
+	adapter := &normalize.IssueCommentAdapter{}
+
+	doc, err := adapter.Normalize(event)
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+
+	if doc.RecordType != "issue_comment" {
+		t.Errorf("RecordType = %q", doc.RecordType)
+	}
+	if doc.RepoDID != "did:plc:repoowner" {
+		t.Errorf("RepoDID = %q, want did:plc:repoowner", doc.RepoDID)
+	}
+	if !adapter.Searchable(event.Record.Record) {
+		t.Error("Searchable = false for non-empty comment body")
+	}
+}
+
+func TestPullCommentAdapter(t *testing.T) {
+	event := loadFixture(t, "pull_comment.json")
+	adapter := &normalize.PullCommentAdapter{}
+
+	doc, err := adapter.Normalize(event)
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+
+	if doc.RecordType != "pull_comment" {
+		t.Errorf("RecordType = %q", doc.RecordType)
+	}
+	if doc.RepoDID != "did:plc:repoowner" {
+		t.Errorf("RepoDID = %q, want did:plc:repoowner", doc.RepoDID)
+	}
+	if !adapter.Searchable(event.Record.Record) {
+		t.Error("Searchable = false for non-empty comment body")
+	}
+}
+
 // TestIssueStateHandler verifies record_state extraction.
 func TestIssueStateHandler(t *testing.T) {
 	event := loadFixture(t, "issue_state.json")
@@ -352,6 +412,9 @@ func TestRegistry(t *testing.T) {
 		"sh.tangled.repo",
 		"sh.tangled.repo.issue",
 		"sh.tangled.repo.pull",
+		"sh.tangled.repo.issue.comment",
+		"sh.tangled.repo.pull.comment",
+		"sh.tangled.graph.follow",
 		"sh.tangled.string",
 		"sh.tangled.actor.profile",
 	}

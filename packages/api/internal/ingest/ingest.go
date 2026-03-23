@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
@@ -15,6 +16,7 @@ import (
 const (
 	defaultConsumerName = "indexer-tap-v1"
 	maxDBRetryBackoff   = 5 * time.Second
+	statusLogInterval   = 30 * time.Second
 )
 
 type client interface {
@@ -31,6 +33,10 @@ type Runner struct {
 	allowlist    allowlist
 	consumerName string
 	log          *slog.Logger
+
+	statusMu      sync.Mutex
+	lastCursor    string
+	processedTick int64
 }
 
 func NewRunner(st store.Store, registry *normalize.Registry, tap client, indexedCollections string, log *slog.Logger) *Runner {
@@ -49,6 +55,8 @@ func NewRunner(st store.Store, registry *normalize.Registry, tap client, indexed
 
 func (r *Runner) Run(ctx context.Context) error {
 	defer r.tap.Close()
+
+	go r.runStatusLogger(ctx)
 
 	for {
 		if ctx.Err() != nil {
@@ -225,7 +233,44 @@ func (r *Runner) advanceCursorAndAck(ctx context.Context, eventID int64) error {
 	if err := r.tap.AckEvent(ctx, eventID); err != nil {
 		return err
 	}
+	r.markProcessed(cursor)
 	return nil
+}
+
+func (r *Runner) runStatusLogger(ctx context.Context) {
+	ticker := time.NewTicker(statusLogInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.statusMu.Lock()
+			cursor := r.lastCursor
+			processed := r.processedTick
+			r.processedTick = 0
+			r.statusMu.Unlock()
+
+			docs, err := r.store.CountDocuments(ctx)
+			if err != nil {
+				r.log.Warn("indexer status failed", slog.String("error", err.Error()))
+				continue
+			}
+			r.log.Info("indexer status",
+				slog.String("cursor", cursor),
+				slog.Int64("events_processed", processed),
+				slog.Int64("documents", docs),
+			)
+		}
+	}
+}
+
+func (r *Runner) markProcessed(cursor string) {
+	r.statusMu.Lock()
+	r.lastCursor = cursor
+	r.processedTick++
+	r.statusMu.Unlock()
 }
 
 type allowlist struct {

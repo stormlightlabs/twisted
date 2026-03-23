@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 const (
 	minReconnectBackoff = 500 * time.Millisecond
 	maxReconnectBackoff = 10 * time.Second
+	keepAliveInterval   = 20 * time.Second
+	keepAliveTimeout    = 5 * time.Second
 )
 
 // Client receives Tap events over WebSocket and sends acks after processing.
@@ -85,6 +88,9 @@ func (c *Client) AckEvent(ctx context.Context, id int64) error {
 		payload, _ := json.Marshal(map[string]int64{"id": id})
 		if err := conn.Write(ctx, websocket.MessageText, payload); err == nil {
 			return nil
+		} else if isConnectionWriteError(err) {
+			c.resetConn(websocket.StatusInternalError, "ack json write failed")
+			return fmt.Errorf("ack event %d: %w", id, err)
 		}
 
 		c.log.Warn("tap ack json failed; trying plain id", slog.Int64("event_id", id))
@@ -144,6 +150,7 @@ func (c *Client) ensureConnected(ctx context.Context) (*websocket.Conn, error) {
 			c.mu.Lock()
 			if c.conn == nil {
 				c.conn = conn
+				c.startKeepAlive(conn)
 			} else {
 				_ = conn.Close(websocket.StatusNormalClosure, "duplicate")
 			}
@@ -178,4 +185,40 @@ func (c *Client) resetConn(status websocket.StatusCode, reason string) {
 	}
 	_ = c.conn.Close(status, reason)
 	c.conn = nil
+}
+
+func (c *Client) startKeepAlive(conn *websocket.Conn) {
+	go func() {
+		ticker := time.NewTicker(keepAliveInterval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			c.mu.Lock()
+			if c.conn != conn {
+				c.mu.Unlock()
+				return
+			}
+			c.mu.Unlock()
+
+			ctx, cancel := context.WithTimeout(context.Background(), keepAliveTimeout)
+			err := conn.Ping(ctx)
+			cancel()
+			if err != nil {
+				c.log.Warn("tap keepalive ping failed", slog.String("error", err.Error()))
+				c.resetConn(websocket.StatusInternalError, "keepalive failed")
+				return
+			}
+		}
+	}()
+}
+
+func isConnectionWriteError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "closed network connection") ||
+		strings.Contains(msg, "i/o timeout")
 }

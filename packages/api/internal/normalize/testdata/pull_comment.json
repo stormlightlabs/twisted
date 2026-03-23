@@ -1,0 +1,19 @@
+{
+  "id": 2003,
+  "type": "record",
+  "record": {
+    "live": true,
+    "rev": "3kb3pc1",
+    "did": "did:plc:reviewer",
+    "collection": "sh.tangled.repo.pull.comment",
+    "rkey": "pc1",
+    "action": "create",
+    "cid": "bafyreipc1",
+    "record": {
+      "$type": "sh.tangled.repo.pull.comment",
+      "pull": "at://did:plc:repoowner/sh.tangled.repo.pull/pull1",
+      "body": "Looks good to me.",
+      "createdAt": "2026-03-20T14:00:00.000Z"
+    }
+  }
+}

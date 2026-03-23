@@ -16,7 +16,10 @@ func NewRegistry() *Registry {
 		&RepoAdapter{},
 		&IssueAdapter{},
 		&PullAdapter{},
+		&IssueCommentAdapter{},
+		&PullCommentAdapter{},
 		&StringAdapter{},
+		&FollowAdapter{},
 		&ProfileAdapter{},
 	} {
 		r.adapters[a.Collection()] = a

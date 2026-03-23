@@ -134,48 +134,50 @@ Bootstrap the index with historical Tangled content by discovering and backfilli
 
 ### Tasks
 
-- [ ] Implement `backfill` subcommand with flags:
+- [x] Implement `backfill` subcommand with flags:
   - `--seeds <file>` — required seed file path
   - `--max-hops <n>` — depth limit for fan-out (default: 2)
   - `--dry-run` — print the discovery plan without mutating Tap
   - `--concurrency <n>` — parallel discovery workers (default: 5)
   - `--batch-size <n>` — DIDs per `/repos/add` request
   - `--batch-delay <duration>` — delay between Tap registration batches
-- [ ] Implement seed file parsing:
+- [x] Implement seed file parsing:
   - One DID or handle per line
   - `#` comments allowed
   - Blank lines ignored
   - Handles resolved to DIDs before graph expansion
-- [ ] Decide and document the initial seed file location for operators:
+- [x] Decide and document the initial seed file location for operators:
   - Repository-managed example file for format/reference
   - Deployment-specific runtime file or mounted secret for real runs
-- [ ] Implement graph discovery:
+  - Implemented: `docs/api/seeds.txt` and `packages/api/internal/backfill/doc.go`
+- [x] Implement graph discovery:
   1. Start from hop-0 seed users
   2. Fetch `sh.tangled.graph.follow` records and collect subject DIDs
   3. Fetch repo collaborators by inspecting repos, issues, PRs, and comments
   4. Enqueue newly discovered DIDs with hop metadata
   5. Stop expanding beyond `max-hops`
-- [ ] Track discovery metadata for logs:
+- [x] Track discovery metadata for logs:
   - source DID
   - hop depth
   - discovery reason (`seed`, `follow`, `collaborator`)
-- [ ] Integrate with Tap admin endpoints:
+- [x] Integrate with Tap admin endpoints:
   - `GET /info/:did` to skip already-tracked repos when practical
   - `POST /repos/add` to register new DIDs for backfill
-- [ ] Make the command safe to re-run:
+- [x] Make the command safe to re-run:
   - in-memory visited DID set during crawl
   - tolerate duplicate `/repos/add`
   - rely on index upsert idempotency for re-delivered records
-- [ ] Add operator-friendly logging:
+- [x] Add operator-friendly logging:
   - seed count
   - users discovered per hop
   - already-tracked vs newly-submitted DIDs
   - batch progress
   - final totals
-- [ ] Add a short runbook covering:
+- [x] Add a short runbook covering:
   - first bootstrap against an empty database
   - repeat run after expanding the seed list
   - dry-run before production mutation
+  - Implemented: `packages/api/internal/backfill/doc.go`
 
 ### Verification
 

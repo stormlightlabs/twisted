@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
+	"tangled.org/desertthunder.dev/twister/internal/backfill"
 	"tangled.org/desertthunder.dev/twister/internal/config"
 	"tangled.org/desertthunder.dev/twister/internal/ingest"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
@@ -24,14 +26,17 @@ var (
 
 func main() {
 	root := &cobra.Command{
-		Use:     "twister",
-		Short:   "Tangled search service",
-		Version: fmt.Sprintf("%s (%s)", version, commit),
+		Use:           "twister",
+		Short:         "Tangled search service",
+		Version:       fmt.Sprintf("%s (%s)", version, commit),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	root.AddCommand(
 		newAPICmd(),
 		newIndexerCmd(),
+		newBackfillCmd(),
 		newEmbedWorkerCmd(),
 		newReindexCmd(),
 		newReembedCmd(),
@@ -39,6 +44,7 @@ func main() {
 	)
 
 	if err := root.Execute(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
 }
@@ -136,6 +142,69 @@ func newEmbedWorkerCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newBackfillCmd() *cobra.Command {
+	var opts backfill.Options
+
+	cmd := &cobra.Command{
+		Use:   "backfill",
+		Short: "Discover users from seeds and register repos for Tap backfill",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return fmt.Errorf("config: %w", err)
+			}
+			log := observability.NewLogger(cfg)
+			log.Info("starting backfill", slog.String("service", "backfill"), slog.String("version", version))
+
+			if cfg.TapURL == "" {
+				return fmt.Errorf("TAP_URL is required for backfill")
+			}
+
+			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer db.Close()
+
+			if err := store.Migrate(db); err != nil {
+				return fmt.Errorf("migrate database: %w", err)
+			}
+
+			tapAdmin, err := backfill.NewHTTPTapAdmin(cfg.TapURL, cfg.TapAuthPassword)
+			if err != nil {
+				return fmt.Errorf("tap admin client: %w", err)
+			}
+
+			runner := backfill.NewRunner(
+				store.New(db),
+				tapAdmin,
+				backfill.NewHTTPHandleResolver(""),
+				log,
+			)
+
+			ctx, cancel := baseContext()
+			defer cancel()
+
+			if err := runner.Run(ctx, opts); err != nil {
+				return fmt.Errorf("run backfill: %w", err)
+			}
+
+			log.Info("shutting down backfill")
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&opts.SeedsPath, "seeds", "", "Seed source: file path or comma-separated DIDs/handles (required)")
+	cmd.Flags().IntVar(&opts.MaxHops, "max-hops", 2, "Max fan-out depth from seeds")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Print discovery plan without mutating Tap")
+	cmd.Flags().IntVar(&opts.Concurrency, "concurrency", 5, "Parallel discovery workers")
+	cmd.Flags().IntVar(&opts.BatchSize, "batch-size", 10, "DIDs per /repos/add request")
+	cmd.Flags().DurationVar(&opts.BatchDelay, "batch-delay", time.Second, "Delay between Tap /repos/add batches")
+	_ = cmd.MarkFlagRequired("seeds")
+
+	return cmd
 }
 
 func newReindexCmd() *cobra.Command {

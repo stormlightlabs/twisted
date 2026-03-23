@@ -87,6 +87,18 @@ func (f *fakeStore) EnqueueEmbeddingJob(_ context.Context, documentID string) er
 	return nil
 }
 
+func (f *fakeStore) GetFollowSubjects(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
+func (f *fakeStore) GetRepoCollaborators(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
+func (f *fakeStore) CountDocuments(_ context.Context) (int64, error) {
+	return int64(len(f.docs)), nil
+}
+
 func newRunnerForTest(st *fakeStore, tap *fakeTapClient, indexedCollections string) *Runner {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return NewRunner(st, normalize.NewRegistry(), tap, indexedCollections, logger)

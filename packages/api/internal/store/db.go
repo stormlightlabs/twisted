@@ -15,6 +15,8 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+var extensionMigrationNoticeLogged bool
+
 // Open establishes a connection to the database.
 // For remote Turso URLs (libsql:// or https://) it uses the libsql-client-go driver.
 // For local file: URLs it uses the pure-Go SQLite driver (no CGo required).
@@ -73,8 +75,13 @@ func execMigration(db *sql.DB, name, content string) error {
 		if _, err := db.Exec(stmt); err != nil {
 			upper := strings.ToUpper(stmt)
 			if strings.Contains(upper, "USING FTS") || strings.Contains(upper, "LIBSQL_VECTOR_IDX") {
-				slog.Warn("migration: skipping extension index (not supported in this environment)",
-					"migration", name, "err", err)
+				if !extensionMigrationNoticeLogged {
+					extensionMigrationNoticeLogged = true
+					slog.Info("migration: skipping Turso extension indexes in this environment",
+						"migration", name,
+						"reason", "database engine does not support Turso-specific FTS/vector DDL",
+					)
+				}
 				continue
 			}
 			return fmt.Errorf("migration %s: exec failed: %w\nstatement: %s", name, err, stmt)

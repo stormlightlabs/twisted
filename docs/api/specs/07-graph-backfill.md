@@ -96,7 +96,7 @@ twister backfill --seeds seeds.txt --concurrency 5
 
 | Flag            | Default  | Description                                     |
 | --------------- | -------- | ----------------------------------------------- |
-| `--seeds`       | required | Path to seed file                               |
+| `--seeds`       | required | Seed source: file path or comma-separated list  |
 | `--max-hops`    | `2`      | Max fan-out depth from seed users               |
 | `--dry-run`     | `false`  | List discovered users without submitting to Tap |
 | `--concurrency` | `5`      | Parallel discovery workers                      |

@@ -51,4 +51,7 @@ type Store interface {
 	UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error
 	GetIdentityHandle(ctx context.Context, did string) (string, error)
 	EnqueueEmbeddingJob(ctx context.Context, documentID string) error
+	GetFollowSubjects(ctx context.Context, did string) ([]string, error)
+	GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error)
+	CountDocuments(ctx context.Context) (int64, error)
 }

@@ -178,6 +178,79 @@ func (s *SQLStore) EnqueueEmbeddingJob(ctx context.Context, documentID string) e
 	return nil
 }
 
+func (s *SQLStore) GetFollowSubjects(ctx context.Context, did string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT DISTINCT repo_did
+		FROM documents
+		WHERE did = ?
+		  AND collection = 'sh.tangled.graph.follow'
+		  AND deleted_at IS NULL
+		  AND repo_did IS NOT NULL
+		  AND repo_did != ''`,
+		did,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get follow subjects: %w", err)
+	}
+	defer rows.Close()
+
+	var subjects []string
+	for rows.Next() {
+		var subject string
+		if err := rows.Scan(&subject); err != nil {
+			return nil, fmt.Errorf("scan follow subject: %w", err)
+		}
+		subjects = append(subjects, subject)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate follow subjects: %w", err)
+	}
+	return subjects, nil
+}
+
+func (s *SQLStore) GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT DISTINCT did
+		FROM documents
+		WHERE repo_did = ?
+		  AND did != ?
+		  AND deleted_at IS NULL
+		  AND collection IN (
+			'sh.tangled.repo.issue',
+			'sh.tangled.repo.pull',
+			'sh.tangled.repo.issue.comment',
+			'sh.tangled.repo.pull.comment'
+		  )`,
+		repoOwnerDID, repoOwnerDID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get repo collaborators: %w", err)
+	}
+	defer rows.Close()
+
+	var collaborators []string
+	for rows.Next() {
+		var collaborator string
+		if err := rows.Scan(&collaborator); err != nil {
+			return nil, fmt.Errorf("scan collaborator: %w", err)
+		}
+		collaborators = append(collaborators, collaborator)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate collaborators: %w", err)
+	}
+	return collaborators, nil
+}
+
+func (s *SQLStore) CountDocuments(ctx context.Context) (int64, error) {
+	var n int64
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL`).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count documents: %w", err)
+	}
+	return n, nil
+}
+
 func scanDocument(row *sql.Row) (*Document, error) {
 	doc := &Document{}
 	var (
