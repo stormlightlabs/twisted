@@ -3,6 +3,7 @@ http://ionicframework.com/docs/theming/ */
 
 /* Twisted design tokens — light */
 :root {
+  color-scheme: light;
   --t-accent: #0ea5e9;
   --t-accent-dim: rgba(14, 165, 233, 0.1);
   --t-amber: #d97706;
@@ -29,26 +30,24 @@ http://ionicframework.com/docs/theming/ */
   --t-radius-lg: 14px;
 }
 
-/* Twisted design tokens — dark */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --t-accent: #22d3ee;
-    --t-accent-dim: rgba(34, 211, 238, 0.08);
-    --t-amber: #fbbf24;
-    --t-amber-dim: rgba(251, 191, 36, 0.1);
-    --t-green: #34d399;
-    --t-green-dim: rgba(52, 211, 153, 0.1);
-    --t-red: #f87171;
-    --t-red-dim: rgba(248, 113, 113, 0.1);
-    --t-purple: #a78bfa;
+:root.ion-palette-dark {
+  color-scheme: dark;
+  --t-accent: #22d3ee;
+  --t-accent-dim: rgba(34, 211, 238, 0.08);
+  --t-amber: #fbbf24;
+  --t-amber-dim: rgba(251, 191, 36, 0.1);
+  --t-green: #34d399;
+  --t-green-dim: rgba(52, 211, 153, 0.1);
+  --t-red: #f87171;
+  --t-red-dim: rgba(248, 113, 113, 0.1);
+  --t-purple: #a78bfa;
 
-    --t-surface: #161b22;
-    --t-surface-raised: #1c2128;
-    --t-border: rgba(255, 255, 255, 0.07);
-    --t-border-strong: rgba(255, 255, 255, 0.12);
+  --t-surface: #161b22;
+  --t-surface-raised: #1c2128;
+  --t-border: rgba(255, 255, 255, 0.07);
+  --t-border-strong: rgba(255, 255, 255, 0.12);
 
-    --t-text-primary: #e6edf3;
-    --t-text-secondary: #8b949e;
-    --t-text-muted: #484f58;
-  }
+  --t-text-primary: #e6edf3;
+  --t-text-secondary: #8b949e;
+  --t-text-muted: #484f58;
 }

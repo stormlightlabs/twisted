@@ -44,6 +44,8 @@ const routes: RouteRecordRaw[] = [
       },
       { path: "activity/user/:handle", component: () => import("@/features/profile/UserProfilePage.vue") },
       { path: "profile", component: () => import("@/features/profile/ProfilePage.vue") },
+      { path: "profile/settings", redirect: "/tabs/settings" },
+      { path: "settings", component: () => import("@/features/profile/SettingsPage.vue") },
     ],
   },
 ];

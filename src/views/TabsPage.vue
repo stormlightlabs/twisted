@@ -19,12 +19,16 @@
           <ion-icon :icon="personOutline" />
           <ion-label>Profile</ion-label>
         </ion-tab-button>
+        <ion-tab-button tab="settings" href="/tabs/settings">
+          <ion-icon :icon="settingsOutline" />
+          <ion-label>Settings</ion-label>
+        </ion-tab-button>
       </ion-tab-bar>
     </ion-tabs>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonPage, IonTabs, IonRouterOutlet, IonTabBar, IonTabButton, IonIcon, IonLabel } from "@ionic/vue";
-import { homeOutline, searchOutline, pulseOutline, personOutline } from "ionicons/icons";
+  import { IonPage, IonTabs, IonRouterOutlet, IonTabBar, IonTabButton, IonIcon, IonLabel } from "@ionic/vue";
+  import { homeOutline, searchOutline, pulseOutline, personOutline, settingsOutline } from "ionicons/icons";
 </script>

@@ -5,10 +5,7 @@ let promise: Promise<Highlighter> | null = null;
 
 export function getHighlighter(): Promise<Highlighter> {
   if (!promise) {
-    promise = createHighlighter({
-      themes: ["github-light", "github-dark"],
-      langs: [],
-    });
+    promise = createHighlighter({ themes: ["github-light", "github-dark"], langs: [] });
   }
   return promise;
 }
@@ -107,8 +104,7 @@ export async function highlightCode(code: string, filename: string): Promise<str
     }
   }
 
-  return sanitizeRichHtml(hl.codeToHtml(code, {
-    lang,
-    themes: { light: "github-light", dark: "github-dark" },
-  }));
+  return sanitizeRichHtml(
+    hl.codeToHtml(code, { lang, themes: { light: "catppuccin-latte", dark: "catppuccin-mocha" } }),
+  );
 }
