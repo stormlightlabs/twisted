@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildKnotUrl } from "@/services/tangled/endpoints.js";
-import { buildIssueCommentThread, normalizeRepoRecord, normalizeTree } from "@/services/tangled/normalizers.js";
+import { buildIssueCommentThread, normalizeLogText, normalizeRepoRecord, normalizeTree } from "@/services/tangled/normalizers.js";
 import { getAtUriRkey, parseAtUri } from "@/services/tangled/uris.js";
 import type { IssueComment } from "@/domain/models/comment.js";
 
@@ -68,6 +68,54 @@ describe("AT URI helpers", () => {
       ["README.md", "file"],
       ["vendor/lib", "submodule"],
     ]);
+  });
+
+  it("parses wrapped commit arrays from repo log payloads", () => {
+    const commits = normalizeLogText(
+      JSON.stringify({
+        commits: [
+          {
+            hash: "60074765a75ecb6a763dcf82252ef4365187af21",
+            shortHash: "6007476",
+            message: "feat: persist sidebar state between reloads",
+            when: "2026-03-21T14:59:03Z",
+            author: { name: "Owais Jamil", email: "desertthunder.dev@gmail.com" },
+          },
+        ],
+      }),
+    );
+
+    expect(commits).toEqual([
+      {
+        hash: "60074765a75ecb6a763dcf82252ef4365187af21",
+        shortHash: "6007476",
+        message: "feat: persist sidebar state between reloads",
+        when: "2026-03-21T14:59:03Z",
+        authorName: "Owais Jamil",
+        authorEmail: "desertthunder.dev@gmail.com",
+      },
+    ]);
+  });
+
+  it("hex-encodes byte-array commit hashes", () => {
+    const commits = normalizeLogText(
+      JSON.stringify({
+        commits: [
+          {
+            hash: [219, 149, 244, 86, 116, 134, 146, 69, 98, 104, 59, 177, 138, 231, 236, 43, 189, 85, 234, 95],
+            message: "docs: update site",
+            when: "2026-03-21T15:08:58Z",
+          },
+        ],
+      }),
+    );
+
+    expect(commits[0]).toMatchObject({
+      hash: "db95f4567486924562683bb18ae7ec2bbd55ea5f",
+      shortHash: "db95f45",
+      message: "docs: update site",
+      when: "2026-03-21T15:08:58Z",
+    });
   });
 });
 

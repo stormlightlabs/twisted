@@ -29,6 +29,7 @@ import {
   fetchRepoDiff,
   fetchRepoCompare,
   fetchActorProfile,
+  fetchBlueskyProfile,
   fetchRepoRecordByName,
   fetchIssueRecord,
   fetchPullRecord,
@@ -76,6 +77,20 @@ function hasText(value: MaybeRef<string | undefined>): boolean {
 
 function isEnabled(required: boolean, enabled?: MaybeRef<boolean>): boolean {
   return required && (enabled === undefined || !!toValue(enabled));
+}
+
+async function resolveBlueskyProfile(
+  record: Awaited<ReturnType<typeof fetchActorProfile>>["value"],
+  did: string,
+): Promise<{ displayName?: string; avatar?: string }> {
+  if (!record.bluesky) return {};
+
+  try {
+    const profile = await fetchBlueskyProfile(did);
+    return { displayName: profile.displayName, avatar: profile.avatar };
+  } catch {
+    return {};
+  }
 }
 
 /** Resolved identity: DID + PDS hostname for an AT Protocol handle. */
@@ -305,7 +320,14 @@ export function useActorProfile(
     queryKey: computed(() => ["actorProfile", normalizedPds.value, normalizedDid.value]),
     queryFn: async () => {
       const { value } = await fetchActorProfile(normalizedPds.value, normalizedDid.value);
-      return normalizeActorProfile(value, toValue(did), toValue(handle), toValue(displayName));
+      const bluesky = await resolveBlueskyProfile(value, normalizedDid.value);
+      return normalizeActorProfile(
+        value,
+        toValue(did),
+        toValue(handle),
+        bluesky.displayName ?? toValue(displayName),
+        bluesky.avatar,
+      );
     },
     enabled: computed(() => isEnabled(hasText(normalizedPds) && hasText(normalizedDid), options.enabled)),
     staleTime: 10 * MIN,
@@ -483,8 +505,9 @@ export function useUserFollowing(
 
           try {
             const { value } = await fetchActorProfile(subject.pds, subject.did);
+            const bluesky = await resolveBlueskyProfile(value, subject.did);
             return {
-              ...normalizeActorProfile(value, subject.did, subject.handle),
+              ...normalizeActorProfile(value, subject.did, subject.handle, bluesky.displayName, bluesky.avatar),
               followAtUri: follow.atUri,
               followedAt: follow.createdAt,
             };

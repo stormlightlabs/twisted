@@ -102,12 +102,20 @@ export function normalizeLogText(raw: string): CommitEntry[] {
 
   if (text.startsWith("{")) {
     try {
-      return text
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => normalizeCommitObject(JSON.parse(line) as Record<string, unknown>));
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      const commits = getCommitObjects(parsed);
+      if (commits.length) {
+        return commits.map((item) => normalizeCommitObject(item));
+      }
     } catch {
-      console.warn("Failed to parse log as newline-delimited JSON, falling back to other formats");
+      try {
+        return text
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => normalizeCommitObject(JSON.parse(line) as Record<string, unknown>));
+      } catch {
+        console.warn("Failed to parse log as JSON, falling back to other formats");
+      }
     }
   }
 
@@ -117,10 +125,29 @@ export function normalizeLogText(raw: string): CommitEntry[] {
     .map((line) => ({ hash: "", message: line, when: "" }));
 }
 
+function getCommitObjects(obj: Record<string, unknown>): Array<Record<string, unknown>> {
+  const collections = [obj.commits, obj.log, obj.entries];
+
+  for (const value of collections) {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null);
+    }
+  }
+
+  if ("hash" in obj || "sha" in obj || "id" in obj || "message" in obj || "subject" in obj) {
+    return [obj];
+  }
+
+  return [];
+}
+
 function normalizeCommitObject(obj: Record<string, unknown>): CommitEntry {
+  const hash = normalizeCommitHash(obj.hash ?? obj.sha ?? obj.id) ?? "";
+  const shortHash = normalizeCommitHash(obj.shortHash) || (hash ? hash.slice(0, 7) : undefined);
+
   return {
-    hash: String(obj.hash ?? obj.sha ?? obj.id ?? ""),
-    shortHash: obj.shortHash != null ? String(obj.shortHash) : undefined,
+    hash,
+    shortHash,
     message: String(obj.message ?? obj.subject ?? ""),
     when: String(obj.when ?? obj.date ?? obj.timestamp ?? ""),
     authorName: obj.author
@@ -134,6 +161,21 @@ function normalizeCommitObject(obj: Record<string, unknown>): CommitEntry {
         ? obj.authorEmail
         : undefined,
   };
+}
+
+function normalizeCommitHash(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string") return value || undefined;
+
+  if (value instanceof Uint8Array) {
+    return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  if (Array.isArray(value) && value.every((entry) => Number.isInteger(entry) && entry >= 0 && entry <= 255)) {
+    return value.map((byte) => Number(byte).toString(16).padStart(2, "0")).join("");
+  }
+
+  return String(value) || undefined;
 }
 
 export type BranchEntry = { name: string; isDefault?: boolean };
@@ -374,15 +416,19 @@ export function normalizeActorProfile(
   did: string,
   handle: string,
   displayName?: string,
+  avatar?: string,
 ): UserSummary & { location?: string; pronouns?: string; links?: string[]; pinnedRepos?: string[] } {
+  const links = record.links?.map((link) => link.trim()).filter(Boolean);
+
   return {
     did,
     handle,
     displayName,
+    avatar,
     bio: record.description,
     location: record.location,
     pronouns: record.pronouns,
-    links: record.links,
+    links,
     pinnedRepos: record.pinnedRepositories,
   };
 }

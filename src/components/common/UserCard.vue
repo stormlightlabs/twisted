@@ -3,7 +3,8 @@
     <ion-card-content class="card-body">
       <div class="user-row">
         <ion-avatar class="avatar">
-          <div class="avatar-fallback" :style="{ background: avatarColor(user.handle) }">
+          <img v-if="user.avatar" :src="user.avatar" :alt="`${user.handle} avatar`" class="avatar-image" />
+          <div v-else class="avatar-fallback" :style="{ background: avatarColor(user.handle) }">
             {{ initials(user.handle) }}
           </div>
         </ion-avatar>
@@ -77,6 +78,13 @@ function formatCount(n: number): string {
   flex-shrink: 0;
   border-radius: var(--t-radius-sm);
   overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .avatar-fallback {

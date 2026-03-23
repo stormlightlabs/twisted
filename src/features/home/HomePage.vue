@@ -15,7 +15,7 @@
 
       <section class="hero">
         <p class="eyebrow">Profile Browser</p>
-        <h1 class="hero-title">Jump straight to a Tangled profile or browse that handle's repos.</h1>
+        <h1 class="hero-title">Jump straight to a Tangled profile or repo.</h1>
         <p class="hero-copy">
           Enter an AT Protocol handle, then open the profile directly or resolve the user's Personal Data Server and
           browse their public repositories here.

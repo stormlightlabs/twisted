@@ -24,7 +24,8 @@
       <template v-else>
         <div class="profile-header">
           <ion-avatar class="avatar">
-            <div class="avatar-fallback" :style="{ background: avatarColor(handle) }">
+            <img v-if="profile?.avatar" :src="profile.avatar" :alt="`${handle} avatar`" class="avatar-image" />
+            <div v-else class="avatar-fallback" :style="{ background: avatarColor(handle) }">
               {{ initials(handle) }}
             </div>
           </ion-avatar>
@@ -258,11 +259,7 @@ function navigateToPullRequest(pullRequest: PullRequestSummary) {
 }
 
 function displayLink(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
-  }
+  return url.trim().replace(/^[a-z]+:\/\//i, "");
 }
 
 const PALETTE = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f87171", "#fb923c", "#60a5fa"];
@@ -301,6 +298,13 @@ function initials(h: string): string {
   flex-shrink: 0;
   border-radius: var(--t-radius-md);
   overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .avatar-fallback {

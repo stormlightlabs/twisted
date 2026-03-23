@@ -41,6 +41,7 @@ import { throwOnXrpcError } from "@/services/atproto/client.js";
 import { MalformedResponseError, NotFoundError } from "@/core/errors/tangled.js";
 
 type KnotParams = Record<string, string | number | boolean | undefined | Array<string | number | boolean>>;
+type BlueskyProfileResponse = { did: string; handle: string; displayName?: string; avatar?: string };
 
 function encodeKnotQueryParam(key: string, value: string | number | boolean): string {
   const encodedValue = encodeURIComponent(String(value));
@@ -191,6 +192,19 @@ export async function fetchActorProfile(
   did: string,
 ): Promise<GetRecordResponse<ShTangledActorProfile.Main>> {
   return getRecord<ShTangledActorProfile.Main>(pds, did, "sh.tangled.actor.profile", "self");
+}
+
+export async function fetchBlueskyProfile(actor: string): Promise<BlueskyProfileResponse> {
+  const url = new URL("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile");
+  url.searchParams.set("actor", actor);
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
+  }
+
+  return res.json() as Promise<BlueskyProfileResponse>;
 }
 
 /**
