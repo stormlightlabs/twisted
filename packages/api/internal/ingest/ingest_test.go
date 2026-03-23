@@ -1,0 +1,254 @@
+package ingest
+
+import (
+	"context"
+	"io"
+	"log/slog"
+	"testing"
+
+	"tangled.org/desertthunder.dev/twister/internal/normalize"
+	"tangled.org/desertthunder.dev/twister/internal/store"
+)
+
+type fakeTapClient struct {
+	acked []int64
+}
+
+func (f *fakeTapClient) ReadEvent(_ context.Context) (normalize.TapRecordEvent, error) {
+	return normalize.TapRecordEvent{}, io.EOF
+}
+
+func (f *fakeTapClient) AckEvent(_ context.Context, id int64) error {
+	f.acked = append(f.acked, id)
+	return nil
+}
+
+func (f *fakeTapClient) Close() error { return nil }
+
+type fakeStore struct {
+	docs         map[string]*store.Document
+	deleted      map[string]bool
+	syncCursor   string
+	recordStates map[string]string
+	handles      map[string]string
+	enqueued     map[string]bool
+}
+
+func newFakeStore() *fakeStore {
+	return &fakeStore{
+		docs:         make(map[string]*store.Document),
+		deleted:      make(map[string]bool),
+		recordStates: make(map[string]string),
+		handles:      make(map[string]string),
+		enqueued:     make(map[string]bool),
+	}
+}
+
+func (f *fakeStore) UpsertDocument(_ context.Context, doc *store.Document) error {
+	clone := *doc
+	f.docs[doc.ID] = &clone
+	return nil
+}
+
+func (f *fakeStore) GetDocument(_ context.Context, id string) (*store.Document, error) {
+	return f.docs[id], nil
+}
+
+func (f *fakeStore) MarkDeleted(_ context.Context, id string) error {
+	f.deleted[id] = true
+	return nil
+}
+
+func (f *fakeStore) GetSyncState(_ context.Context, _ string) (*store.SyncState, error) {
+	return nil, nil
+}
+
+func (f *fakeStore) SetSyncState(_ context.Context, _ string, cursor string) error {
+	f.syncCursor = cursor
+	return nil
+}
+
+func (f *fakeStore) UpdateRecordState(_ context.Context, subjectURI string, state string) error {
+	f.recordStates[subjectURI] = state
+	return nil
+}
+
+func (f *fakeStore) UpsertIdentityHandle(_ context.Context, did, handle string, _ bool, _ string) error {
+	f.handles[did] = handle
+	return nil
+}
+
+func (f *fakeStore) GetIdentityHandle(_ context.Context, did string) (string, error) {
+	return f.handles[did], nil
+}
+
+func (f *fakeStore) EnqueueEmbeddingJob(_ context.Context, documentID string) error {
+	f.enqueued[documentID] = true
+	return nil
+}
+
+func newRunnerForTest(st *fakeStore, tap *fakeTapClient, indexedCollections string) *Runner {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return NewRunner(st, normalize.NewRegistry(), tap, indexedCollections, logger)
+}
+
+func TestRunner_ProcessIdentityEvent(t *testing.T) {
+	st := newFakeStore()
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	event := normalize.TapRecordEvent{
+		ID:   101,
+		Type: "identity",
+		Identity: &normalize.TapIdentity{
+			DID:      "did:plc:abc",
+			Handle:   "alice.tangled.org",
+			IsActive: true,
+			Status:   "active",
+		},
+	}
+
+	if err := r.processEvent(context.Background(), event); err != nil {
+		t.Fatalf("process identity event: %v", err)
+	}
+	if got := st.handles["did:plc:abc"]; got != "alice.tangled.org" {
+		t.Fatalf("handle: got %q", got)
+	}
+	if st.syncCursor != "101" {
+		t.Fatalf("cursor: got %q, want 101", st.syncCursor)
+	}
+	if len(tap.acked) != 1 || tap.acked[0] != 101 {
+		t.Fatalf("acks: got %#v", tap.acked)
+	}
+}
+
+func TestRunner_ProcessCreateAndDelete(t *testing.T) {
+	st := newFakeStore()
+	st.handles["did:plc:author"] = "author.tangled.org"
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	createEvent := normalize.TapRecordEvent{
+		ID:   201,
+		Type: "record",
+		Record: &normalize.TapRecord{
+			DID:        "did:plc:author",
+			Collection: "sh.tangled.repo",
+			RKey:       "repo1",
+			Action:     "create",
+			CID:        "cid-1",
+			Record: map[string]any{
+				"name":        "repo-one",
+				"description": "test repo",
+			},
+		},
+	}
+	if err := r.processEvent(context.Background(), createEvent); err != nil {
+		t.Fatalf("process create event: %v", err)
+	}
+
+	docID := normalize.StableID("did:plc:author", "sh.tangled.repo", "repo1")
+	doc := st.docs[docID]
+	if doc == nil {
+		t.Fatalf("document %q not found", docID)
+	}
+	if doc.AuthorHandle != "author.tangled.org" {
+		t.Fatalf("author handle: got %q", doc.AuthorHandle)
+	}
+	if !st.enqueued[docID] {
+		t.Fatalf("embedding job not enqueued for %q", docID)
+	}
+
+	deleteEvent := normalize.TapRecordEvent{
+		ID:   202,
+		Type: "record",
+		Record: &normalize.TapRecord{
+			DID:        "did:plc:author",
+			Collection: "sh.tangled.repo",
+			RKey:       "repo1",
+			Action:     "delete",
+		},
+	}
+	if err := r.processEvent(context.Background(), deleteEvent); err != nil {
+		t.Fatalf("process delete event: %v", err)
+	}
+	if !st.deleted[docID] {
+		t.Fatalf("expected tombstone for %q", docID)
+	}
+	if st.syncCursor != "202" {
+		t.Fatalf("cursor: got %q, want 202", st.syncCursor)
+	}
+}
+
+func TestRunner_ProcessStateEvent(t *testing.T) {
+	st := newFakeStore()
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	event := normalize.TapRecordEvent{
+		ID:   301,
+		Type: "record",
+		Record: &normalize.TapRecord{
+			DID:        "did:plc:abc",
+			Collection: "sh.tangled.repo.issue.state",
+			RKey:       "state1",
+			Action:     "create",
+			Record: map[string]any{
+				"subject": "at://did:plc:abc/sh.tangled.repo.issue/1",
+				"status":  "closed",
+			},
+		},
+	}
+
+	if err := r.processEvent(context.Background(), event); err != nil {
+		t.Fatalf("process state event: %v", err)
+	}
+	if got := st.recordStates["at://did:plc:abc/sh.tangled.repo.issue/1"]; got != "closed" {
+		t.Fatalf("record state: got %q", got)
+	}
+}
+
+func TestRunner_NormalizationFailureAdvancesCursor(t *testing.T) {
+	st := newFakeStore()
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	event := normalize.TapRecordEvent{
+		ID:   401,
+		Type: "record",
+		Record: &normalize.TapRecord{
+			DID:        "did:plc:abc",
+			Collection: "sh.tangled.repo.issue",
+			RKey:       "bad-issue",
+			Action:     "create",
+			CID:        "cid-bad",
+			Record: map[string]any{
+				"title": "bad issue",
+				"repo":  "not-an-at-uri",
+			},
+		},
+	}
+
+	if err := r.processEvent(context.Background(), event); err != nil {
+		t.Fatalf("process malformed issue event: %v", err)
+	}
+	if st.syncCursor != "401" {
+		t.Fatalf("cursor: got %q, want 401", st.syncCursor)
+	}
+	if len(st.docs) != 0 {
+		t.Fatalf("expected no documents, got %d", len(st.docs))
+	}
+}
+
+func TestAllowlistMatching(t *testing.T) {
+	a := parseAllowlist("sh.tangled.repo, sh.tangled.string sh.tangled.actor.*")
+	if !a.match("sh.tangled.repo") {
+		t.Fatal("expected exact match")
+	}
+	if !a.match("sh.tangled.actor.profile") {
+		t.Fatal("expected wildcard prefix match")
+	}
+	if a.match("app.bsky.feed.post") {
+		t.Fatal("unexpected match")
+	}
+}

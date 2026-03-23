@@ -51,7 +51,7 @@ Connect the indexer to Tap (on Railway) and process live events into the store.
 
 ### Tasks
 
-- [ ] Define Tap event DTOs matching the documented event shape:
+- [x] Define Tap event DTOs matching the documented event shape:
 
   ```go
   type TapEvent struct {
@@ -78,12 +78,12 @@ Connect the indexer to Tap (on Railway) and process live events into the store.
   }
   ```
 
-- [ ] Implement WebSocket client:
+- [x] Implement WebSocket client:
   - Connect to `TAP_URL` (e.g., `wss://tap.railway.internal/channel`)
   - HTTP Basic auth with `admin:TAP_AUTH_PASSWORD`
   - Auto-reconnect with exponential backoff
   - Ack protocol: send event `id` back after successful processing
-- [ ] Implement ingestion loop:
+- [x] Implement ingestion loop:
   1. Receive event from WebSocket
   2. If `type == "identity"` → update handle cache, ack, continue
   3. If `type == "record"` → check collection allowlist
@@ -91,13 +91,13 @@ Connect the indexer to Tap (on Railway) and process live events into the store.
   5. Decode `record.record` via adapter registry
   6. Normalize to `Document`
   7. Upsert to store
-  8. Schedule embedding job if eligible (Phase 2)
+  8. Schedule embedding job if eligible ([Phase 2](phase-2-semantic.md))
   9. Persist cursor (event ID) after successful DB commit
   10. Ack the event
-- [ ] Implement collection allowlist from `INDEXED_COLLECTIONS` config
-- [ ] Handle state events (`sh.tangled.repo.issue.state`, `sh.tangled.repo.pull.status`) → update `record_state`
-- [ ] Handle normalization failures: log, skip, advance cursor
-- [ ] Handle DB failures: retry with backoff, do not advance cursor
+- [x] Implement collection allowlist from `INDEXED_COLLECTIONS` config
+- [x] Handle state events (`sh.tangled.repo.issue.state`, `sh.tangled.repo.pull.status`) → update `record_state`
+- [x] Handle normalization failures: log, skip, advance cursor
+- [x] Handle DB failures: retry with backoff, do not advance cursor
 
 ### Verification
 

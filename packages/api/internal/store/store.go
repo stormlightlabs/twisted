@@ -48,4 +48,7 @@ type Store interface {
 	GetSyncState(ctx context.Context, consumer string) (*SyncState, error)
 	SetSyncState(ctx context.Context, consumer string, cursor string) error
 	UpdateRecordState(ctx context.Context, subjectURI string, state string) error
+	UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error
+	GetIdentityHandle(ctx context.Context, did string) (string, error)
+	EnqueueEmbeddingJob(ctx context.Context, documentID string) error
 }

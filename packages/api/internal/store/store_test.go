@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -154,6 +155,85 @@ func TestIntegration(t *testing.T) {
 		}
 		if err := st.UpdateRecordState(ctx, uri, "closed"); err != nil {
 			t.Fatalf("update record state to closed: %v", err)
+		}
+	})
+
+	t.Run("identity handle upsert and get", func(t *testing.T) {
+		const did = "did:plc:identity1"
+
+		handle, err := st.GetIdentityHandle(ctx, did)
+		if err != nil {
+			t.Fatalf("get missing identity handle: %v", err)
+		}
+		if handle != "" {
+			t.Fatalf("expected empty missing handle, got %q", handle)
+		}
+
+		if err := st.UpsertIdentityHandle(ctx, did, "alice.tangled.org", true, "active"); err != nil {
+			t.Fatalf("upsert identity handle: %v", err)
+		}
+
+		handle, err = st.GetIdentityHandle(ctx, did)
+		if err != nil {
+			t.Fatalf("get identity handle: %v", err)
+		}
+		if handle != "alice.tangled.org" {
+			t.Fatalf("handle: got %q, want %q", handle, "alice.tangled.org")
+		}
+
+		if err := st.UpsertIdentityHandle(ctx, did, "alice2.tangled.org", false, "inactive"); err != nil {
+			t.Fatalf("update identity handle: %v", err)
+		}
+
+		handle, err = st.GetIdentityHandle(ctx, did)
+		if err != nil {
+			t.Fatalf("get identity handle after update: %v", err)
+		}
+		if handle != "alice2.tangled.org" {
+			t.Fatalf("handle after update: got %q, want %q", handle, "alice2.tangled.org")
+		}
+	})
+
+	t.Run("enqueue embedding job is idempotent", func(t *testing.T) {
+		doc := &store.Document{
+			ID:         "did:plc:embed|sh.tangled.string|abc",
+			DID:        "did:plc:embed",
+			Collection: "sh.tangled.string",
+			RKey:       "abc",
+			ATURI:      "at://did:plc:embed/sh.tangled.string/abc",
+			CID:        "bafyreienqueue",
+			RecordType: "string",
+			Title:      "foo.go",
+			Body:       "package main",
+		}
+		if err := st.UpsertDocument(ctx, doc); err != nil {
+			t.Fatalf("upsert doc for embedding queue: %v", err)
+		}
+
+		if err := st.EnqueueEmbeddingJob(ctx, doc.ID); err != nil {
+			t.Fatalf("enqueue embedding job: %v", err)
+		}
+		if err := st.EnqueueEmbeddingJob(ctx, doc.ID); err != nil {
+			t.Fatalf("enqueue embedding job second call: %v", err)
+		}
+
+		row := db.QueryRowContext(ctx, `SELECT status, attempts, last_error FROM embedding_jobs WHERE document_id = ?`, doc.ID)
+		var (
+			status    string
+			attempts  int
+			lastError sql.NullString
+		)
+		if err := row.Scan(&status, &attempts, &lastError); err != nil {
+			t.Fatalf("query embedding job: %v", err)
+		}
+		if status != "pending" {
+			t.Fatalf("status: got %q, want pending", status)
+		}
+		if attempts != 0 {
+			t.Fatalf("attempts: got %d, want 0", attempts)
+		}
+		if lastError.Valid {
+			t.Fatalf("last_error: got %q, want NULL", lastError.String)
 		}
 	})
 }

@@ -130,6 +130,54 @@ func (s *SQLStore) UpdateRecordState(ctx context.Context, subjectURI string, sta
 	return nil
 }
 
+func (s *SQLStore) UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO identity_handles (did, handle, is_active, status, updated_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(did) DO UPDATE SET
+			handle = excluded.handle,
+			is_active = excluded.is_active,
+			status = excluded.status,
+			updated_at = excluded.updated_at`,
+		did, handle, isActive, status, now,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert identity handle: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) GetIdentityHandle(ctx context.Context, did string) (string, error) {
+	var handle sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT handle FROM identity_handles WHERE did = ?`, did).Scan(&handle)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("get identity handle: %w", err)
+	}
+	return handle.String, nil
+}
+
+func (s *SQLStore) EnqueueEmbeddingJob(ctx context.Context, documentID string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO embedding_jobs (document_id, status, attempts, last_error, scheduled_at, updated_at)
+		VALUES (?, 'pending', 0, NULL, ?, ?)
+		ON CONFLICT(document_id) DO UPDATE SET
+			status = 'pending',
+			last_error = NULL,
+			scheduled_at = excluded.scheduled_at,
+			updated_at = excluded.updated_at`,
+		documentID, now, now,
+	)
+	if err != nil {
+		return fmt.Errorf("enqueue embedding job: %w", err)
+	}
+	return nil
+}
+
 func scanDocument(row *sql.Row) (*Document, error) {
 	doc := &Document{}
 	var (

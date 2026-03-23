@@ -10,7 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"tangled.org/desertthunder.dev/twister/internal/config"
+	"tangled.org/desertthunder.dev/twister/internal/ingest"
+	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/observability"
+	"tangled.org/desertthunder.dev/twister/internal/store"
+	"tangled.org/desertthunder.dev/twister/internal/tapclient"
 )
 
 var (
@@ -81,9 +85,33 @@ func newIndexerCmd() *cobra.Command {
 			}
 			log := observability.NewLogger(cfg)
 			log.Info("starting indexer", slog.String("service", "indexer"), slog.String("version", version))
+
+			if cfg.TapURL == "" {
+				return fmt.Errorf("TAP_URL is required for indexer")
+			}
+
+			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer db.Close()
+
+			if err := store.Migrate(db); err != nil {
+				return fmt.Errorf("migrate database: %w", err)
+			}
+
+			st := store.New(db)
+			registry := normalize.NewRegistry()
+			tap := tapclient.New(cfg.TapURL, cfg.TapAuthPassword, log)
+			runner := ingest.NewRunner(st, registry, tap, cfg.IndexedCollections, log)
+
 			ctx, cancel := baseContext()
 			defer cancel()
-			<-ctx.Done()
+
+			if err := runner.Run(ctx); err != nil {
+				return fmt.Errorf("run indexer: %w", err)
+			}
+
 			log.Info("shutting down indexer")
 			return nil
 		},
