@@ -38,7 +38,11 @@
 
       <!-- Content -->
       <template v-else>
-        <RepoOverview v-if="segment === 'overview'" :repo="repo" :commits="commits" />
+        <RepoOverview
+          v-if="segment === 'overview'"
+          :repo="repo"
+          :commits="commits"
+          :markdown-context="markdownContext" />
         <RepoFiles
           v-else-if="segment === 'files'"
           :knot-host="knotHost"
@@ -91,6 +95,7 @@ import {
   useRepoPRs,
 } from "@/services/tangled/queries.js";
 import type { RepoDetail } from "@/domain/models/repo.js";
+import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -136,6 +141,18 @@ const hasRecord = computed(() => !!recordQuery.data.value?.knot && !!did.value);
 const branchQuery = useDefaultBranch(knotHost, knotRepo, { enabled: hasRecord });
 const defaultBranch = computed(() => branchQuery.data.value?.name ?? "");
 const hasBranch = computed(() => !!branchQuery.data.value?.name);
+const markdownContext = computed<RepoAssetContext | undefined>(() => {
+  if (!knotHost.value || !knotRepo.value || !defaultBranch.value) return undefined;
+
+  return {
+    owner: owner.value,
+    repo: repoName.value,
+    branch: defaultBranch.value,
+    knotHost: knotHost.value,
+    knotRepo: knotRepo.value,
+    sourcePath: "README.md",
+  };
+});
 
 const languagesQuery = useRepoLanguages(knotHost, knotRepo, undefined, { enabled: hasBranch });
 const readmeQuery = useRepoBlob(knotHost, knotRepo, defaultBranch, "README.md", { readme: true, enabled: hasBranch });

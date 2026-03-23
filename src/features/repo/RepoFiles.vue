@@ -18,7 +18,15 @@
         title="Could not load file"
         :message="blobQuery.error.value instanceof Error ? blobQuery.error.value.message : 'Unknown error'" />
       <template v-else-if="blobQuery.data.value">
-        <div v-if="blobQuery.data.value.isBinary" class="binary-notice">
+        <div v-if="binaryPreviewUrl" class="image-preview-wrap">
+          <div class="file-meta">
+            <span class="file-size" v-if="blobQuery.data.value.size != null">
+              {{ formatSize(blobQuery.data.value.size) }}
+            </span>
+          </div>
+          <img :src="binaryPreviewUrl" :alt="selectedFile?.name ?? 'Repository image'" class="image-preview" />
+        </div>
+        <div v-else-if="blobQuery.data.value.isBinary" class="binary-notice">
           <ion-icon :icon="documentOutline" class="binary-icon" />
           Binary file — cannot display.
         </div>
@@ -28,7 +36,11 @@
               {{ formatSize(blobQuery.data.value.size) }}
             </span>
           </div>
-          <pre class="file-content"><code>{{ blobQuery.data.value.content }}</code></pre>
+          <div
+            v-if="highlightedHtml"
+            class="file-content shiki-wrap"
+            v-html="highlightedHtml" />
+          <pre v-else class="file-content"><code>{{ blobQuery.data.value.content }}</code></pre>
         </div>
       </template>
     </template>
@@ -55,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import { IonList, IonButton, IonIcon } from "@ionic/vue";
 import { folderOpenOutline, alertCircleOutline, arrowBackOutline, documentOutline } from "ionicons/icons";
 import FileTreeItem from "@/components/repo/FileTreeItem.vue";
@@ -63,6 +75,8 @@ import EmptyState from "@/components/common/EmptyState.vue";
 import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
 import { useRepoBlob, useRepoTree } from "@/services/tangled/queries.js";
 import type { RepoFile } from "@/domain/models/repo.js";
+import { highlightCode } from "@/lib/syntax.js";
+import { createObjectUrlFromBlobContent } from "@/services/tangled/repo-assets.js";
 
 const props = defineProps<{ knotHost: string; knotRepo: string; branch: string }>();
 
@@ -124,6 +138,39 @@ function goBack() {
   currentPath.value = segments.join("/");
 }
 
+const highlightedHtml = ref<string | null>(null);
+const binaryPreviewUrl = ref<string | null>(null);
+
+watch(
+  () => [blobQuery.data.value?.content, selectedFile.value?.name] as const,
+  async ([content, name]) => {
+    highlightedHtml.value = null;
+    if (!content || !name) return;
+    highlightedHtml.value = await highlightCode(content, name);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => blobQuery.data.value,
+  (blob) => {
+    if (binaryPreviewUrl.value) {
+      URL.revokeObjectURL(binaryPreviewUrl.value);
+      binaryPreviewUrl.value = null;
+    }
+
+    if (!blob) return;
+    binaryPreviewUrl.value = createObjectUrlFromBlobContent(blob);
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  if (binaryPreviewUrl.value) {
+    URL.revokeObjectURL(binaryPreviewUrl.value);
+  }
+});
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -167,6 +214,19 @@ function formatSize(bytes: number): string {
   overflow: auto;
 }
 
+.image-preview-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.image-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  background: var(--t-surface-raised);
+}
+
 .file-meta {
   padding: 6px 16px;
   border-bottom: 1px solid var(--t-border);
@@ -203,5 +263,33 @@ function formatSize(bytes: number): string {
 
 .binary-icon {
   font-size: 20px;
+}
+
+.shiki-wrap :deep(.shiki) {
+  margin: 0;
+  padding: 16px;
+  font-family: var(--t-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+  overflow-x: auto;
+  background: transparent !important;
+}
+
+.shiki-wrap :deep(.shiki code) {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent !important;
+}
+
+/* Dual-theme: light tokens visible by default, dark tokens on dark scheme */
+.shiki-wrap :deep(.shiki span) {
+  color: var(--shiki-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  .shiki-wrap :deep(.shiki span) {
+    color: var(--shiki-dark);
+  }
 }
 </style>

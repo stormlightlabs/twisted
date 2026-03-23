@@ -56,7 +56,7 @@
             <div class="section-head">
               <h2>Body</h2>
             </div>
-            <MarkdownRenderer v-if="pullRequest.body" :content="pullRequest.body" />
+            <MarkdownRenderer v-if="pullRequest.body" :content="pullRequest.body" :repo-context="markdownContext" />
             <EmptyState
               v-else
               :icon="documentTextOutline"
@@ -104,9 +104,11 @@ import CommentThread from "@/components/repo/CommentThread.vue";
 import {
   useIdentity,
   useRepoRecord,
+  useDefaultBranch,
   usePullRequestDetail,
   usePullRequestComments,
 } from "@/services/tangled/queries.js";
+import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
 
 const route = useRoute();
 const owner = computed(() => String(route.params.owner ?? ""));
@@ -119,7 +121,23 @@ const pds = computed(() => identity.data.value?.pds ?? "");
 const hasIdentity = computed(() => !!identity.data.value);
 
 const repoQuery = useRepoRecord(pds, did, repoName, owner, { enabled: hasIdentity });
+const knotHost = computed(() => repoQuery.data.value?.knot ?? "");
+const knotRepo = computed(() => (did.value && repoName.value ? `${did.value}/${repoName.value}` : ""));
+const branchQuery = useDefaultBranch(knotHost, knotRepo, {
+  enabled: computed(() => !!knotHost.value && !!knotRepo.value),
+});
 const repoAtUri = computed(() => repoQuery.data.value?.atUri ?? "");
+const markdownContext = computed<RepoAssetContext | undefined>(() => {
+  if (!knotHost.value || !knotRepo.value || !branchQuery.data.value?.name) return undefined;
+
+  return {
+    owner: owner.value,
+    repo: repoName.value,
+    branch: branchQuery.data.value.name,
+    knotHost: knotHost.value,
+    knotRepo: knotRepo.value,
+  };
+});
 
 const pullQuery = usePullRequestDetail(pds, did, owner, pullId, { enabled: hasIdentity });
 const pullAtUri = computed(() => pullQuery.data.value?.atUri ?? "");

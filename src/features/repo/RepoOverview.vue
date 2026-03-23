@@ -43,7 +43,7 @@
     <!-- README -->
     <div class="section">
       <h3 class="section-label">README</h3>
-      <MarkdownRenderer v-if="repo.readme" :content="repo.readme" />
+      <MarkdownRenderer v-if="repo.readme" :content="repo.readme" :repo-context="markdownContext" />
       <EmptyState v-else :icon="documentOutline" title="No README" message="This repo doesn't have a README yet." />
     </div>
 
@@ -69,8 +69,9 @@
   import EmptyState from "@/components/common/EmptyState.vue";
   import type { RepoDetail } from "@/domain/models/repo.js";
   import type { CommitEntry } from "@/services/tangled/queries.js";
+  import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
 
-  const props = defineProps<{ repo: RepoDetail; commits?: CommitEntry[] }>();
+  const props = defineProps<{ repo: RepoDetail; commits?: CommitEntry[]; markdownContext?: RepoAssetContext }>();
 
   function relativeTime(iso: string): string {
     const d = new Date(iso);

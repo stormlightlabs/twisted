@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildKnotUrl } from "@/services/tangled/endpoints.js";
 import { buildIssueCommentThread, normalizeLogText, normalizeRepoRecord, normalizeTree } from "@/services/tangled/normalizers.js";
+import { buildPublicRawUrl, resolveRepoRelativePath } from "@/services/tangled/repo-assets.js";
 import { getAtUriRkey, parseAtUri } from "@/services/tangled/uris.js";
 import type { IssueComment } from "@/domain/models/comment.js";
 
@@ -116,6 +117,26 @@ describe("AT URI helpers", () => {
       message: "docs: update site",
       when: "2026-03-21T15:08:58Z",
     });
+  });
+
+  it("resolves repo-relative markdown asset paths", () => {
+    expect(resolveRepoRelativePath("docs/guides/README.md", "../images/sidebar.png")).toBe("docs/images/sidebar.png");
+    expect(resolveRepoRelativePath("README.md", "/www/src/static/images/context-menu-in-sidebar.png")).toBe(
+      "www/src/static/images/context-menu-in-sidebar.png",
+    );
+    expect(resolveRepoRelativePath("README.md", "../../../escape.png")).toBeNull();
+  });
+
+  it("builds public raw URLs for repo assets", () => {
+    expect(buildPublicRawUrl({
+      owner: "desertthunder.dev",
+      repo: "writer",
+      branch: "main",
+      knotHost: "unused",
+      knotRepo: "unused",
+    }, "www/src/static/images/context-menu-in-sidebar.png")).toBe(
+      "https://tangled.org/desertthunder.dev/writer/raw/main/www/src/static/images/context-menu-in-sidebar.png",
+    );
   });
 });
 

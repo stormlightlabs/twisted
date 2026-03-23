@@ -1,11 +1,13 @@
 import { QueryClient } from "@tanstack/vue-query";
 
+const isDev = import.meta.env.DEV;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-      retry: 2,
+      staleTime: isDev ? 0 : 5 * 60 * 1000,
+      gcTime: isDev ? 0 : 10 * 60 * 1000,
+      retry: isDev ? 0 : 2,
     },
   },
 });

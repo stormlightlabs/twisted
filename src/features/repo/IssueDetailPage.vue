@@ -47,7 +47,7 @@
             <div class="section-head">
               <h2>Body</h2>
             </div>
-            <MarkdownRenderer v-if="issue.body" :content="issue.body" />
+            <MarkdownRenderer v-if="issue.body" :content="issue.body" :repo-context="markdownContext" />
             <EmptyState
               v-else
               :icon="documentTextOutline"
@@ -92,7 +92,8 @@ import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import MarkdownRenderer from "@/components/repo/MarkdownRenderer.vue";
 import CommentThread from "@/components/repo/CommentThread.vue";
-import { useIdentity, useRepoRecord, useIssueDetail, useIssueComments } from "@/services/tangled/queries.js";
+import { useIdentity, useRepoRecord, useIssueDetail, useIssueComments, useDefaultBranch } from "@/services/tangled/queries.js";
+import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
 
 const route = useRoute();
 const owner = computed(() => String(route.params.owner ?? ""));
@@ -105,7 +106,23 @@ const pds = computed(() => identity.data.value?.pds ?? "");
 const hasIdentity = computed(() => !!identity.data.value);
 
 const repoQuery = useRepoRecord(pds, did, repoName, owner, { enabled: hasIdentity });
+const knotHost = computed(() => repoQuery.data.value?.knot ?? "");
+const knotRepo = computed(() => (did.value && repoName.value ? `${did.value}/${repoName.value}` : ""));
+const branchQuery = useDefaultBranch(knotHost, knotRepo, {
+  enabled: computed(() => !!knotHost.value && !!knotRepo.value),
+});
 const repoAtUri = computed(() => repoQuery.data.value?.atUri ?? "");
+const markdownContext = computed<RepoAssetContext | undefined>(() => {
+  if (!knotHost.value || !knotRepo.value || !branchQuery.data.value?.name) return undefined;
+
+  return {
+    owner: owner.value,
+    repo: repoName.value,
+    branch: branchQuery.data.value.name,
+    knotHost: knotHost.value,
+    knotRepo: knotRepo.value,
+  };
+});
 
 const issueQuery = useIssueDetail(pds, did, owner, issueId, { enabled: hasIdentity });
 const issueAtUri = computed(() => issueQuery.data.value?.atUri ?? "");
