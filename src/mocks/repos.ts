@@ -3,6 +3,7 @@ import type { RepoSummary, RepoDetail, RepoFile } from "@/domain/models/repo.js"
 const MOCK_REPOS: RepoSummary[] = [
   {
     atUri: "at://did:plc:a1b2c3d4e5f6g7h8i9j0k1l2/sh.tangled.repo/atproto-explorer",
+    rkey: "atproto-explorer",
     ownerDid: "did:plc:a1b2c3d4e5f6g7h8i9j0k1l2",
     ownerHandle: "alice.tngl.sh",
     name: "atproto-explorer",
@@ -15,6 +16,7 @@ const MOCK_REPOS: RepoSummary[] = [
   },
   {
     atUri: "at://did:plc:p2cp5gopk7mgjegy9waligxd/sh.tangled.repo/twisted",
+    rkey: "twisted",
     ownerDid: "did:plc:p2cp5gopk7mgjegy9waligxd",
     ownerHandle: "desertthunder.dev",
     name: "twisted",
@@ -27,6 +29,7 @@ const MOCK_REPOS: RepoSummary[] = [
   },
   {
     atUri: "at://did:plc:b2c3d4e5f6g7h8i9j0k1l2m3/sh.tangled.repo/git-log-pretty",
+    rkey: "git-log-pretty",
     ownerDid: "did:plc:b2c3d4e5f6g7h8i9j0k1l2m3",
     ownerHandle: "bob.tngl.sh",
     name: "git-log-pretty",
@@ -39,6 +42,7 @@ const MOCK_REPOS: RepoSummary[] = [
   },
   {
     atUri: "at://did:plc:c3d4e5f6g7h8i9j0k1l2m3n4/sh.tangled.repo/iris-ui",
+    rkey: "iris-ui",
     ownerDid: "did:plc:c3d4e5f6g7h8i9j0k1l2m3n4",
     ownerHandle: "clara.bsky.social",
     name: "iris-ui",
@@ -51,6 +55,7 @@ const MOCK_REPOS: RepoSummary[] = [
   },
   {
     atUri: "at://did:plc:e5f6g7h8i9j0k1l2m3n4o5p6/sh.tangled.repo/nix-atproto",
+    rkey: "nix-atproto",
     ownerDid: "did:plc:e5f6g7h8i9j0k1l2m3n4o5p6",
     ownerHandle: "riku.tngl.sh",
     name: "nix-atproto",
@@ -63,6 +68,7 @@ const MOCK_REPOS: RepoSummary[] = [
   },
   {
     atUri: "at://did:plc:d4e5f6g7h8i9j0k1l2m3n4o5/sh.tangled.repo/tangled-cli",
+    rkey: "tangled-cli",
     ownerDid: "did:plc:d4e5f6g7h8i9j0k1l2m3n4o5",
     ownerHandle: "dev.tangled.sh",
     name: "tangled-cli",
@@ -75,6 +81,7 @@ const MOCK_REPOS: RepoSummary[] = [
   },
   {
     atUri: "at://did:plc:a1b2c3d4e5f6g7h8i9j0k1l2/sh.tangled.repo/lexicon-validator",
+    rkey: "lexicon-validator",
     ownerDid: "did:plc:a1b2c3d4e5f6g7h8i9j0k1l2",
     ownerHandle: "alice.tngl.sh",
     name: "lexicon-validator",
@@ -87,6 +94,7 @@ const MOCK_REPOS: RepoSummary[] = [
   },
   {
     atUri: "at://did:plc:p2cp5gopk7mgjegy9waligxd/sh.tangled.repo/bsky-feeds",
+    rkey: "bsky-feeds",
     ownerDid: "did:plc:p2cp5gopk7mgjegy9waligxd",
     ownerHandle: "desertthunder.dev",
     name: "bsky-feeds",

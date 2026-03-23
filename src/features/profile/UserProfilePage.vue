@@ -24,12 +24,7 @@
       <template v-else>
         <div class="profile-header">
           <ion-avatar class="avatar">
-            <img
-              v-if="profile"
-              :src="`https://avatar.tangled.sh/${identity.data.value?.did}`"
-              :alt="handle"
-              @error="avatarError = true" />
-            <div v-if="!profile || avatarError" class="avatar-fallback" :style="{ background: avatarColor(handle) }">
+            <div class="avatar-fallback" :style="{ background: avatarColor(handle) }">
               {{ initials(handle) }}
             </div>
           </ion-avatar>
@@ -187,7 +182,6 @@ import {
   useUserPullRequests,
   useUserFollowing,
 } from "@/services/tangled/queries.js";
-import { parseAtUri } from "@/services/tangled/uris.js";
 import type { IssueSummary } from "@/domain/models/issue.js";
 import type { PullRequestSummary } from "@/domain/models/pull-request.js";
 import type { RepoSummary } from "@/domain/models/repo.js";
@@ -196,8 +190,6 @@ const route = useRoute();
 const router = useRouter();
 const handle = computed(() => String(route.params.handle ?? ""));
 const section = ref<"repos" | "strings" | "issues" | "prs" | "following">("repos");
-
-const avatarError = ref(false);
 
 const identity = useIdentity(handle);
 const did = computed(() => identity.data.value?.did ?? "");
@@ -242,7 +234,6 @@ const errorMessage = computed(() => {
 });
 
 watch(handle, () => {
-  avatarError.value = false;
   section.value = "repos";
 });
 
@@ -255,13 +246,13 @@ function navigateToUser(profileHandle: string) {
 }
 
 function navigateToIssue(issue: IssueSummary) {
-  const repoName = parseAtUri(issue.repoAtUri)?.rkey;
+  const repoName = repos.value.find((repo) => repo.atUri === issue.repoAtUri)?.name;
   if (!repoName) return;
   router.push(`${tabPrefix.value}/repo/${handle.value}/${repoName}/issues/${issue.rkey}`);
 }
 
 function navigateToPullRequest(pullRequest: PullRequestSummary) {
-  const repoName = parseAtUri(pullRequest.targetRepoAtUri)?.rkey;
+  const repoName = repos.value.find((repo) => repo.atUri === pullRequest.targetRepoAtUri)?.name;
   if (!repoName) return;
   router.push(`${tabPrefix.value}/repo/${handle.value}/${repoName}/pulls/${pullRequest.rkey}`);
 }

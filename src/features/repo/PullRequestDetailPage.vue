@@ -109,11 +109,11 @@ import {
 } from "@/services/tangled/queries.js";
 
 const route = useRoute();
-const owner = route.params.owner as string;
-const repoName = route.params.repo as string;
-const pullId = route.params.pullId as string;
+const owner = computed(() => String(route.params.owner ?? ""));
+const repoName = computed(() => String(route.params.repo ?? ""));
+const pullId = computed(() => String(route.params.pullId ?? ""));
 
-const identity = useIdentity(owner);
+const identity = useIdentity(owner, { enabled: computed(() => !!owner.value) });
 const did = computed(() => identity.data.value?.did ?? "");
 const pds = computed(() => identity.data.value?.pds ?? "");
 const hasIdentity = computed(() => !!identity.data.value);
@@ -153,7 +153,7 @@ const tabPrefix = computed(() => {
   return "/tabs/home";
 });
 
-const backHref = computed(() => `${tabPrefix.value}/repo/${owner}/${repoName}?tab=prs`);
+const backHref = computed(() => `${tabPrefix.value}/repo/${owner.value}/${repoName.value}?tab=prs`);
 
 function relativeTime(iso: string): string {
   const timestamp = Date.parse(iso);

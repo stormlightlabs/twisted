@@ -1,8 +1,9 @@
 /**
  * Typed wrappers around XRPC queries to Tangled knots and the AT Protocol PDS.
  *
- * All functions accept a Client instance so callers can route to the correct
- * knot host (via getKnotClient) or to the PDS (via pdsClient).
+ * Knot endpoints use raw fetch so we can control query serialization for the
+ * `repo=did:.../repoName` parameter. PDS endpoints also use raw fetch because
+ * some `com.atproto.repo.*` calls are not typed in the installed packages.
  *
  * --- API Validation Notes (to verify against live endpoints) ---
  * Knot XRPC base: https://<knot>/xrpc/<nsid>  (e.g. us-west.tangled.sh)
@@ -14,11 +15,10 @@
  *
  * Data routing:
  *  - Git data (tree, blob, log, branches, languages) → knot XRPC
- *  - Repo metadata & profile → PDS com.atproto.repo.getRecord
+ *  - Repo metadata & profile → PDS com.atproto.repo.getRecord/listRecords
  */
 
-import type { Client } from "@atcute/client";
-import type {
+import {
   ShTangledRepoTree,
   ShTangledRepoBlob,
   ShTangledRepoGetDefaultBranch,
@@ -38,42 +38,88 @@ import type {
   ShTangledString,
 } from "@atcute/tangled";
 import { throwOnXrpcError } from "@/services/atproto/client.js";
-import { MalformedResponseError } from "@/core/errors/tangled.js";
+import { MalformedResponseError, NotFoundError } from "@/core/errors/tangled.js";
+
+type KnotParams = Record<string, string | number | boolean | undefined | Array<string | number | boolean>>;
+
+function encodeKnotQueryParam(key: string, value: string | number | boolean): string {
+  const encodedValue = encodeURIComponent(String(value));
+  return `${encodeURIComponent(key)}=${key === "repo" ? encodedValue.replaceAll("%2F", "/") : encodedValue}`;
+}
+
+function buildKnotQuery(params: KnotParams): string {
+  const pairs: string[] = [];
+
+  for (const [key, rawValue] of Object.entries(params)) {
+    if (rawValue === undefined) continue;
+
+    if (Array.isArray(rawValue)) {
+      for (const value of rawValue) {
+        pairs.push(encodeKnotQueryParam(key, value));
+      }
+      continue;
+    }
+
+    pairs.push(encodeKnotQueryParam(key, rawValue));
+  }
+
+  return pairs.length > 0 ? `?${pairs.join("&")}` : "";
+}
+
+export function buildKnotUrl(knotHost: string, nsid: string, params: KnotParams): string {
+  return `https://${knotHost}/xrpc/${nsid}${buildKnotQuery(params)}`;
+}
+
+async function readKnotError(res: Response): Promise<never> {
+  const contentType = res.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
+  }
+
+  const text = await res.text().catch(() => "");
+  throwOnXrpcError(res.status, "Unknown", text || undefined);
+}
+
+async function fetchKnotJson<T>(knotHost: string, nsid: string, params: KnotParams): Promise<T> {
+  const res = await fetch(buildKnotUrl(knotHost, nsid, params));
+  if (!res.ok) return readKnotError(res);
+  return res.json() as Promise<T>;
+}
+
+async function fetchKnotBytes(knotHost: string, nsid: string, params: KnotParams): Promise<Uint8Array> {
+  const res = await fetch(buildKnotUrl(knotHost, nsid, params));
+  if (!res.ok) return readKnotError(res);
+  return new Uint8Array(await res.arrayBuffer());
+}
 
 export async function fetchRepoTree(
-  client: Client,
+  knotHost: string,
   params: ShTangledRepoTree.$params,
 ): Promise<ShTangledRepoTree.$output> {
-  const res = await client.get("sh.tangled.repo.tree", { params });
-  if (!res.ok) throwOnXrpcError(res.status, res.data.error, res.data.message);
-  return res.data;
+  return fetchKnotJson<ShTangledRepoTree.$output>(knotHost, "sh.tangled.repo.tree", params);
 }
 
 export async function fetchRepoBlob(
-  client: Client,
+  knotHost: string,
   params: ShTangledRepoBlob.$params,
 ): Promise<ShTangledRepoBlob.$output> {
-  const res = await client.get("sh.tangled.repo.blob", { params });
-  if (!res.ok) throwOnXrpcError(res.status, res.data.error, res.data.message);
-  return res.data;
+  return fetchKnotJson<ShTangledRepoBlob.$output>(knotHost, "sh.tangled.repo.blob", params);
 }
 
 export async function fetchDefaultBranch(
-  client: Client,
+  knotHost: string,
   params: ShTangledRepoGetDefaultBranch.$params,
 ): Promise<ShTangledRepoGetDefaultBranch.$output> {
-  const res = await client.get("sh.tangled.repo.getDefaultBranch", { params });
-  if (!res.ok) throwOnXrpcError(res.status, res.data.error, res.data.message);
-  return res.data;
+  return fetchKnotJson<ShTangledRepoGetDefaultBranch.$output>(knotHost, "sh.tangled.repo.getDefaultBranch", params);
 }
 
 export async function fetchLanguages(
-  client: Client,
+  knotHost: string,
   params: ShTangledRepoLanguages.$params,
 ): Promise<ShTangledRepoLanguages.$output> {
-  const res = await client.get("sh.tangled.repo.languages", { params });
-  if (!res.ok) throwOnXrpcError(res.status, res.data.error, res.data.message);
-  return res.data;
+  return fetchKnotJson<ShTangledRepoLanguages.$output>(knotHost, "sh.tangled.repo.languages", params);
 }
 
 /**
@@ -82,12 +128,10 @@ export async function fetchLanguages(
  * the live API. Expected: newline-delimited JSON or git log text.
  */
 export async function fetchRepoLog(
-  client: Client,
+  knotHost: string,
   params: { repo: string; ref: string; path?: string; limit?: number; cursor?: string },
 ): Promise<string> {
-  const res = await client.get("sh.tangled.repo.log", { params, as: "bytes" });
-  if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
-  return new TextDecoder().decode(res.data as Uint8Array);
+  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.log", params));
 }
 
 /**
@@ -95,33 +139,25 @@ export async function fetchRepoLog(
  * for the normalizer to parse once the live format is confirmed.
  */
 export async function fetchRepoBranches(
-  client: Client,
+  knotHost: string,
   params: { repo: string; limit?: number; cursor?: string },
 ): Promise<string> {
-  const res = await client.get("sh.tangled.repo.branches", { params, as: "bytes" });
-  if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
-  return new TextDecoder().decode(res.data as Uint8Array);
+  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.branches", params));
 }
 
 /** Tag list. Wire format is a raw blob — decoded text returned for normalizer. */
-export async function fetchRepoTags(client: Client, params: ShTangledRepoTags.$params): Promise<string> {
-  const res = await client.get("sh.tangled.repo.tags", { params, as: "bytes" });
-  if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
-  return new TextDecoder().decode(res.data as Uint8Array);
+export async function fetchRepoTags(knotHost: string, params: ShTangledRepoTags.$params): Promise<string> {
+  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.tags", params));
 }
 
 /** Diff for a ref. Wire format is a raw blob — patch text. */
-export async function fetchRepoDiff(client: Client, params: ShTangledRepoDiff.$params): Promise<string> {
-  const res = await client.get("sh.tangled.repo.diff", { params, as: "bytes" });
-  if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
-  return new TextDecoder().decode(res.data as Uint8Array);
+export async function fetchRepoDiff(knotHost: string, params: ShTangledRepoDiff.$params): Promise<string> {
+  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.diff", params));
 }
 
 /** Comparison between two revisions. Wire format is a raw blob — patch text. */
-export async function fetchRepoCompare(client: Client, params: ShTangledRepoCompare.$params): Promise<string> {
-  const res = await client.get("sh.tangled.repo.compare", { params, as: "bytes" });
-  if (!res.ok) throwOnXrpcError(res.status, (res.data as { error: string }).error);
-  return new TextDecoder().decode(res.data as Uint8Array);
+export async function fetchRepoCompare(knotHost: string, params: ShTangledRepoCompare.$params): Promise<string> {
+  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.compare", params));
 }
 
 type GetRecordResponse<T> = { uri: string; cid: string; value: T };
@@ -157,12 +193,40 @@ export async function fetchActorProfile(
   return getRecord<ShTangledActorProfile.Main>(pds, did, "sh.tangled.actor.profile", "self");
 }
 
+/**
+ * Fetch a repo record by its PDS record key.
+ * This is distinct from the repo's `name`, which is the identifier used by
+ * knot endpoints in the `did:.../repoName` format.
+ */
 export async function fetchRepoRecord(
+  pds: string,
+  did: string,
+  rkey: string,
+): Promise<GetRecordResponse<ShTangledRepo.Main>> {
+  return getRecord<ShTangledRepo.Main>(pds, did, "sh.tangled.repo", rkey);
+}
+
+/**
+ * Fetch a repo record by matching on the record's `name` field.
+ * Use this when the UI route or knot API identifies a repo by repo name rather
+ * than by the underlying AT Protocol record key.
+ */
+export async function fetchRepoRecordByName(
   pds: string,
   did: string,
   repoName: string,
 ): Promise<GetRecordResponse<ShTangledRepo.Main>> {
-  return getRecord<ShTangledRepo.Main>(pds, did, "sh.tangled.repo", repoName);
+  let cursor: string | undefined;
+
+  for (;;) {
+    const response = await listRepoRecords(pds, did, 100, cursor);
+    const record = response.records.find((entry) => entry.value.name === repoName);
+    if (record) return record;
+    if (!response.cursor) break;
+    cursor = response.cursor;
+  }
+
+  throw new NotFoundError(`Repository ${repoName}`);
 }
 
 export async function fetchIssueRecord(

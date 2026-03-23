@@ -27,8 +27,9 @@ import type { StringSummary } from "@/domain/models/string.js";
 import { getAtUriRkey } from "./uris.js";
 
 function modeToFileKind(mode: string): RepoFile["type"] {
-  if (mode.startsWith("04")) return "dir";
-  if (mode === "160000") return "submodule";
+  const normalizedMode = mode.replace(/^0+/, "");
+  if (normalizedMode === "40000") return "dir";
+  if (normalizedMode === "160000") return "submodule";
   return "file";
 }
 
@@ -169,6 +170,7 @@ export function normalizeRepoRecord(
 ): RepoSummary {
   return {
     atUri,
+    rkey: getAtUriRkey(atUri),
     ownerDid,
     ownerHandle,
     name: record.name,
@@ -377,7 +379,6 @@ export function normalizeActorProfile(
     did,
     handle,
     displayName,
-    avatar: `https://avatar.tangled.sh/${did}`,
     bio: record.description,
     location: record.location,
     pronouns: record.pronouns,

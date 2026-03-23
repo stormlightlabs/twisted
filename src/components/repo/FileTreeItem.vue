@@ -1,10 +1,6 @@
 <template>
   <ion-item class="file-item" :lines="lines" button @click="emit('click')">
-    <ion-icon
-      slot="start"
-      :icon="file.type === 'dir' ? folderOutline : documentOutline"
-      class="file-icon"
-      :class="file.type" />
+    <ion-icon slot="start" :icon="fileIcon" class="file-icon" :class="file.type" />
     <ion-label class="file-label">
       <span class="file-name">{{ file.name }}</span>
       <span v-if="file.lastCommitMessage" class="commit-msg">{{ file.lastCommitMessage }}</span>
@@ -16,13 +12,20 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { IonItem, IonLabel, IonIcon } from "@ionic/vue";
-import { folderOutline, documentOutline, chevronForwardOutline } from "ionicons/icons";
-import type { RepoFile } from "@/domain/models/repo";
+import { folderOpenOutline, documentTextOutline, gitBranchOutline, chevronForwardOutline } from "ionicons/icons";
+import type { RepoFile } from "@/domain/models/repo.js";
 
-defineProps<{ file: RepoFile; lines?: "full" | "inset" | "none" }>();
+const props = defineProps<{ file: RepoFile; lines?: "full" | "inset" | "none" }>();
 
 const emit = defineEmits<{ click: [] }>();
+
+const fileIcon = computed(() => {
+  if (props.file.type === "dir") return folderOpenOutline;
+  if (props.file.type === "submodule") return gitBranchOutline;
+  return documentTextOutline;
+});
 </script>
 
 <style scoped>

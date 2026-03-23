@@ -2,6 +2,7 @@ import type { UserSummary } from "./user.js";
 
 export type RepoSummary = {
   atUri: string;
+  rkey: string;
   ownerDid: string;
   ownerHandle: string;
   name: string;

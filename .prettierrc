@@ -1,6 +1,1 @@
-{
-  "tabWidth": 2,
-  "printWidth": 120,
-  "objectWrap": "collapse",
-  "bracketSameLine": true
-}
+{ "tabWidth": 2, "printWidth": 120, "objectWrap": "collapse", "bracketSameLine": true, "vueIndentScriptAndStyle": true }

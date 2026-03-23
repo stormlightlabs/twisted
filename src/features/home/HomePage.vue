@@ -14,7 +14,7 @@
       </ion-header>
 
       <section class="hero">
-        <p class="eyebrow">Known-handle browsing</p>
+        <p class="eyebrow">Profile Browser</p>
         <h1 class="hero-title">Jump straight to a Tangled profile or browse that handle's repos.</h1>
         <p class="hero-copy">
           Enter an AT Protocol handle, then open the profile directly or resolve the user's Personal Data Server and
@@ -96,7 +96,7 @@
         <EmptyState
           :icon="compassOutline"
           title="Browse by handle"
-          message="Use Home as the temporary public entry point while search and activity are still in progress." />
+          message="Browse Tangled repositories by entering a handle above." />
       </section>
     </ion-content>
   </ion-page>

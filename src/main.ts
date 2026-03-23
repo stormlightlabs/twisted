@@ -34,7 +34,6 @@ import "@ionic/vue/css/palettes/dark.system.css";
 /* Theme variables */
 import "./theme/variables.css";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 persistQueryClient({ queryClient: queryClient as any, persister: createIdbPersister(), maxAge: 30 * 60 * 1000 });
 
 const app = createApp(App).use(IonicVue).use(router).use(createPinia()).use(VueQueryPlugin, { queryClient });

@@ -6,7 +6,7 @@
           <ion-back-button default-href="/tabs/home" />
         </ion-buttons>
         <ion-title class="repo-title">
-          <span class="owner">{{ owner }}/</span>{{ repoName }}
+          <span class="owner">{{ owner }}/</span>{{ repo?.name ?? repoName }}
         </ion-title>
       </ion-toolbar>
       <ion-toolbar>
@@ -41,7 +41,6 @@
         <RepoOverview v-if="segment === 'overview'" :repo="repo" :commits="commits" />
         <RepoFiles
           v-else-if="segment === 'files'"
-          :files="files"
           :knot-host="knotHost"
           :knot-repo="knotRepo"
           :branch="defaultBranch" />
@@ -85,7 +84,6 @@ import {
   useIdentity,
   useRepoRecord,
   useDefaultBranch,
-  useRepoTree,
   useRepoBlob,
   useRepoLanguages,
   useRepoLog,
@@ -96,8 +94,8 @@ import type { RepoDetail } from "@/domain/models/repo.js";
 
 const route = useRoute();
 const router = useRouter();
-const owner = route.params.owner as string;
-const repoName = route.params.repo as string;
+const owner = computed(() => String(route.params.owner ?? ""));
+const repoName = computed(() => String(route.params.repo ?? ""));
 
 type Segment = "overview" | "files" | "issues" | "prs";
 
@@ -125,21 +123,20 @@ watch(segment, (value) => {
   router.replace({ path: route.path, query: nextQuery });
 });
 
-const identity = useIdentity(owner);
+const identity = useIdentity(owner, { enabled: computed(() => !!owner.value) });
 const did = computed(() => identity.data.value?.did ?? "");
 const pds = computed(() => identity.data.value?.pds ?? "");
 const hasIdentity = computed(() => !!identity.data.value);
 
 const recordQuery = useRepoRecord(pds, did, repoName, owner, { enabled: hasIdentity });
 const knotHost = computed(() => recordQuery.data.value?.knot ?? "");
-const knotRepo = computed(() => (did.value ? `${did.value}/${repoName}` : ""));
+const knotRepo = computed(() => (did.value && repoName.value ? `${did.value}/${repoName.value}` : ""));
 const hasRecord = computed(() => !!recordQuery.data.value?.knot && !!did.value);
 
 const branchQuery = useDefaultBranch(knotHost, knotRepo, { enabled: hasRecord });
 const defaultBranch = computed(() => branchQuery.data.value?.name ?? "");
 const hasBranch = computed(() => !!branchQuery.data.value?.name);
 
-const treeQuery = useRepoTree(knotHost, knotRepo, defaultBranch, undefined, { enabled: hasBranch });
 const languagesQuery = useRepoLanguages(knotHost, knotRepo, undefined, { enabled: hasBranch });
 const readmeQuery = useRepoBlob(knotHost, knotRepo, defaultBranch, "README.md", { readme: true, enabled: hasBranch });
 const logQuery = useRepoLog(knotHost, knotRepo, defaultBranch, { limit: 20, enabled: hasBranch });
@@ -161,7 +158,6 @@ const hasAtUri = computed(() => !!repoAtUri.value);
 const issuesQuery = useRepoIssues(pds, did, owner, repoAtUri, { enabled: hasAtUri });
 const prsQuery = useRepoPRs(pds, did, owner, repoAtUri, { enabled: hasAtUri });
 
-const files = computed(() => treeQuery.data.value ?? []);
 const commits = computed(() => logQuery.data.value ?? []);
 const issues = computed(() => issuesQuery.data.value ?? []);
 const prs = computed(() => prsQuery.data.value ?? []);
@@ -180,11 +176,11 @@ const errorMessage = computed(() => {
 });
 
 function openIssue(issue: { rkey: string }) {
-  router.push(`${tabPrefix.value}/repo/${owner}/${repoName}/issues/${issue.rkey}?tab=issues`);
+  router.push(`${tabPrefix.value}/repo/${owner.value}/${repoName.value}/issues/${issue.rkey}?tab=issues`);
 }
 
 function openPullRequest(pr: { rkey: string }) {
-  router.push(`${tabPrefix.value}/repo/${owner}/${repoName}/pulls/${pr.rkey}?tab=prs`);
+  router.push(`${tabPrefix.value}/repo/${owner.value}/${repoName.value}/pulls/${pr.rkey}?tab=prs`);
 }
 </script>
 

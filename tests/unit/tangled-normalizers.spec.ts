@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildIssueCommentThread } from "@/services/tangled/normalizers.js";
+import { buildKnotUrl } from "@/services/tangled/endpoints.js";
+import { buildIssueCommentThread, normalizeRepoRecord, normalizeTree } from "@/services/tangled/normalizers.js";
 import { getAtUriRkey, parseAtUri } from "@/services/tangled/uris.js";
 import type { IssueComment } from "@/domain/models/comment.js";
 
@@ -23,6 +24,50 @@ describe("AT URI helpers", () => {
 
     expect(parseAtUri(uri)).toEqual({ did: "did:plc:abc123", collection: "sh.tangled.repo.issue", rkey: "42" });
     expect(getAtUriRkey(uri)).toBe("42");
+  });
+
+  it("preserves the repo record rkey separately from the display name", () => {
+    const repo = normalizeRepoRecord(
+      {
+        $type: "sh.tangled.repo",
+        name: "Writer",
+        knot: "us-west.host.bsky.network",
+        createdAt: "2026-03-22T10:00:00Z",
+      },
+      "did:plc:abc123",
+      "alice.test",
+      "at://did:plc:abc123/sh.tangled.repo/writer-app",
+    );
+
+    expect(repo.name).toBe("Writer");
+    expect(repo.rkey).toBe("writer-app");
+  });
+
+  it("preserves the repo slash in knot XRPC query strings", () => {
+    const url = buildKnotUrl("knot1.tangled.sh", "sh.tangled.repo.getDefaultBranch", {
+      repo: "did:plc:xg2vq45muivyy3xwatcehspu/writer",
+    });
+
+    expect(url).toContain("repo=did%3Aplc%3Axg2vq45muivyy3xwatcehspu/writer");
+    expect(url).not.toContain("%2Fwriter");
+  });
+
+  it("derives file kinds from zero-padded git modes", () => {
+    const files = normalizeTree({
+      files: [
+        { mode: "0040000", name: ".github", size: 75, last_commit: { hash: "a", message: "dir", when: "2026-03-23T00:00:00Z" } },
+        { mode: "0100644", name: "README.md", size: 3126, last_commit: { hash: "b", message: "file", when: "2026-03-23T00:00:00Z" } },
+        { mode: "0160000", name: "vendor/lib", size: 0, last_commit: { hash: "c", message: "submodule", when: "2026-03-23T00:00:00Z" } },
+      ],
+      lastCommit: { hash: "a", message: "dir", when: "2026-03-23T00:00:00Z", author: { name: "Test", email: "test@example.com", when: "" } },
+      ref: "main",
+    });
+
+    expect(files.map((file) => [file.name, file.type])).toEqual([
+      [".github", "dir"],
+      ["README.md", "file"],
+      ["vendor/lib", "submodule"],
+    ]);
   });
 });
 

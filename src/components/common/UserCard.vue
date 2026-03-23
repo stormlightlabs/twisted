@@ -3,8 +3,7 @@
     <ion-card-content class="card-body">
       <div class="user-row">
         <ion-avatar class="avatar">
-          <img v-if="user.avatar" :src="user.avatar" :alt="user.displayName ?? user.handle" />
-          <div v-else class="avatar-fallback" :style="{ background: avatarColor(user.handle) }">
+          <div class="avatar-fallback" :style="{ background: avatarColor(user.handle) }">
             {{ initials(user.handle) }}
           </div>
         </ion-avatar>

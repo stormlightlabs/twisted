@@ -1,11 +1,14 @@
 {
   "compilerOptions": {
     "composite": true,
+    "target": "ESNext",
+    "lib": ["ESNext"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["@atcute/bluesky", "@atcute/tangled"]
+    "types": ["node", "vitest"]
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "cypress.config.ts", "capacitor.config.ts"]
 }

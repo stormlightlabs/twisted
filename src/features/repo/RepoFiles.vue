@@ -1,15 +1,13 @@
 <template>
   <div class="files-view">
-    <!-- File viewer header -->
-    <div v-if="selectedFile" class="viewer-header">
-      <ion-button fill="clear" size="small" class="back-btn" @click="selectedFile = null">
+    <div v-if="selectedFile || currentPath" class="viewer-header">
+      <ion-button fill="clear" size="small" class="back-btn" @click="goBack">
         <ion-icon slot="start" :icon="arrowBackOutline" />
-        Files
+        {{ selectedFile ? "Files" : "Up" }}
       </ion-button>
-      <span class="file-path mono">{{ selectedFile.path }}</span>
+      <span class="file-path mono">{{ selectedFile ? selectedFile.path : currentPath }}</span>
     </div>
 
-    <!-- File viewer -->
     <template v-if="selectedFile">
       <template v-if="blobQuery.isPending.value">
         <SkeletonLoader v-for="n in 6" :key="n" variant="list-item" />
@@ -35,16 +33,23 @@
       </template>
     </template>
 
-    <!-- File tree -->
     <template v-else>
-      <ion-list lines="inset" class="file-list">
-        <FileTreeItem v-for="file in sortedFiles" :key="file.name" :file="file" @click="handleFileClick(file)" />
+      <template v-if="treeQuery.isPending.value">
+        <SkeletonLoader v-for="n in 6" :key="n" variant="list-item" />
+      </template>
+      <EmptyState
+        v-else-if="treeQuery.isError.value"
+        :icon="alertCircleOutline"
+        title="Could not load files"
+        :message="treeQuery.error.value instanceof Error ? treeQuery.error.value.message : 'Unknown error'" />
+      <ion-list v-else lines="inset" class="file-list">
+        <FileTreeItem v-for="file in sortedFiles" :key="file.path" :file="file" @click="handleFileClick(file)" />
       </ion-list>
       <EmptyState
-        v-if="!files.length"
+        v-if="!sortedFiles.length && !treeQuery.isPending.value && !treeQuery.isError.value"
         :icon="folderOpenOutline"
         title="No files"
-        message="This repository appears to be empty." />
+        :message="currentPath ? 'This directory is empty.' : 'This repository appears to be empty.'" />
     </template>
   </div>
 </template>
@@ -56,17 +61,31 @@ import { folderOpenOutline, alertCircleOutline, arrowBackOutline, documentOutlin
 import FileTreeItem from "@/components/repo/FileTreeItem.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
-import { useRepoBlob } from "@/services/tangled/queries.js";
+import { useRepoBlob, useRepoTree } from "@/services/tangled/queries.js";
 import type { RepoFile } from "@/domain/models/repo.js";
 
-const props = defineProps<{ files: RepoFile[]; knotHost: string; knotRepo: string; branch: string }>();
+const props = defineProps<{ knotHost: string; knotRepo: string; branch: string }>();
 
 const selectedFile = ref<RepoFile | null>(null);
+const currentPath = ref("");
+
+const treeQuery = useRepoTree(
+  computed(() => props.knotHost),
+  computed(() => props.knotRepo),
+  computed(() => props.branch),
+  currentPath,
+  { enabled: computed(() => !!props.knotHost && !!props.knotRepo && !!props.branch) },
+);
 
 const sortedFiles = computed(() => {
-  return [...props.files].sort((a, b) => {
+  const files = treeQuery.data.value ?? [];
+  return [...files].sort((a, b) => {
     if (a.type === b.type) return a.name.localeCompare(b.name);
-    return a.type === "dir" ? -1 : 1;
+    if (a.type === "dir") return -1;
+    if (b.type === "dir") return 1;
+    if (a.type === "submodule") return -1;
+    if (b.type === "submodule") return 1;
+    return 0;
   });
 });
 
@@ -82,8 +101,27 @@ const blobQuery = useRepoBlob(
 );
 
 function handleFileClick(file: RepoFile) {
-  if (file.type === "dir") return; // TODO: navigate into directories
+  if (file.type === "dir") {
+    currentPath.value = file.path;
+    selectedFile.value = null;
+    return;
+  }
+
+  if (file.type === "submodule") return;
+
   selectedFile.value = file;
+}
+
+function goBack() {
+  if (selectedFile.value) {
+    selectedFile.value = null;
+    return;
+  }
+
+  if (!currentPath.value) return;
+  const segments = currentPath.value.split("/").filter(Boolean);
+  segments.pop();
+  currentPath.value = segments.join("/");
 }
 
 function formatSize(bytes: number): string {

@@ -16,7 +16,6 @@
 import { useQuery } from "@tanstack/vue-query";
 import { computed, toValue } from "vue";
 import type { MaybeRef } from "vue";
-import { getKnotClient } from "@/services/atproto/client.js";
 import type { FollowedUserSummary } from "@/domain/models/follow.js";
 import type { StringSummary } from "@/domain/models/string.js";
 import {
@@ -30,7 +29,7 @@ import {
   fetchRepoDiff,
   fetchRepoCompare,
   fetchActorProfile,
-  fetchRepoRecord,
+  fetchRepoRecordByName,
   fetchIssueRecord,
   fetchPullRecord,
   listRepoRecords,
@@ -71,6 +70,14 @@ export type { CommitEntry, BranchEntry, BlobContent, DefaultBranchInfo } from ".
 
 const MIN = 60_000;
 
+function hasText(value: MaybeRef<string | undefined>): boolean {
+  return !!toValue(value)?.trim();
+}
+
+function isEnabled(required: boolean, enabled?: MaybeRef<boolean>): boolean {
+  return required && (enabled === undefined || !!toValue(enabled));
+}
+
 /** Resolved identity: DID + PDS hostname for an AT Protocol handle. */
 export type Identity = { did: string; pds: string };
 
@@ -79,14 +86,16 @@ export type Identity = { did: string; pds: string };
  * Result is cached for 10 minutes (handles rarely change).
  */
 export function useIdentity(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
+  const normalizedHandle = computed(() => toValue(handle).trim());
+
   return useQuery({
-    queryKey: computed(() => ["identity", toValue(handle)]),
+    queryKey: computed(() => ["identity", normalizedHandle.value]),
     queryFn: async (): Promise<Identity> => {
-      const did = await resolveHandle(toValue(handle));
+      const did = await resolveHandle(normalizedHandle.value);
       const pds = await resolvePds(did);
       return { did, pds };
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(normalizedHandle), options.enabled)),
     staleTime: 10 * MIN,
     gcTime: 60 * MIN,
   });
@@ -103,7 +112,7 @@ export function useRepoTree(
   return useQuery({
     queryKey: computed(() => ["tree", toValue(knotHost), toValue(repo), toValue(ref), toValue(path)]),
     queryFn: () =>
-      fetchRepoTree(getKnotClient(toValue(knotHost)), {
+      fetchRepoTree(toValue(knotHost), {
         repo: toValue(repo),
         ref: toValue(ref),
         path: toValue(path),
@@ -125,7 +134,7 @@ export function useRepoBlob(
   return useQuery({
     queryKey: computed(() => ["blob", toValue(knotHost), toValue(repo), toValue(ref), toValue(path)]),
     queryFn: () =>
-      fetchRepoBlob(getKnotClient(toValue(knotHost)), {
+      fetchRepoBlob(toValue(knotHost), {
         repo: toValue(repo),
         ref: toValue(ref),
         path: toValue(path),
@@ -145,7 +154,7 @@ export function useDefaultBranch(
   return useQuery({
     queryKey: computed(() => ["defaultBranch", toValue(knotHost), toValue(repo)]),
     queryFn: () =>
-      fetchDefaultBranch(getKnotClient(toValue(knotHost)), { repo: toValue(repo) }).then(normalizeDefaultBranch),
+      fetchDefaultBranch(toValue(knotHost), { repo: toValue(repo) }).then(normalizeDefaultBranch),
     enabled: options.enabled,
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
@@ -162,9 +171,7 @@ export function useRepoLanguages(
   return useQuery({
     queryKey: computed(() => ["languages", toValue(knotHost), toValue(repo), toValue(ref)]),
     queryFn: () =>
-      fetchLanguages(getKnotClient(toValue(knotHost)), { repo: toValue(repo), ref: toValue(ref) }).then(
-        normalizeLanguages,
-      ),
+      fetchLanguages(toValue(knotHost), { repo: toValue(repo), ref: toValue(ref) }).then(normalizeLanguages),
     enabled: options.enabled,
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
@@ -193,7 +200,7 @@ export function useRepoLog(
       toValue(options.cursor),
     ]),
     queryFn: () =>
-      fetchRepoLog(getKnotClient(toValue(knotHost)), {
+      fetchRepoLog(toValue(knotHost), {
         repo: toValue(repo),
         ref: toValue(ref),
         path: toValue(options.path),
@@ -216,7 +223,7 @@ export function useRepoBranches(
   return useQuery({
     queryKey: computed(() => ["branches", toValue(knotHost), toValue(repo)]),
     queryFn: () =>
-      fetchRepoBranches(getKnotClient(toValue(knotHost)), { repo: toValue(repo) }).then((raw) =>
+      fetchRepoBranches(toValue(knotHost), { repo: toValue(repo) }).then((raw) =>
         normalizeBranchesText(raw, toValue(defaultBranch)),
       ),
     enabled: options.enabled,
@@ -236,16 +243,26 @@ export function useRepoRecord(
   handle: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const normalizedPds = computed(() => toValue(pds).trim());
+  const normalizedDid = computed(() => toValue(did).trim());
+  const normalizedRepoName = computed(() => toValue(repoName).trim());
+
   return useQuery({
-    queryKey: computed(() => ["repoRecord", toValue(pds), toValue(did), toValue(repoName)]),
+    queryKey: computed(() => ["repoRecord", normalizedPds.value, normalizedDid.value, normalizedRepoName.value]),
     queryFn: async () => {
-      const { value: record, uri } = await fetchRepoRecord(toValue(pds), toValue(did), toValue(repoName)).then((r) => ({
+      const { value: record, uri } = await fetchRepoRecordByName(
+        normalizedPds.value,
+        normalizedDid.value,
+        normalizedRepoName.value,
+      ).then((r) => ({
         value: r.value,
         uri: r.uri,
       }));
       return normalizeRepoRecord(record, toValue(did), toValue(handle), uri);
     },
-    enabled: options.enabled,
+    enabled: computed(() =>
+      isEnabled(hasText(normalizedPds) && hasText(normalizedDid) && hasText(normalizedRepoName), options.enabled),
+    ),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
@@ -258,13 +275,16 @@ export function useUserRepos(
   handle: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const normalizedPds = computed(() => toValue(pds).trim());
+  const normalizedDid = computed(() => toValue(did).trim());
+
   return useQuery({
-    queryKey: computed(() => ["userRepos", toValue(pds), toValue(did)]),
+    queryKey: computed(() => ["userRepos", normalizedPds.value, normalizedDid.value]),
     queryFn: async () => {
-      const { records } = await listRepoRecords(toValue(pds), toValue(did));
+      const { records } = await listRepoRecords(normalizedPds.value, normalizedDid.value);
       return records.map((r) => normalizeRepoRecord(r.value, toValue(did), toValue(handle), r.uri));
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(normalizedPds) && hasText(normalizedDid), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
@@ -278,13 +298,16 @@ export function useActorProfile(
   displayName?: MaybeRef<string | undefined>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const normalizedPds = computed(() => toValue(pds).trim());
+  const normalizedDid = computed(() => toValue(did).trim());
+
   return useQuery({
-    queryKey: computed(() => ["actorProfile", toValue(pds), toValue(did)]),
+    queryKey: computed(() => ["actorProfile", normalizedPds.value, normalizedDid.value]),
     queryFn: async () => {
-      const { value } = await fetchActorProfile(toValue(pds), toValue(did));
+      const { value } = await fetchActorProfile(normalizedPds.value, normalizedDid.value);
       return normalizeActorProfile(value, toValue(did), toValue(handle), toValue(displayName));
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(normalizedPds) && hasText(normalizedDid), options.enabled)),
     staleTime: 10 * MIN,
     gcTime: 60 * MIN,
   });
@@ -299,9 +322,7 @@ export function useRepoTags(
   return useQuery({
     queryKey: computed(() => ["tags", toValue(knotHost), toValue(repo)]),
     queryFn: () =>
-      fetchRepoTags(getKnotClient(toValue(knotHost)), { repo: toValue(repo) }).then((raw) =>
-        raw.trim().split("\n").filter(Boolean),
-      ),
+      fetchRepoTags(toValue(knotHost), { repo: toValue(repo) }).then((raw) => raw.trim().split("\n").filter(Boolean)),
     enabled: options.enabled,
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
@@ -317,7 +338,7 @@ export function useRepoDiff(
 ) {
   return useQuery({
     queryKey: computed(() => ["diff", toValue(knotHost), toValue(repo), toValue(ref)]),
-    queryFn: () => fetchRepoDiff(getKnotClient(toValue(knotHost)), { repo: toValue(repo), ref: toValue(ref) }),
+    queryFn: () => fetchRepoDiff(toValue(knotHost), { repo: toValue(repo), ref: toValue(ref) }),
     enabled: options.enabled,
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
@@ -335,7 +356,7 @@ export function useRepoCompare(
   return useQuery({
     queryKey: computed(() => ["compare", toValue(knotHost), toValue(repo), toValue(rev1), toValue(rev2)]),
     queryFn: () =>
-      fetchRepoCompare(getKnotClient(toValue(knotHost)), {
+      fetchRepoCompare(toValue(knotHost), {
         repo: toValue(repo),
         rev1: toValue(rev1),
         rev2: toValue(rev2),
@@ -471,7 +492,6 @@ export function useUserFollowing(
             return {
               did: subject.did,
               handle: subject.handle,
-              avatar: `https://avatar.tangled.sh/${subject.did}`,
               followAtUri: follow.atUri,
               followedAt: follow.createdAt,
             };
