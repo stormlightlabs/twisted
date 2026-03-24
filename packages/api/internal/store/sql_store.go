@@ -20,7 +20,13 @@ func New(db *sql.DB) Store {
 
 func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
 	doc.IndexedAt = time.Now().UTC().Format(time.RFC3339)
-	_, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin upsert document tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO documents (
 			id, did, collection, rkey, at_uri, cid, record_type,
 			title, body, summary, repo_did, repo_name, author_handle,
@@ -52,6 +58,12 @@ func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
 	if err != nil {
 		return fmt.Errorf("upsert document: %w", err)
 	}
+	if err := syncDocumentFTS(ctx, tx, doc); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit upsert document tx: %w", err)
+	}
 	return nil
 }
 
@@ -74,10 +86,22 @@ func (s *SQLStore) GetDocument(ctx context.Context, id string) (*Document, error
 
 func (s *SQLStore) MarkDeleted(ctx context.Context, id string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin mark deleted tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx,
 		`UPDATE documents SET deleted_at = ? WHERE id = ?`, now, id)
 	if err != nil {
 		return fmt.Errorf("mark deleted: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM documents_fts WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete document from fts: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit mark deleted tx: %w", err)
 	}
 	return nil
 }
@@ -288,4 +312,26 @@ func nullableStr(s string) any {
 		return nil
 	}
 	return s
+}
+
+type execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+func syncDocumentFTS(ctx context.Context, db execer, doc *Document) error {
+	if _, err := db.ExecContext(ctx, `DELETE FROM documents_fts WHERE id = ?`, doc.ID); err != nil {
+		return fmt.Errorf("delete document from fts: %w", err)
+	}
+	if doc.DeletedAt != "" {
+		return nil
+	}
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO documents_fts (id, title, body, summary, repo_name, author_handle, tags_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		doc.ID, doc.Title, doc.Body, doc.Summary, doc.RepoName, doc.AuthorHandle, doc.TagsJSON,
+	)
+	if err != nil {
+		return fmt.Errorf("insert document into fts: %w", err)
+	}
+	return nil
 }

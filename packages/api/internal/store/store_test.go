@@ -24,7 +24,7 @@ func TestIntegration(t *testing.T) {
 		os.Remove(dbPath)
 	})
 
-	if err := store.Migrate(db); err != nil {
+	if err := store.Migrate(db, url); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 

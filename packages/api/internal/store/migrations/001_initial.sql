@@ -32,15 +32,6 @@ CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_documents_deleted_at ON documents(deleted_at);
 
-CREATE INDEX IF NOT EXISTS idx_documents_fts ON documents USING fts (
-    title WITH tokenizer=default,
-    body WITH tokenizer=default,
-    summary WITH tokenizer=default,
-    repo_name WITH tokenizer=simple,
-    author_handle WITH tokenizer=raw,
-    tags_json WITH tokenizer=simple
-) WITH (weights='title=3.0,repo_name=2.5,author_handle=2.0,summary=1.5,tags_json=1.2,body=1.0');
-
 CREATE TABLE IF NOT EXISTS sync_state (
     consumer_name   TEXT PRIMARY KEY,
     cursor          TEXT NOT NULL,

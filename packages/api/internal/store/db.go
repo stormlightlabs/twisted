@@ -17,6 +17,11 @@ var migrationsFS embed.FS
 
 var extensionMigrationNoticeLogged bool
 
+type migrationMode struct {
+	allowTursoExtensionSkip bool
+	targetDescription       string
+}
+
 // Open establishes a connection to the database.
 // For remote Turso URLs (libsql:// or https://) it uses the libsql-client-go driver.
 // For local file: URLs it uses the pure-Go SQLite driver (no CGo required).
@@ -46,7 +51,11 @@ func driverAndDSN(url, token string) (driver, dsn string) {
 }
 
 // Migrate runs all embedded SQL migration files in order.
-func Migrate(db *sql.DB) error {
+func Migrate(db *sql.DB, url string) error {
+	mode := migrationMode{
+		allowTursoExtensionSkip: strings.HasPrefix(url, "file:"),
+		targetDescription:       migrationTargetDescription(url),
+	}
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
 		return fmt.Errorf("read migrations dir: %w", err)
@@ -62,7 +71,7 @@ func Migrate(db *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
 		}
-		if err := execMigration(db, entry.Name(), string(data)); err != nil {
+		if err := execMigration(db, entry.Name(), string(data), mode); err != nil {
 			return err
 		}
 		slog.Info("migration applied", "file", entry.Name())
@@ -70,24 +79,41 @@ func Migrate(db *sql.DB) error {
 	return nil
 }
 
-func execMigration(db *sql.DB, name, content string) error {
+func execMigration(db *sql.DB, name, content string, mode migrationMode) error {
 	for _, stmt := range splitStatements(content) {
 		if _, err := db.Exec(stmt); err != nil {
 			upper := strings.ToUpper(stmt)
-			if strings.Contains(upper, "USING FTS") || strings.Contains(upper, "LIBSQL_VECTOR_IDX") {
+			if strings.Contains(upper, "LIBSQL_VECTOR_IDX") {
 				if !extensionMigrationNoticeLogged {
 					extensionMigrationNoticeLogged = true
-					slog.Info("migration: skipping Turso extension indexes in this environment",
+					slog.Info("migration: skipping unsupported extension index",
 						"migration", name,
-						"reason", "database engine does not support Turso-specific FTS/vector DDL",
+						"reason", "database engine does not support vector index DDL in this environment",
 					)
 				}
 				continue
+			}
+			if strings.Contains(upper, "CREATE VIRTUAL TABLE") && strings.Contains(upper, "USING FTS5") {
+				return fmt.Errorf(
+					"migration %s: SQLite FTS5 statement failed on %s: %w\nstatement: %s\nhint: this app uses SQLite FTS5 on Turso Cloud. Enable SQLite extensions for the Turso group/database before rerunning the service",
+					name, mode.targetDescription, err, stmt,
+				)
 			}
 			return fmt.Errorf("migration %s: exec failed: %w\nstatement: %s", name, err, stmt)
 		}
 	}
 	return nil
+}
+
+func migrationTargetDescription(url string) string {
+	switch {
+	case strings.HasPrefix(url, "file:"):
+		return "local SQLite"
+	case strings.HasPrefix(url, "libsql://"), strings.HasPrefix(url, "https://"):
+		return "remote Turso/libSQL"
+	default:
+		return "database"
+	}
 }
 
 func splitStatements(content string) []string {

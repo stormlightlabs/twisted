@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -82,7 +82,7 @@ func newAPICmd() *cobra.Command {
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db); err != nil {
+			if err := store.Migrate(db, cfg.TursoURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 
@@ -125,7 +125,7 @@ func newIndexerCmd() *cobra.Command {
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db); err != nil {
+			if err := store.Migrate(db, cfg.TursoURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 
@@ -220,7 +220,7 @@ func newBackfillCmd() *cobra.Command {
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db); err != nil {
+			if err := store.Migrate(db, cfg.TursoURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 

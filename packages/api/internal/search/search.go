@@ -24,20 +24,20 @@ type Params struct {
 
 // Result is a single search hit.
 type Result struct {
-	ID           string  `json:"id"`
-	Collection   string  `json:"collection"`
-	RecordType   string  `json:"record_type"`
-	Title        string  `json:"title"`
-	BodySnippet  string  `json:"body_snippet,omitempty"`
-	Summary      string  `json:"summary,omitempty"`
-	RepoName     string  `json:"repo_name,omitempty"`
-	AuthorHandle string  `json:"author_handle,omitempty"`
-	DID          string  `json:"did"`
-	ATURI        string  `json:"at_uri"`
-	Score        float64 `json:"score"`
+	ID           string   `json:"id"`
+	Collection   string   `json:"collection"`
+	RecordType   string   `json:"record_type"`
+	Title        string   `json:"title"`
+	BodySnippet  string   `json:"body_snippet,omitempty"`
+	Summary      string   `json:"summary,omitempty"`
+	RepoName     string   `json:"repo_name,omitempty"`
+	AuthorHandle string   `json:"author_handle,omitempty"`
+	DID          string   `json:"did"`
+	ATURI        string   `json:"at_uri"`
+	Score        float64  `json:"score"`
 	MatchedBy    []string `json:"matched_by"`
-	CreatedAt    string  `json:"created_at,omitempty"`
-	UpdatedAt    string  `json:"updated_at,omitempty"`
+	CreatedAt    string   `json:"created_at,omitempty"`
+	UpdatedAt    string   `json:"updated_at,omitempty"`
 }
 
 // Response is the search API response envelope.
@@ -67,6 +67,8 @@ func (r *Repository) Ping(ctx context.Context) error {
 
 // Keyword runs a full-text keyword search.
 func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
+	ftsQuery := toFTS5Query(p.Query)
+
 	// Build filter conditions beyond the base FTS match.
 	var filters []string
 	var filterArgs []any
@@ -108,40 +110,41 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 		filterArgs = append(filterArgs, p.State)
 	}
 
-	where := "fts_match(d.title, d.body, d.summary, d.repo_name, d.author_handle, d.tags_json, ?) AND d.deleted_at IS NULL"
+	where := "documents_fts MATCH ? AND d.deleted_at IS NULL"
 	if len(filters) > 0 {
 		where += " AND " + strings.Join(filters, " AND ")
 	}
 
 	// Count total matching documents.
-	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM documents d %s WHERE %s", join, where)
-	countArgs := append([]any{p.Query}, filterArgs...)
+	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM documents_fts JOIN documents d ON d.id = documents_fts.id %s WHERE %s", join, where)
+	countArgs := append([]any{ftsQuery}, filterArgs...)
 
 	var total int
 	if err := r.db.QueryRowContext(ctx, countSQL, countArgs...).Scan(&total); err != nil {
-		return nil, fmt.Errorf("count: %w", err)
+		return nil, explainNativeFTSError("count", err)
 	}
 
 	// Fetch results with score and snippet.
 	resultsSQL := fmt.Sprintf(`
 		SELECT d.id, d.title, d.summary, d.repo_name, d.author_handle,
 		       d.did, d.at_uri, d.collection, d.record_type, d.created_at, d.updated_at,
-		       fts_score(d.title, d.body, d.summary, d.repo_name, d.author_handle, d.tags_json, ?) AS score,
-		       fts_highlight(d.body, '<mark>', '</mark>', ?) AS body_snippet
-		FROM documents d
+		       -bm25(documents_fts, 0.0, 3.0, 1.0, 1.5, 2.5, 2.0, 1.2) AS score,
+		       snippet(documents_fts, 2, '<mark>', '</mark>', '...', 20) AS body_snippet
+		FROM documents_fts
+		JOIN documents d ON d.id = documents_fts.id
 		%s
 		WHERE %s
 		ORDER BY score DESC
 		LIMIT ? OFFSET ?`, join, where)
 
-	resultsArgs := make([]any, 0, 3+len(filterArgs)+2)
-	resultsArgs = append(resultsArgs, p.Query, p.Query, p.Query) // score, highlight, match
+	resultsArgs := make([]any, 0, 1+len(filterArgs)+2)
+	resultsArgs = append(resultsArgs, ftsQuery)
 	resultsArgs = append(resultsArgs, filterArgs...)
 	resultsArgs = append(resultsArgs, p.Limit, p.Offset)
 
 	rows, err := r.db.QueryContext(ctx, resultsSQL, resultsArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("search: %w", err)
+		return nil, explainNativeFTSError("search", err)
 	}
 	defer rows.Close()
 
@@ -181,4 +184,27 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 		Offset:  p.Offset,
 		Results: results,
 	}, nil
+}
+
+func explainNativeFTSError(op string, err error) error {
+	msg := err.Error()
+	if strings.Contains(msg, "no such table: documents_fts") ||
+		strings.Contains(msg, "no such module: fts5") {
+		return fmt.Errorf("%s: SQLite FTS5 is unavailable on this database; ensure the FTS5 migration succeeded and that Turso SQLite extensions are enabled for this database/group: %w", op, err)
+	}
+	return fmt.Errorf("%s: %w", op, err)
+}
+
+func toFTS5Query(raw string) string {
+	parts := strings.Fields(raw)
+	if len(parts) == 0 {
+		return `""`
+	}
+
+	quoted := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.ReplaceAll(part, `"`, `""`)
+		quoted = append(quoted, `"`+part+`"`)
+	}
+	return strings.Join(quoted, " OR ")
 }

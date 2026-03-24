@@ -2,10 +2,12 @@ package backfill
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -26,11 +28,16 @@ func (f *fakeFollowFetcher) ListFollowSubjects(_ context.Context, did string) ([
 }
 
 type fakeTapAdmin struct {
-	statuses map[string]RepoStatus
-	added    [][]string
+	statuses      map[string]RepoStatus
+	statusErrs    map[string]error
+	added         [][]string
+	addReposError func(dids []string) error
 }
 
 func (f *fakeTapAdmin) RepoStatus(_ context.Context, did string) (RepoStatus, error) {
+	if err, ok := f.statusErrs[did]; ok {
+		return RepoStatus{}, err
+	}
 	if status, ok := f.statuses[did]; ok {
 		return status, nil
 	}
@@ -38,6 +45,11 @@ func (f *fakeTapAdmin) RepoStatus(_ context.Context, did string) (RepoStatus, er
 }
 
 func (f *fakeTapAdmin) AddRepos(_ context.Context, dids []string) error {
+	if f.addReposError != nil {
+		if err := f.addReposError(dids); err != nil {
+			return err
+		}
+	}
 	batch := make([]string, len(dids))
 	copy(batch, dids)
 	f.added = append(f.added, batch)
@@ -142,5 +154,101 @@ func TestRunner_SkipsInProgressBackfills(t *testing.T) {
 	}
 	if len(tap.added) != 0 {
 		t.Fatalf("expected no submission for in-progress did, got %#v", tap.added)
+	}
+}
+
+func TestRunner_ContinuesWhenRepoStatusFails(t *testing.T) {
+	st := &fakeStore{
+		collaborators: map[string][]string{
+			"did:plc:seed": {"did:plc:good", "did:plc:bad"},
+		},
+	}
+	follows := &fakeFollowFetcher{follows: map[string][]string{}}
+	tap := &fakeTapAdmin{
+		statuses:   map[string]RepoStatus{},
+		statusErrs: map[string]error{"did:plc:bad": errors.New("tap info request failed: status 502")},
+	}
+	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := NewRunnerWithDeps(st, tap, resolver, follows, log)
+
+	dir := t.TempDir()
+	seedsPath := filepath.Join(dir, "seeds.txt")
+	if err := os.WriteFile(seedsPath, []byte("alice.tangled.sh\n"), 0o644); err != nil {
+		t.Fatalf("write seeds: %v", err)
+	}
+
+	err := r.Run(context.Background(), Options{
+		SeedsPath:   seedsPath,
+		MaxHops:     1,
+		Concurrency: 1,
+		BatchSize:   10,
+	})
+	if err != nil {
+		t.Fatalf("run backfill: %v", err)
+	}
+
+	if len(tap.added) != 1 {
+		t.Fatalf("expected one submission batch, got %d", len(tap.added))
+	}
+	if len(tap.added[0]) != 2 {
+		t.Fatalf("expected seed and good DID submitted, got %#v", tap.added[0])
+	}
+	for _, did := range tap.added[0] {
+		if did == "did:plc:bad" {
+			t.Fatalf("did with status error should have been skipped, got %#v", tap.added[0])
+		}
+	}
+}
+
+func TestRunner_FallsBackToSingleRepoSubmissionOnBatchFailure(t *testing.T) {
+	st := &fakeStore{
+		collaborators: map[string][]string{
+			"did:plc:seed": {"did:plc:good", "did:plc:bad"},
+		},
+	}
+	follows := &fakeFollowFetcher{follows: map[string][]string{}}
+	tap := &fakeTapAdmin{
+		statuses: map[string]RepoStatus{},
+		addReposError: func(dids []string) error {
+			if len(dids) > 1 {
+				return errors.New("repos add failed: status 502")
+			}
+			if len(dids) == 1 && strings.Contains(dids[0], "bad") {
+				return errors.New("repos add failed: status 502")
+			}
+			return nil
+		},
+	}
+	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := NewRunnerWithDeps(st, tap, resolver, follows, log)
+
+	dir := t.TempDir()
+	seedsPath := filepath.Join(dir, "seeds.txt")
+	if err := os.WriteFile(seedsPath, []byte("alice.tangled.sh\n"), 0o644); err != nil {
+		t.Fatalf("write seeds: %v", err)
+	}
+
+	err := r.Run(context.Background(), Options{
+		SeedsPath:   seedsPath,
+		MaxHops:     1,
+		Concurrency: 1,
+		BatchSize:   10,
+	})
+	if err != nil {
+		t.Fatalf("run backfill: %v", err)
+	}
+
+	if len(tap.added) != 2 {
+		t.Fatalf("expected successful individual fallbacks only, got %#v", tap.added)
+	}
+	for _, batch := range tap.added {
+		if len(batch) != 1 {
+			t.Fatalf("expected only single-DID successful submissions after batch fallback, got %#v", tap.added)
+		}
+		if batch[0] == "did:plc:bad" {
+			t.Fatalf("bad DID should not have been successfully submitted, got %#v", tap.added)
+		}
 	}
 }

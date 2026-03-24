@@ -84,11 +84,17 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 
 	alreadyTracked := 0
 	inProgress := 0
+	statusFailures := 0
 	toSubmit := make([]string, 0, len(discovered))
 	for _, user := range discovered {
 		status, err := r.tap.RepoStatus(ctx, user.DID)
 		if err != nil {
-			return fmt.Errorf("tap info for %s: %w", user.DID, err)
+			statusFailures++
+			r.log.Warn("tap classification failed",
+				slog.String("did", user.DID),
+				slog.String("error", err.Error()),
+			)
+			continue
 		}
 		if status.Tracked && status.Backfilled {
 			alreadyTracked++
@@ -104,10 +110,12 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 	r.log.Info("tap classification complete",
 		slog.Int("already_tracked", alreadyTracked),
 		slog.Int("backfill_in_progress", inProgress),
+		slog.Int("status_failures", statusFailures),
 		slog.Int("to_submit", len(toSubmit)),
 	)
 
 	submitted := 0
+	submitFailures := 0
 	for i := 0; i < len(toSubmit); i += opts.BatchSize {
 		end := i + opts.BatchSize
 		if end > len(toSubmit) {
@@ -115,15 +123,33 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 		}
 		batch := toSubmit[i:end]
 		if err := r.tap.AddRepos(ctx, batch); err != nil {
-			return fmt.Errorf("submit batch %d-%d: %w", i, end, err)
+			r.log.Warn("tap batch submission failed",
+				slog.Int("batch_start", i),
+				slog.Int("batch_end", end),
+				slog.Int("batch_size", len(batch)),
+				slog.String("error", err.Error()),
+			)
+			for _, did := range batch {
+				if err := r.tap.AddRepos(ctx, []string{did}); err != nil {
+					submitFailures++
+					r.log.Warn("tap repo submission failed",
+						slog.String("did", did),
+						slog.String("error", err.Error()),
+					)
+					continue
+				}
+				submitted++
+				r.log.Info("submitted Tap repo", slog.String("did", did), slog.Int("submitted_total", submitted))
+			}
+		} else {
+			submitted += len(batch)
+			r.log.Info("submitted Tap batch",
+				slog.Int("batch_start", i),
+				slog.Int("batch_end", end),
+				slog.Int("batch_size", len(batch)),
+				slog.Int("submitted_total", submitted),
+			)
 		}
-		submitted += len(batch)
-		r.log.Info("submitted Tap batch",
-			slog.Int("batch_start", i),
-			slog.Int("batch_end", end),
-			slog.Int("batch_size", len(batch)),
-			slog.Int("submitted_total", submitted),
-		)
 		if end < len(toSubmit) && opts.BatchDelay > 0 {
 			select {
 			case <-ctx.Done():
@@ -138,6 +164,8 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 		slog.Int("already_tracked", alreadyTracked),
 		slog.Int("backfill_in_progress", inProgress),
 		slog.Int("submitted", submitted),
+		slog.Int("status_failures", statusFailures),
+		slog.Int("submit_failures", submitFailures),
 	)
 	return nil
 }
