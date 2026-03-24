@@ -215,9 +215,9 @@ Expose a usable public search API backed by Turso's Tantivy-backed FTS.
 
 ### Tasks
 
-- [ ] Set up HTTP server with net/http router
-- [ ] Implement `/healthz` (always 200) and `/readyz` (SELECT 1 against DB)
-- [ ] Implement search repository with FTS queries:
+- [x] Set up HTTP server with net/http router
+- [x] Implement `/healthz` (always 200) and `/readyz` (SELECT 1 against DB)
+- [x] Implement search repository with FTS queries:
 
   ```sql
   SELECT id, title, summary, repo_name, author_handle, collection, record_type,
@@ -231,21 +231,21 @@ Expose a usable public search API backed by Turso's Tantivy-backed FTS.
   LIMIT ? OFFSET ?;
   ```
 
-- [ ] Implement request validation:
+- [x] Implement request validation:
   - `q` required, non-empty
   - `limit` 1–100, default 20
   - `offset` >= 0, default 0
   - Reject unknown parameters with 400
-- [ ] Implement filters (as WHERE clauses):
+- [x] Implement filters (as WHERE clauses):
   - `collection` → `d.collection = ?`
   - `type` → `d.record_type = ?`
   - `author` → `d.author_handle = ?` or `d.did = ?`
   - `repo` → `d.repo_name = ?`
-- [ ] Implement `/documents/{id}` — full document response
-- [ ] Implement stable JSON response contract (see spec 05-search.md)
-- [ ] Exclude tombstoned documents (`deleted_at IS NOT NULL`) by default
-- [ ] Add request logging middleware (method, path, status, duration)
-- [ ] Add CORS headers if needed
+- [x] Implement `/documents/{id}` — full document response
+- [x] Implement stable JSON response contract (see spec 05-search.md)
+- [x] Exclude tombstoned documents (`deleted_at IS NOT NULL`) by default
+- [x] Add request logging middleware (method, path, status, duration)
+- [x] Add CORS headers if needed
 
 ### Verification
 

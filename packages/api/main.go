@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"tangled.org/desertthunder.dev/twister/internal/api"
 	"tangled.org/desertthunder.dev/twister/internal/backfill"
 	"tangled.org/desertthunder.dev/twister/internal/config"
 	"tangled.org/desertthunder.dev/twister/internal/ingest"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/observability"
+	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
 	"tangled.org/desertthunder.dev/twister/internal/tapclient"
 )
@@ -62,8 +64,9 @@ func baseContext() (context.Context, context.CancelFunc) {
 
 func newAPICmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "api",
-		Short: "Start the HTTP search API",
+		Use:     "api",
+		Aliases: []string{"serve"},
+		Short:   "Start the HTTP search API",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -71,9 +74,28 @@ func newAPICmd() *cobra.Command {
 			}
 			log := observability.NewLogger(cfg)
 			log.Info("starting api", slog.String("service", "api"), slog.String("version", version), slog.String("addr", cfg.HTTPBindAddr))
+
+			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer db.Close()
+
+			if err := store.Migrate(db); err != nil {
+				return fmt.Errorf("migrate database: %w", err)
+			}
+
+			st := store.New(db)
+			searchRepo := search.NewRepository(db)
+			srv := api.New(searchRepo, st, cfg, log)
+
 			ctx, cancel := baseContext()
 			defer cancel()
-			<-ctx.Done()
+
+			if err := srv.Run(ctx); err != nil {
+				return fmt.Errorf("run api: %w", err)
+			}
+
 			log.Info("shutting down api")
 			return nil
 		},
