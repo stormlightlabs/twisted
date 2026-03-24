@@ -1,9 +1,0 @@
-# Example seed handles for Twister graph backfill
-# One DID or handle per line. Comments and blank lines are ignored.
-
-anirudh.fi
-atprotocol.dev
-zzstoatzz.io
-oppi.li
-desertthunder.dev
-tangled.org

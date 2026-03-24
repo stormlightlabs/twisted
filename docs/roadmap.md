@@ -1,0 +1,126 @@
+---
+title: Roadmap
+updated: 2026-03-24
+---
+
+## API: Constellation Integration
+
+Add a Constellation client to the Go API for enriching search results with social signals.
+
+- [ ] Constellation XRPC client (`internal/constellation/`) with `getBacklinksCount` and `getBacklinks`
+- [ ] User-agent header with project name and contact
+- [ ] Enrich search results with star counts from Constellation
+- [ ] Profile summary endpoint (`GET /profiles/{did}/summary`) with follower/following counts from Constellation
+- [ ] Cache Constellation responses with short TTL (star/follower counts change infrequently)
+
+## API: Semantic Search Pipeline
+
+Nomic Embed Text v1.5 via Railway template, async embedding pipeline.
+
+- [ ] Deploy nomic-embed Railway template (`POST /api/embeddings` with Bearer auth)
+- [ ] Embedding client in Go API (`internal/embedding/`) calling the Nomic service
+- [ ] Embed-worker: consume `embedding_jobs` queue, generate 768-dim vectors, store in `document_embeddings`
+- [ ] `GET /search/semantic` endpoint using DiskANN vector_top_k
+- [ ] Reembed command for bulk re-generation
+
+## API: Hybrid Search
+
+Combine keyword and semantic results.
+
+- [ ] Score normalization (keyword BM25 → [0,1], semantic cosine → [0,1])
+- [ ] Weighted merge (0.65 keyword + 0.35 semantic, configurable)
+- [ ] Deduplication by document ID
+- [ ] `matched_by` metadata in results
+
+## API: Search Quality
+
+- [ ] Field weight tuning based on real queries
+- [ ] Recency boost for recently updated content
+- [ ] Star count ranking signal (via Constellation)
+- [ ] State filtering defaults (exclude closed issues)
+- [ ] Better snippets with longer context
+- [ ] Relevance test fixtures
+
+## API: Observability
+
+- [ ] Structured metrics: ingestion rate, search latency, embedding throughput
+- [ ] Dashboard or log-based monitoring
+
+## App: Search & Discovery
+
+Wire the Explore tab to the search API and add activity feed.
+
+**Depends on:** API: Constellation Integration
+
+- [ ] Search service pointing at Twister API
+- [ ] Constellation service for star/follower counts
+- [ ] Debounced search on Explore tab with segmented results
+- [ ] Recent search history (local)
+- [ ] Graceful fallback when search API unavailable
+- [ ] Activity feed data source investigation (Jetstream vs polling)
+- [ ] Activity tab with filters, infinite scroll, pull-to-refresh
+- [ ] Home tab: surface recently viewed repos/profiles
+
+## App: Authentication & Social
+
+Bluesky OAuth and authenticated actions.
+
+**Depends on:** App: Search & Discovery (for Constellation service), API: Constellation Integration
+
+- [ ] OAuth setup with `@atcute/oauth-browser-client`
+- [ ] Login page, OAuth flow, callback handling
+- [ ] Capacitor deep link configuration
+- [ ] Session management (restore, refresh, logout, account switcher)
+- [ ] Auth-aware XRPC client using dpopFetch
+- [ ] Star repos (write to PDS, count from Constellation)
+- [ ] Follow users (write to PDS, count from Constellation)
+- [ ] React to content (write to PDS, count from Constellation)
+- [ ] Authenticated profile tab (pinned repos, stats, starred, following)
+- [ ] Personalized feed ("For You" / "Global" toggle)
+
+## App: Write Features
+
+**Depends on:** App: Authentication & Social
+
+- [ ] Create issue (title + markdown body)
+- [ ] Comment on issues and PRs (threaded)
+- [ ] Close/reopen issues
+- [ ] Edit profile (bio, links, avatar, pinned repos)
+- [ ] OAuth scope upgrade flow
+
+## App: Offline & Performance
+
+**Depends on:** App: Search & Discovery (for cache persistence of search/feed data)
+
+- [ ] Dexie setup with database schema (query cache + pinned content tables)
+- [ ] TanStack Query persister backed by Dexie
+- [ ] Pinned content store (save/unsave files for offline reading)
+- [ ] Pinned files UI (list, pin/unpin actions on file viewer, last-fetched timestamp)
+- [ ] Offline detection and banner
+- [ ] Secure token storage (Capacitor Secure Storage)
+- [ ] Cache eviction (per-type limits and TTL, pinned content exempt)
+- [ ] List virtualization for large datasets
+- [ ] Lazy-load avatars, prefetch on hover
+- [ ] Code splitting and bundle optimization (target <500KB JS)
+
+## App: Real-Time & Advanced
+
+**Depends on:** App: Authentication & Social, App: Offline & Performance
+
+- [ ] Jetstream integration for live `sh.tangled.*` events
+- [ ] Live UI indicators (new commits, new feed items, PR status)
+- [ ] Custom feed presets ("My repos", "Watching", "Team")
+- [ ] Repo forking
+- [ ] Labels (display, filter, manage)
+- [ ] Expanded reactions with emoji picker
+- [ ] PR interdiff (compare rounds)
+- [ ] Knot info display
+
+## App: Push Notifications
+
+**Depends on:** App: Authentication & Social
+
+- [ ] Register device token on login
+- [ ] Subscribe to relevant events
+- [ ] Deliver via APNs/FCM
+- [ ] Handle notification taps (deep link to relevant screen)
