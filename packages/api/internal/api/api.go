@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"tangled.org/desertthunder.dev/twister/internal/config"
+	"tangled.org/desertthunder.dev/twister/internal/constellation"
 	"tangled.org/desertthunder.dev/twister/internal/reindex"
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
@@ -19,19 +21,21 @@ import (
 
 // Server is the HTTP search API server.
 type Server struct {
-	search *search.Repository
-	store  store.Store
-	cfg    *config.Config
-	log    *slog.Logger
+	search        *search.Repository
+	store         store.Store
+	cfg           *config.Config
+	log           *slog.Logger
+	constellation *constellation.Client
 }
 
 // New creates a new API server.
-func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log *slog.Logger) *Server {
+func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log *slog.Logger, constellation *constellation.Client) *Server {
 	return &Server{
-		search: searchRepo,
-		store:  st,
-		cfg:    cfg,
-		log:    log,
+		search:        searchRepo,
+		store:         st,
+		cfg:           cfg,
+		log:           log,
+		constellation: constellation,
 	}
 }
 
@@ -47,6 +51,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /search/hybrid", s.handleNotImplemented)
 
 	mux.HandleFunc("GET /documents/{id}", s.handleGetDocument)
+	mux.HandleFunc("GET /profiles/{did}/summary", s.handleProfileSummary)
 
 	if s.cfg.EnableAdminEndpoints {
 		mux.HandleFunc("POST /admin/reindex", s.handleAdminReindex)
@@ -213,6 +218,10 @@ func (s *Server) handleSearchKeyword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.constellation != nil {
+		s.enrichStarCounts(r.Context(), resp.Results)
+	}
+
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -280,6 +289,66 @@ func (s *Server) handleAdminReindex(w http.ResponseWriter, r *http.Request) {
 		"updated": result.Updated,
 		"errors":  result.Errors,
 	})
+}
+
+// enrichStarCounts fetches star counts from Constellation for repo results in parallel.
+// It is best-effort: failures are logged and results are returned without star counts.
+//
+// Uses a short deadline so enrichment doesn't stall the response.
+func (s *Server) enrichStarCounts(ctx context.Context, results []search.Result) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for i := range results {
+		if results[i].RecordType != "repo" || results[i].ATURI == "" {
+			continue
+		}
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			n, err := s.constellation.GetBacklinksCount(ctx, constellation.BacklinksParams{
+				Subject: results[i].ATURI,
+				Source:  constellation.SourceStarURI,
+			})
+			if err != nil {
+				s.log.Debug("constellation star count failed", slog.String("at_uri", results[i].ATURI), slog.String("error", err.Error()))
+				return
+			}
+			results[i].StarCount = &n
+		}(i)
+	}
+	wg.Wait()
+}
+
+// handleProfileSummary returns follower count and other social signals for a DID.
+func (s *Server) handleProfileSummary(w http.ResponseWriter, r *http.Request) {
+	did := r.PathValue("did")
+	if did == "" {
+		writeJSON(w, http.StatusBadRequest, errorBody("invalid_parameter", "did is required"))
+		return
+	}
+
+	type summaryResponse struct {
+		DID           string `json:"did"`
+		FollowerCount int    `json:"follower_count"`
+	}
+
+	summary := summaryResponse{DID: did}
+
+	if s.constellation != nil {
+		n, err := s.constellation.GetBacklinksCount(r.Context(), constellation.BacklinksParams{
+			Subject: did,
+			Source:  constellation.SourceFollowDID,
+		})
+		if err != nil {
+			s.log.Debug("constellation follower count failed", slog.String("did", did), slog.String("error", err.Error()))
+		} else {
+			summary.FollowerCount = n
+		}
+	}
+
+	writeJSON(w, http.StatusOK, summary)
 }
 
 func (s *Server) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {

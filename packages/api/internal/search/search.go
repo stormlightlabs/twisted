@@ -38,6 +38,7 @@ type Result struct {
 	WebURL          string   `json:"web_url,omitempty"`
 	Score           float64  `json:"score"`
 	MatchedBy       []string `json:"matched_by"`
+	StarCount       *int     `json:"star_count,omitempty"`
 	CreatedAt       string   `json:"created_at,omitempty"`
 	UpdatedAt       string   `json:"updated_at,omitempty"`
 }

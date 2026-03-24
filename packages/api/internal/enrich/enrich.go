@@ -29,9 +29,9 @@ type Result struct {
 
 // Runner performs the enrichment operation.
 type Runner struct {
-	store  store.Store
-	xrpc   *xrpc.Client
-	log    *slog.Logger
+	store store.Store
+	xrpc  *xrpc.Client
+	log   *slog.Logger
 }
 
 // New creates a Runner.
@@ -143,7 +143,6 @@ func needsEnrichment(doc *store.Document) bool {
 func (r *Runner) enrichDoc(ctx context.Context, doc *store.Document) bool {
 	changed := false
 
-	// Resolve author handle
 	if doc.AuthorHandle == "" && doc.DID != "" {
 		handle, err := r.store.GetIdentityHandle(ctx, doc.DID)
 		if err == nil && handle != "" {
@@ -163,9 +162,7 @@ func (r *Runner) enrichDoc(ctx context.Context, doc *store.Document) bool {
 		}
 	}
 
-	// Resolve repo name for repo-scoped records
 	if doc.RepoDID != "" && doc.RepoName == "" {
-		// Try to find the repo name from an existing repo document in the store
 		repoName := r.findRepoNameFromStore(ctx, doc.RepoDID)
 		if repoName != "" {
 			doc.RepoName = repoName
@@ -173,7 +170,6 @@ func (r *Runner) enrichDoc(ctx context.Context, doc *store.Document) bool {
 		}
 	}
 
-	// Resolve repo owner handle for WebURL
 	ownerHandle := doc.AuthorHandle
 	if doc.RepoDID != "" && doc.RepoDID != doc.DID {
 		repoOwnerHandle, err := r.store.GetIdentityHandle(ctx, doc.RepoDID)
@@ -187,7 +183,6 @@ func (r *Runner) enrichDoc(ctx context.Context, doc *store.Document) bool {
 		}
 	}
 
-	// Build WebURL
 	if doc.WebURL == "" {
 		webURL := xrpc.BuildWebURL(ownerHandle, doc.RepoName, doc.RecordType, doc.RKey)
 		if webURL != "" {
@@ -209,7 +204,6 @@ func (r *Runner) findRepoNameFromStore(ctx context.Context, repoDID string) stri
 	if err != nil || len(docs) == 0 {
 		return ""
 	}
-	// Return the first repo's title (which is the repo name)
 	for _, d := range docs {
 		if d.Title != "" {
 			return d.Title

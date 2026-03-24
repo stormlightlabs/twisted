@@ -38,6 +38,10 @@ type Config struct {
 	PLCDirectoryURL        string
 	IdentityServiceURL     string
 	XRPCTimeout            time.Duration
+	ConstellationURL       string
+	ConstellationUserAgent string
+	ConstellationTimeout   time.Duration
+	ConstellationCacheTTL  time.Duration
 }
 
 type LoadOptions struct {
@@ -75,6 +79,10 @@ func Load(opts LoadOptions) (*Config, error) {
 		PLCDirectoryURL:        envOrDefault("PLC_DIRECTORY_URL", "https://plc.directory"),
 		IdentityServiceURL:     envOrDefault("IDENTITY_SERVICE_URL", "https://public.api.bsky.app"),
 		XRPCTimeout:            envDuration("XRPC_TIMEOUT", 15*time.Second),
+		ConstellationURL:       envOrDefault("CONSTELLATION_URL", "https://constellation.microcosm.blue"),
+		ConstellationUserAgent: envOrDefault("CONSTELLATION_USER_AGENT", "twister/1.0 (https://tangled.sh; Owais <desertthunder.dev@gmail.com>)"),
+		ConstellationTimeout:   envDuration("CONSTELLATION_TIMEOUT", 10*time.Second),
+		ConstellationCacheTTL:  envDuration("CONSTELLATION_CACHE_TTL", 5*time.Minute),
 	}
 
 	if opts.Local {

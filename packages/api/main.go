@@ -14,6 +14,7 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/api"
 	"tangled.org/desertthunder.dev/twister/internal/backfill"
 	"tangled.org/desertthunder.dev/twister/internal/config"
+	"tangled.org/desertthunder.dev/twister/internal/constellation"
 	"tangled.org/desertthunder.dev/twister/internal/enrich"
 	"tangled.org/desertthunder.dev/twister/internal/ingest"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
@@ -96,7 +97,16 @@ func newAPICmd(local *bool) *cobra.Command {
 
 			st := store.New(db)
 			searchRepo := search.NewRepository(db)
-			srv := api.New(searchRepo, st, cfg, log)
+
+			constellationClient := constellation.NewClient(
+				constellation.WithBaseURL(cfg.ConstellationURL),
+				constellation.WithUserAgent(cfg.ConstellationUserAgent),
+				constellation.WithTimeout(cfg.ConstellationTimeout),
+				constellation.WithCacheTTL(cfg.ConstellationCacheTTL),
+			)
+			log.Info("constellation client configured", slog.String("url", cfg.ConstellationURL))
+
+			srv := api.New(searchRepo, st, cfg, log, constellationClient)
 
 			ctx, cancel := baseContext()
 			defer cancel()

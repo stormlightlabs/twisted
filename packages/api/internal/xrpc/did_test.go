@@ -55,9 +55,6 @@ func TestResolveDIDDoc_Web(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// For did:web, we need to override how the URL is constructed.
-	// We'll use a did:plc: test instead since did:web requires DNS resolution.
-	// The PLC test above validates the parsing logic. Let's test ResolveIdentity instead.
 	t.Skip("did:web requires DNS; tested via PLC path")
 }
 
@@ -113,7 +110,6 @@ func TestDIDCache_HitMissExpiry(t *testing.T) {
 
 	c := NewClient(WithPLCDirectory(srv.URL))
 
-	// First call: cache miss
 	_, err := c.ResolveDIDDoc(context.Background(), "did:plc:cached")
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +118,6 @@ func TestDIDCache_HitMissExpiry(t *testing.T) {
 		t.Fatalf("expected 1 call, got %d", calls)
 	}
 
-	// Second call: cache hit
 	_, err = c.ResolveDIDDoc(context.Background(), "did:plc:cached")
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +126,6 @@ func TestDIDCache_HitMissExpiry(t *testing.T) {
 		t.Fatalf("expected 1 call (cached), got %d", calls)
 	}
 
-	// Invalidate
 	c.didCache.Invalidate("did:plc:cached")
 	_, err = c.ResolveDIDDoc(context.Background(), "did:plc:cached")
 	if err != nil {

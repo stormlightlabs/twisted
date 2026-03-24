@@ -403,12 +403,7 @@ func (r *Runner) enrichDocument(ctx context.Context, doc *store.Document) {
 		return
 	}
 
-	// Resolve repo name if RepoDID is set but RepoName is empty
 	if doc.RepoDID != "" && doc.RepoName == "" {
-		// Extract the repo rkey from the RepoDID — the repo AT-URI typically encodes
-		// the rkey as the last segment. We try to look up the repo record.
-		// The RepoDID in the document refers to the repo owner's DID. The repo rkey
-		// can be extracted from the document's AT-URI for repo-scoped records.
 		repoRKey := extractRepoRKey(doc.ATURI, doc.Collection)
 		if repoRKey != "" {
 			name, err := r.xrpcClient.ResolveRepoName(ctx, doc.RepoDID, repoRKey)
@@ -424,7 +419,6 @@ func (r *Runner) enrichDocument(ctx context.Context, doc *store.Document) {
 		}
 	}
 
-	// Resolve author handle if empty
 	if doc.AuthorHandle == "" && doc.DID != "" {
 		info, err := r.xrpcClient.ResolveIdentity(ctx, doc.DID)
 		if err != nil {
@@ -438,11 +432,9 @@ func (r *Runner) enrichDocument(ctx context.Context, doc *store.Document) {
 		}
 	}
 
-	// Build WebURL if we have enough data
 	if doc.WebURL == "" {
 		ownerHandle := doc.AuthorHandle
 		if doc.RepoDID != "" && doc.RepoDID != doc.DID {
-			// Repo owner may differ from author — try to resolve repo owner handle
 			repoOwnerHandle, err := r.store.GetIdentityHandle(ctx, doc.RepoDID)
 			if err == nil && repoOwnerHandle != "" {
 				ownerHandle = repoOwnerHandle
@@ -462,16 +454,12 @@ func (r *Runner) enrichDocument(ctx context.Context, doc *store.Document) {
 // at://did/collection/rkey but the repo is identified by RepoDID. We look
 // for a stored repo document, or try common rkey patterns.
 func extractRepoRKey(atURI, collection string) string {
-	// For repo records themselves, the rkey IS the repo rkey
 	if collection == "sh.tangled.repo" {
 		parts := strings.SplitN(atURI, "/", 5)
 		if len(parts) >= 5 {
 			return parts[4]
 		}
 	}
-	// For sub-collections like sh.tangled.repo.issue, the AT-URI contains the
-	// issue rkey, not the repo rkey. We can't derive the repo rkey from the URI.
-	// This will be resolved by the enrich command for existing documents.
 	return ""
 }
 
