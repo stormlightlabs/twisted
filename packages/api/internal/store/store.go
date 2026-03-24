@@ -22,6 +22,7 @@ type Document struct {
 	CreatedAt    string
 	UpdatedAt    string
 	IndexedAt    string
+	WebURL       string
 	DeletedAt    string
 }
 

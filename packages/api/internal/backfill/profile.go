@@ -2,12 +2,10 @@ package backfill
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
-	"strings"
-	"time"
+
+	"tangled.org/desertthunder.dev/twister/internal/xrpc"
 )
 
 const profileCollection = "sh.tangled.actor.profile"
@@ -23,123 +21,34 @@ type profileFetcher interface {
 	FetchProfile(ctx context.Context, did string) (*ProfileRecord, error)
 }
 
-// HTTPProfileFetcher fetches sh.tangled.actor.profile records via XRPC
+// XRPCProfileFetcher fetches sh.tangled.actor.profile records via xrpc.Client
 // and resolves handles from the DID document.
-type HTTPProfileFetcher struct {
-	client *http.Client
+type XRPCProfileFetcher struct {
+	client *xrpc.Client
 }
 
-func NewHTTPProfileFetcher() *HTTPProfileFetcher {
-	return &HTTPProfileFetcher{
-		client: &http.Client{Timeout: 15 * time.Second},
-	}
+func NewXRPCProfileFetcher(client *xrpc.Client) *XRPCProfileFetcher {
+	return &XRPCProfileFetcher{client: client}
 }
 
-func (f *HTTPProfileFetcher) FetchProfile(ctx context.Context, did string) (*ProfileRecord, error) {
-	pds, handle, err := f.resolveDIDDoc(ctx, did)
+func (f *XRPCProfileFetcher) FetchProfile(ctx context.Context, did string) (*ProfileRecord, error) {
+	info, err := f.client.ResolveIdentity(ctx, did)
 	if err != nil {
-		return nil, fmt.Errorf("resolve did doc: %w", err)
+		return nil, fmt.Errorf("resolve identity: %w", err)
 	}
 
-	u, err := url.Parse(strings.TrimSuffix(pds, "/") + "/xrpc/com.atproto.repo.getRecord")
+	rec, err := f.client.GetRecord(ctx, info.PDS, did, profileCollection, "self")
 	if err != nil {
-		return nil, fmt.Errorf("build getRecord url: %w", err)
-	}
-	q := u.Query()
-	q.Set("repo", did)
-	q.Set("collection", profileCollection)
-	q.Set("rkey", "self")
-	u.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("build getRecord request: %w", err)
-	}
-
-	resp, err := f.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("getRecord request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return &ProfileRecord{Handle: handle}, nil
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("getRecord failed: status %d", resp.StatusCode)
-	}
-
-	var payload struct {
-		CID   string         `json:"cid"`
-		Value map[string]any `json:"value"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, fmt.Errorf("decode getRecord response: %w", err)
+		var nfe *xrpc.NotFoundError
+		if errors.As(err, &nfe) {
+			return &ProfileRecord{Handle: info.Handle}, nil
+		}
+		return nil, fmt.Errorf("getRecord: %w", err)
 	}
 
 	return &ProfileRecord{
-		Record: payload.Value,
-		CID:    payload.CID,
-		Handle: handle,
+		Record: rec.Value,
+		CID:    rec.CID,
+		Handle: info.Handle,
 	}, nil
-}
-
-// resolveDIDDoc fetches the DID document and returns (pdsEndpoint, handle, error).
-func (f *HTTPProfileFetcher) resolveDIDDoc(ctx context.Context, did string) (string, string, error) {
-	var didDocURL string
-	switch {
-	case strings.HasPrefix(did, "did:plc:"):
-		didDocURL = plcDirectoryBase + "/" + url.PathEscape(did)
-	case strings.HasPrefix(did, "did:web:"):
-		hostAndPath := strings.TrimPrefix(did, "did:web:")
-		hostAndPath = strings.ReplaceAll(hostAndPath, ":", "/")
-		didDocURL = "https://" + hostAndPath + "/.well-known/did.json"
-	default:
-		return "", "", fmt.Errorf("unsupported did type: %s", did)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, didDocURL, nil)
-	if err != nil {
-		return "", "", fmt.Errorf("build did doc request: %w", err)
-	}
-	resp, err := f.client.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("did doc request: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("did doc lookup failed: status %d", resp.StatusCode)
-	}
-
-	var didDoc struct {
-		AlsoKnownAs []string `json:"alsoKnownAs"`
-		Service     []struct {
-			Type            string `json:"type"`
-			ServiceEndpoint string `json:"serviceEndpoint"`
-		} `json:"service"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&didDoc); err != nil {
-		return "", "", fmt.Errorf("decode did doc: %w", err)
-	}
-
-	var pds string
-	for _, svc := range didDoc.Service {
-		if svc.Type == "AtprotoPersonalDataServer" && strings.TrimSpace(svc.ServiceEndpoint) != "" {
-			pds = strings.TrimSpace(svc.ServiceEndpoint)
-			break
-		}
-	}
-	if pds == "" {
-		return "", "", fmt.Errorf("no atproto pds endpoint in did document")
-	}
-
-	var handle string
-	for _, aka := range didDoc.AlsoKnownAs {
-		if strings.HasPrefix(aka, "at://") {
-			handle = strings.TrimPrefix(aka, "at://")
-			break
-		}
-	}
-
-	return pds, handle, nil
 }

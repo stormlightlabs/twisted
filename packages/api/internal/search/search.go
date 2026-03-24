@@ -35,6 +35,7 @@ type Result struct {
 	AuthorHandle    string   `json:"author_handle,omitempty"`
 	DID             string   `json:"did"`
 	ATURI           string   `json:"at_uri"`
+	WebURL          string   `json:"web_url,omitempty"`
 	Score           float64  `json:"score"`
 	MatchedBy       []string `json:"matched_by"`
 	CreatedAt       string   `json:"created_at,omitempty"`
@@ -124,7 +125,7 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 
 	resultsSQL := fmt.Sprintf(`
 		SELECT d.id, d.title, d.summary, d.repo_name, repo_owner.handle, d.author_handle,
-		       d.did, d.at_uri, d.collection, d.record_type, d.created_at, d.updated_at,
+		       d.did, d.at_uri, d.web_url, d.collection, d.record_type, d.created_at, d.updated_at,
 		       -bm25(documents_fts, 0.0, 3.0, 1.0, 1.5, 2.5, 2.0, 1.2) AS score,
 		       snippet(documents_fts, 2, '<mark>', '</mark>', '...', 20) AS body_snippet
 		FROM documents_fts
@@ -150,12 +151,12 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 	for rows.Next() {
 		var res Result
 		var title, summary, repoName, repoOwnerHandle, authorHandle sql.NullString
-		var createdAt, updatedAt sql.NullString
+		var webURL, createdAt, updatedAt sql.NullString
 		var bodySnippet sql.NullString
 
 		if err := rows.Scan(
 			&res.ID, &title, &summary, &repoName, &repoOwnerHandle, &authorHandle,
-			&res.DID, &res.ATURI, &res.Collection, &res.RecordType,
+			&res.DID, &res.ATURI, &webURL, &res.Collection, &res.RecordType,
 			&createdAt, &updatedAt, &res.Score, &bodySnippet,
 		); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
@@ -165,6 +166,7 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 		res.RepoName = repoName.String
 		res.RepoOwnerHandle = repoOwnerHandle.String
 		res.AuthorHandle = authorHandle.String
+		res.WebURL = webURL.String
 		res.BodySnippet = bodySnippet.String
 		res.CreatedAt = createdAt.String
 		res.UpdatedAt = updatedAt.String

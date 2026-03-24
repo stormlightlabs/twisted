@@ -87,6 +87,8 @@ function searchApp() {
     },
 
     canonicalURL(r) {
+      if (r.web_url) return r.web_url;
+
       const explicitURL = this.extractTangledURL(r.body_snippet) || this.extractTangledURL(r.summary);
       if (explicitURL) return explicitURL;
 

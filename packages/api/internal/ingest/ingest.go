@@ -12,6 +12,7 @@ import (
 
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/store"
+	"tangled.org/desertthunder.dev/twister/internal/xrpc"
 )
 
 const (
@@ -31,6 +32,7 @@ type Runner struct {
 	store        store.Store
 	registry     *normalize.Registry
 	tap          client
+	xrpcClient   *xrpc.Client
 	allowlist    allowlist
 	consumerName string
 	log          *slog.Logger
@@ -53,6 +55,11 @@ func NewRunner(st store.Store, registry *normalize.Registry, tap client, indexed
 		consumerName: defaultConsumerName,
 		log:          log,
 	}
+}
+
+// SetXRPCClient enables ingest-time enrichment via XRPC lookups.
+func (r *Runner) SetXRPCClient(c *xrpc.Client) {
+	r.xrpcClient = c
 }
 
 func (r *Runner) Run(ctx context.Context) error {
@@ -256,6 +263,8 @@ func (r *Runner) processRecordEvent(ctx context.Context, event normalize.TapReco
 		}
 	}
 
+	r.enrichDocument(ctx, doc)
+
 	if err := r.store.UpsertDocument(ctx, doc); err != nil {
 		return err
 	}
@@ -385,6 +394,85 @@ func (a allowlist) match(collection string) bool {
 		}
 	}
 	return false
+}
+
+// enrichDocument fills RepoName, AuthorHandle, and WebURL via XRPC when possible.
+// Failures are logged but never block ingestion.
+func (r *Runner) enrichDocument(ctx context.Context, doc *store.Document) {
+	if r.xrpcClient == nil {
+		return
+	}
+
+	// Resolve repo name if RepoDID is set but RepoName is empty
+	if doc.RepoDID != "" && doc.RepoName == "" {
+		// Extract the repo rkey from the RepoDID — the repo AT-URI typically encodes
+		// the rkey as the last segment. We try to look up the repo record.
+		// The RepoDID in the document refers to the repo owner's DID. The repo rkey
+		// can be extracted from the document's AT-URI for repo-scoped records.
+		repoRKey := extractRepoRKey(doc.ATURI, doc.Collection)
+		if repoRKey != "" {
+			name, err := r.xrpcClient.ResolveRepoName(ctx, doc.RepoDID, repoRKey)
+			if err != nil {
+				r.log.Debug("enrich: resolve repo name failed",
+					slog.String("doc_id", doc.ID),
+					slog.String("repo_did", doc.RepoDID),
+					slog.String("error", err.Error()),
+				)
+			} else {
+				doc.RepoName = name
+			}
+		}
+	}
+
+	// Resolve author handle if empty
+	if doc.AuthorHandle == "" && doc.DID != "" {
+		info, err := r.xrpcClient.ResolveIdentity(ctx, doc.DID)
+		if err != nil {
+			r.log.Debug("enrich: resolve author handle failed",
+				slog.String("doc_id", doc.ID),
+				slog.String("did", doc.DID),
+				slog.String("error", err.Error()),
+			)
+		} else if info.Handle != "" {
+			doc.AuthorHandle = info.Handle
+		}
+	}
+
+	// Build WebURL if we have enough data
+	if doc.WebURL == "" {
+		ownerHandle := doc.AuthorHandle
+		if doc.RepoDID != "" && doc.RepoDID != doc.DID {
+			// Repo owner may differ from author — try to resolve repo owner handle
+			repoOwnerHandle, err := r.store.GetIdentityHandle(ctx, doc.RepoDID)
+			if err == nil && repoOwnerHandle != "" {
+				ownerHandle = repoOwnerHandle
+			} else if r.xrpcClient != nil {
+				info, err := r.xrpcClient.ResolveIdentity(ctx, doc.RepoDID)
+				if err == nil && info.Handle != "" {
+					ownerHandle = info.Handle
+				}
+			}
+		}
+		doc.WebURL = xrpc.BuildWebURL(ownerHandle, doc.RepoName, doc.RecordType, doc.RKey)
+	}
+}
+
+// extractRepoRKey attempts to extract the repo rkey from the document context.
+// For repo-scoped collections like sh.tangled.repo.issue, the AT-URI is
+// at://did/collection/rkey but the repo is identified by RepoDID. We look
+// for a stored repo document, or try common rkey patterns.
+func extractRepoRKey(atURI, collection string) string {
+	// For repo records themselves, the rkey IS the repo rkey
+	if collection == "sh.tangled.repo" {
+		parts := strings.SplitN(atURI, "/", 5)
+		if len(parts) >= 5 {
+			return parts[4]
+		}
+	}
+	// For sub-collections like sh.tangled.repo.issue, the AT-URI contains the
+	// issue rkey, not the repo rkey. We can't derive the repo rkey from the URI.
+	// This will be resolved by the enrich command for existing documents.
+	return ""
 }
 
 func retryBackoff(attempt int) time.Duration {

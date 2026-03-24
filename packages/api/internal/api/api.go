@@ -323,6 +323,7 @@ type documentJSON struct {
 	AuthorHandle string `json:"author_handle,omitempty"`
 	TagsJSON     string `json:"tags_json,omitempty"`
 	Language     string `json:"language,omitempty"`
+	WebURL       string `json:"web_url,omitempty"`
 	CreatedAt    string `json:"created_at,omitempty"`
 	UpdatedAt    string `json:"updated_at,omitempty"`
 	IndexedAt    string `json:"indexed_at"`
@@ -344,6 +345,7 @@ func documentResponse(doc *store.Document) documentJSON {
 		AuthorHandle: doc.AuthorHandle,
 		TagsJSON:     doc.TagsJSON,
 		Language:     doc.Language,
+		WebURL:       doc.WebURL,
 		CreatedAt:    doc.CreatedAt,
 		UpdatedAt:    doc.UpdatedAt,
 		IndexedAt:    doc.IndexedAt,

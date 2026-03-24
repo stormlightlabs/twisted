@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"tangled.org/desertthunder.dev/twister/internal/store"
+	"tangled.org/desertthunder.dev/twister/internal/xrpc"
 )
 
 type discoveryStore interface {
@@ -27,19 +28,19 @@ type Runner struct {
 	log      *slog.Logger
 }
 
-func NewRunner(store discoveryStore, tap tapAdmin, resolver handleResolver, log *slog.Logger) *Runner {
-	return NewRunnerWithDeps(store, tap, resolver, NewHTTPFollowFetcher(), NewHTTPProfileFetcher(), log)
+func NewRunner(store discoveryStore, tap tapAdmin, xrpcClient *xrpc.Client, log *slog.Logger) *Runner {
+	return NewRunnerWithDeps(
+		store, tap,
+		NewXRPCHandleResolver(xrpcClient),
+		NewXRPCFollowFetcher(xrpcClient),
+		NewXRPCProfileFetcher(xrpcClient),
+		log,
+	)
 }
 
 func NewRunnerWithDeps(store discoveryStore, tap tapAdmin, resolver handleResolver, follows followFetcher, profiles profileFetcher, log *slog.Logger) *Runner {
 	if log == nil {
 		log = slog.Default()
-	}
-	if follows == nil {
-		follows = NewHTTPFollowFetcher()
-	}
-	if profiles == nil {
-		profiles = NewHTTPProfileFetcher()
 	}
 	return &Runner{store: store, tap: tap, resolver: resolver, follows: follows, profiles: profiles, log: log}
 }

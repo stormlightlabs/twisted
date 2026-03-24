@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -31,8 +32,12 @@ type Config struct {
 	IndexerHealthAddr    string
 	LogLevel             string
 	LogFormat            string
-	EnableAdminEndpoints bool
-	AdminAuthToken       string
+	EnableAdminEndpoints    bool
+	AdminAuthToken         string
+	EnableIngestEnrichment bool
+	PLCDirectoryURL        string
+	IdentityServiceURL     string
+	XRPCTimeout            time.Duration
 }
 
 type LoadOptions struct {
@@ -65,7 +70,11 @@ func Load(opts LoadOptions) (*Config, error) {
 		EmbeddingBatchSize:   envInt("EMBEDDING_BATCH_SIZE", 32),
 		HybridKeywordWeight:  envFloat("HYBRID_KEYWORD_WEIGHT", 0.65),
 		HybridSemanticWeight: envFloat("HYBRID_SEMANTIC_WEIGHT", 0.35),
-		EnableAdminEndpoints: envBool("ENABLE_ADMIN_ENDPOINTS", false),
+		EnableAdminEndpoints:    envBool("ENABLE_ADMIN_ENDPOINTS", false),
+		EnableIngestEnrichment: envBool("ENABLE_INGEST_ENRICHMENT", true),
+		PLCDirectoryURL:        envOrDefault("PLC_DIRECTORY_URL", "https://plc.directory"),
+		IdentityServiceURL:     envOrDefault("IDENTITY_SERVICE_URL", "https://public.api.bsky.app"),
+		XRPCTimeout:            envDuration("XRPC_TIMEOUT", 15*time.Second),
 	}
 
 	if opts.Local {
@@ -158,6 +167,18 @@ func envFloat(key string, def float64) float64 {
 		return def
 	}
 	return f
+}
+
+func envDuration(key string, def time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return def
+	}
+	return d
 }
 
 func envBool(key string, def bool) bool {

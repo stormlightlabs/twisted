@@ -448,7 +448,6 @@ func TestRegistry(t *testing.T) {
 		}
 	}
 
-	// Unsupported collections return false
 	if _, ok := reg.Adapter("sh.tangled.unknown"); ok {
 		t.Error("expected no adapter for unknown collection")
 	}

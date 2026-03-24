@@ -14,6 +14,7 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/api"
 	"tangled.org/desertthunder.dev/twister/internal/backfill"
 	"tangled.org/desertthunder.dev/twister/internal/config"
+	"tangled.org/desertthunder.dev/twister/internal/enrich"
 	"tangled.org/desertthunder.dev/twister/internal/ingest"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/observability"
@@ -21,6 +22,7 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
 	"tangled.org/desertthunder.dev/twister/internal/tapclient"
+	"tangled.org/desertthunder.dev/twister/internal/xrpc"
 )
 
 var (
@@ -48,6 +50,7 @@ func main() {
 		newEmbedWorkerCmd(&local),
 		newReindexCmd(&local),
 		newReembedCmd(&local),
+		newEnrichCmd(&local),
 		newHealthcheckCmd(&local),
 	)
 
@@ -138,6 +141,16 @@ func newIndexerCmd(local *bool) *cobra.Command {
 			registry := normalize.NewRegistry()
 			tap := tapclient.New(cfg.TapURL, cfg.TapAuthPassword, log)
 			runner := ingest.NewRunner(st, registry, tap, cfg.IndexedCollections, log)
+
+			if cfg.EnableIngestEnrichment {
+				xrpcClient := xrpc.NewClient(
+					xrpc.WithPLCDirectory(cfg.PLCDirectoryURL),
+					xrpc.WithIdentityService(cfg.IdentityServiceURL),
+					xrpc.WithTimeout(cfg.XRPCTimeout),
+				)
+				runner.SetXRPCClient(xrpcClient)
+				log.Info("ingest enrichment enabled")
+			}
 
 			ctx, cancel := baseContext()
 			defer cancel()
@@ -233,10 +246,16 @@ func newBackfillCmd(local *bool) *cobra.Command {
 				return fmt.Errorf("tap admin client: %w", err)
 			}
 
+			xrpcClient := xrpc.NewClient(
+				xrpc.WithPLCDirectory(cfg.PLCDirectoryURL),
+				xrpc.WithIdentityService(cfg.IdentityServiceURL),
+				xrpc.WithTimeout(cfg.XRPCTimeout),
+			)
+
 			runner := backfill.NewRunner(
 				store.New(db),
 				tapAdmin,
-				backfill.NewHTTPHandleResolver(""),
+				xrpcClient,
 				log,
 			)
 
@@ -325,6 +344,62 @@ func newReembedCmd(local *bool) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newEnrichCmd(local *bool) *cobra.Command {
+	var opts enrich.Options
+
+	cmd := &cobra.Command{
+		Use:   "enrich",
+		Short: "Backfill RepoName, AuthorHandle, and WebURL on existing documents",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
+			if err != nil {
+				return fmt.Errorf("config: %w", err)
+			}
+			log := observability.NewLogger(cfg)
+			log.Info("starting enrich", slog.String("service", "enrich"), slog.String("version", version))
+
+			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer db.Close()
+
+			if err := store.Migrate(db, cfg.TursoURL); err != nil {
+				return fmt.Errorf("migrate database: %w", err)
+			}
+
+			xrpcClient := xrpc.NewClient(
+				xrpc.WithPLCDirectory(cfg.PLCDirectoryURL),
+				xrpc.WithIdentityService(cfg.IdentityServiceURL),
+				xrpc.WithTimeout(cfg.XRPCTimeout),
+			)
+
+			ctx, cancel := baseContext()
+			defer cancel()
+
+			runner := enrich.New(store.New(db), xrpcClient, log)
+			result, err := runner.Run(ctx, opts)
+			if result != nil {
+				log.Info("enrich finished",
+					slog.Int("total", result.Total),
+					slog.Int("updated", result.Updated),
+					slog.Int("skipped", result.Skipped),
+					slog.Int("errors", result.Errors),
+				)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().StringVar(&opts.Collection, "collection", "", "Enrich only documents in this collection")
+	cmd.Flags().StringVar(&opts.DID, "did", "", "Enrich only documents authored by this DID")
+	cmd.Flags().StringVar(&opts.DocumentID, "document", "", "Enrich a single document by stable ID")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show intended work without writing")
+	cmd.Flags().IntVar(&opts.Concurrency, "concurrency", 5, "Parallel enrichment workers")
+
+	return cmd
 }
 
 func newHealthcheckCmd(local *bool) *cobra.Command {

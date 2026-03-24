@@ -1,0 +1,1 @@
+ALTER TABLE documents ADD COLUMN web_url TEXT DEFAULT ''

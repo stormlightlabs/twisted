@@ -30,8 +30,8 @@ func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
 		INSERT INTO documents (
 			id, did, collection, rkey, at_uri, cid, record_type,
 			title, body, summary, repo_did, repo_name, author_handle,
-			tags_json, language, created_at, updated_at, indexed_at, deleted_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			tags_json, language, created_at, updated_at, indexed_at, web_url, deleted_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			did           = excluded.did,
 			collection    = excluded.collection,
@@ -50,10 +50,11 @@ func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
 			created_at    = excluded.created_at,
 			updated_at    = excluded.updated_at,
 			indexed_at    = excluded.indexed_at,
+			web_url       = excluded.web_url,
 			deleted_at    = excluded.deleted_at`,
 		doc.ID, doc.DID, doc.Collection, doc.RKey, doc.ATURI, doc.CID, doc.RecordType,
 		doc.Title, doc.Body, doc.Summary, doc.RepoDID, doc.RepoName, doc.AuthorHandle,
-		doc.TagsJSON, doc.Language, doc.CreatedAt, doc.UpdatedAt, doc.IndexedAt, nullableStr(doc.DeletedAt),
+		doc.TagsJSON, doc.Language, doc.CreatedAt, doc.UpdatedAt, doc.IndexedAt, doc.WebURL, nullableStr(doc.DeletedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("upsert document: %w", err)
@@ -70,7 +71,7 @@ func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
 func (s *SQLStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]*Document, error) {
 	query := `SELECT id, did, collection, rkey, at_uri, cid, record_type,
 		       title, body, summary, repo_did, repo_name, author_handle,
-		       tags_json, language, created_at, updated_at, indexed_at, deleted_at
+		       tags_json, language, created_at, updated_at, indexed_at, web_url, deleted_at
 		FROM documents WHERE deleted_at IS NULL`
 	args := []any{}
 
@@ -98,12 +99,12 @@ func (s *SQLStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]
 		doc := &Document{}
 		var (
 			title, body, summary, repoDID, repoName, authorHandle sql.NullString
-			tagsJSON, language, createdAt, updatedAt, deletedAt   sql.NullString
+			tagsJSON, language, createdAt, updatedAt, webURL, deletedAt sql.NullString
 		)
 		if err := rows.Scan(
 			&doc.ID, &doc.DID, &doc.Collection, &doc.RKey, &doc.ATURI, &doc.CID, &doc.RecordType,
 			&title, &body, &summary, &repoDID, &repoName, &authorHandle,
-			&tagsJSON, &language, &createdAt, &updatedAt, &doc.IndexedAt, &deletedAt,
+			&tagsJSON, &language, &createdAt, &updatedAt, &doc.IndexedAt, &webURL, &deletedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan document: %w", err)
 		}
@@ -117,6 +118,7 @@ func (s *SQLStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]
 		doc.Language = language.String
 		doc.CreatedAt = createdAt.String
 		doc.UpdatedAt = updatedAt.String
+		doc.WebURL = webURL.String
 		doc.DeletedAt = deletedAt.String
 		docs = append(docs, doc)
 	}
@@ -138,7 +140,7 @@ func (s *SQLStore) GetDocument(ctx context.Context, id string) (*Document, error
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, did, collection, rkey, at_uri, cid, record_type,
 		       title, body, summary, repo_did, repo_name, author_handle,
-		       tags_json, language, created_at, updated_at, indexed_at, deleted_at
+		       tags_json, language, created_at, updated_at, indexed_at, web_url, deleted_at
 		FROM documents WHERE id = ?`, id)
 
 	doc, err := scanDocument(row)
@@ -350,12 +352,12 @@ func scanDocument(row *sql.Row) (*Document, error) {
 	doc := &Document{}
 	var (
 		title, body, summary, repoDID, repoName, authorHandle sql.NullString
-		tagsJSON, language, createdAt, updatedAt, deletedAt   sql.NullString
+		tagsJSON, language, createdAt, updatedAt, webURL, deletedAt sql.NullString
 	)
 	err := row.Scan(
 		&doc.ID, &doc.DID, &doc.Collection, &doc.RKey, &doc.ATURI, &doc.CID, &doc.RecordType,
 		&title, &body, &summary, &repoDID, &repoName, &authorHandle,
-		&tagsJSON, &language, &createdAt, &updatedAt, &doc.IndexedAt, &deletedAt,
+		&tagsJSON, &language, &createdAt, &updatedAt, &doc.IndexedAt, &webURL, &deletedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -370,6 +372,7 @@ func scanDocument(row *sql.Row) (*Document, error) {
 	doc.Language = language.String
 	doc.CreatedAt = createdAt.String
 	doc.UpdatedAt = updatedAt.String
+	doc.WebURL = webURL.String
 	doc.DeletedAt = deletedAt.String
 	return doc, nil
 }
