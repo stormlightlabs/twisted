@@ -1,0 +1,40 @@
+{{define "title"}}Health Endpoints &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>Health Endpoints</h1>
+<p>Twister exposes two health check endpoints for monitoring and orchestration.</p>
+
+<h2><code>GET /healthz</code></h2>
+<p>Liveness probe. Returns 200 if the process is responsive. No dependency checks.</p>
+
+<h3>Example Request</h3>
+<pre><code>curl https://your-domain/healthz</code></pre>
+
+<h3>Response</h3>
+<pre><code>{"status": "ok"}</code></pre>
+<p>Always returns <code>200 OK</code>.</p>
+
+<h2><code>GET /readyz</code></h2>
+<p>Readiness probe. Checks that the database is reachable by executing a test query.</p>
+
+<h3>Example Request</h3>
+<pre><code>curl https://your-domain/readyz</code></pre>
+
+<h3>Response (healthy)</h3>
+<pre><code>{"status": "ready"}</code></pre>
+<p>Returns <code>200 OK</code> when the database is reachable.</p>
+
+<h3>Response (unhealthy)</h3>
+<pre><code>{"error": "db_unreachable", "message": "database is not reachable"}</code></pre>
+<p>Returns <code>503 Service Unavailable</code> when the database cannot be reached.</p>
+
+<h2>Usage</h2>
+<p>Configure your orchestrator (Railway, Kubernetes, etc.) to poll these endpoints:</p>
+<table>
+  <thead><tr><th>Endpoint</th><th>Purpose</th><th>Failure Action</th></tr></thead>
+  <tbody>
+    <tr><td><code>/healthz</code></td><td>Liveness</td><td>Restart the process</td></tr>
+    <tr><td><code>/readyz</code></td><td>Readiness</td><td>Remove from load balancer</td></tr>
+  </tbody>
+</table>
+{{end}}
+{{template "layout" .}}

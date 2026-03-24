@@ -262,7 +262,7 @@ Expose a usable public search API backed by Turso's Tantivy-backed FTS.
 
 A user can search Tangled content reliably with keyword search.
 
-## M5a — Search Site
+## M5a — Search Site ✅
 
 refs: [specs/09-search-site.md](../specs/09-search-site.md)
 
@@ -280,27 +280,27 @@ Ship a static site that doubles as public API documentation and a live search de
 
 ### Tasks
 
-- [ ] Create `internal/view/` package with `view.go`, `templates/`, and `static/` directories
-- [ ] Implement `Handler()` that returns an `http.Handler` with routes for all pages and `/static/*`
-- [ ] Embed templates and static assets via `//go:embed`; parse templates once at init
-- [ ] Use a shared `layout.html` template for the shell (head, nav, footer)
-- [ ] Mount `view.Handler()` in the `api` package router as a fallback after API routes
-- [ ] Build search page:
+- [x] Create `internal/view/` package with `view.go`, `templates/`, and `static/` directories
+- [x] Implement `Handler()` that returns an `http.Handler` with routes for all pages and `/static/*`
+- [x] Embed templates and static assets via `//go:embed`; parse templates once at init
+- [x] Use a shared `layout.html` template for the shell (head, nav, footer)
+- [x] Mount `view.Handler()` in the `api` package router as a fallback after API routes
+- [x] Build search page:
   - Text input + submit
   - Fetch `GET /search` with relative path (same origin)
   - Render result cards with type badge, title, snippet (preserve `<mark>`), author, repo, relative time
   - "Load more" pagination via offset
   - Filter bar: type, language, author (reflected in URL query params)
   - Empty and error states
-- [ ] Build API docs pages:
+- [x] Build API docs pages:
   - `/docs` — overview (base URL, response shape, no auth)
   - `/docs/search` — `GET /search` params, filters, example curl, example response
   - `/docs/documents` — `GET /documents/{id}` request/response
   - `/docs/health` — `GET /healthz`, `GET /readyz`
-- [ ] Implement `style.css` with design tokens (`--bg`, `--surface`, `--border`, `--accent`, etc.)
-- [ ] Load Google Sans and Google Sans Mono via Google Fonts `<link>`
-- [ ] Result card links open canonical Tangled URLs in new tab
-- [ ] Verify total site weight under 50 KB (excluding fonts and Alpine CDN)
+- [x] Implement `style.css` with design tokens (`--bg`, `--surface`, `--border`, `--accent`, etc.)
+- [x] Load Google Sans and Google Sans Mono via Google Fonts `<link>`
+- [x] Result card links open canonical Tangled URLs in new tab
+- [x] Verify total site weight under 50 KB (excluding fonts and Alpine CDN) — 21 KB total
 
 ### Verification
 

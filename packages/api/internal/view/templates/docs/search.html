@@ -1,0 +1,74 @@
+{{define "title"}}GET /search &mdash; Twister API{{end}}
+{{define "content"}}
+<h1><code>GET /search</code></h1>
+<p>Search indexed Tangled documents with keyword matching. Returns a paginated list of results with highlighted snippets.</p>
+
+<h2>Parameters</h2>
+<table>
+  <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>q</code></td><td>string</td><td><em>required</em></td><td>Search query. Supports boolean operators, phrases, and prefix matching.</td></tr>
+    <tr><td><code>mode</code></td><td>string</td><td><code>keyword</code></td><td>Search mode: <code>keyword</code>, <code>semantic</code>, or <code>hybrid</code>.</td></tr>
+    <tr><td><code>limit</code></td><td>int</td><td><code>20</code></td><td>Results per page (1&ndash;100).</td></tr>
+    <tr><td><code>offset</code></td><td>int</td><td><code>0</code></td><td>Pagination offset.</td></tr>
+    <tr><td><code>collection</code></td><td>string</td><td>&mdash;</td><td>Filter by ATProto collection NSID.</td></tr>
+    <tr><td><code>type</code></td><td>string</td><td>&mdash;</td><td>Filter by record type: <code>repo</code>, <code>issue</code>, <code>pull</code>, <code>profile</code>, <code>string</code>.</td></tr>
+    <tr><td><code>author</code></td><td>string</td><td>&mdash;</td><td>Filter by author handle or DID.</td></tr>
+    <tr><td><code>repo</code></td><td>string</td><td>&mdash;</td><td>Filter by repo name.</td></tr>
+    <tr><td><code>language</code></td><td>string</td><td>&mdash;</td><td>Filter by programming language.</td></tr>
+    <tr><td><code>state</code></td><td>string</td><td>&mdash;</td><td>Filter by state: <code>open</code>, <code>closed</code>, <code>merged</code>.</td></tr>
+    <tr><td><code>from</code></td><td>string</td><td>&mdash;</td><td>Created after (ISO 8601).</td></tr>
+    <tr><td><code>to</code></td><td>string</td><td>&mdash;</td><td>Created before (ISO 8601).</td></tr>
+  </tbody>
+</table>
+
+<h2>Example Request</h2>
+<pre><code>curl "https://your-domain/search?q=rust+tui&type=repo&limit=5"</code></pre>
+
+<h2>Example Response</h2>
+<pre><code>{
+  "query": "rust tui",
+  "mode": "keyword",
+  "total": 12,
+  "limit": 5,
+  "offset": 0,
+  "results": [
+    {
+      "id": "did:plc:abc|sh.tangled.repo|3kb3fge5lm32x",
+      "collection": "sh.tangled.repo",
+      "record_type": "repo",
+      "title": "glow-rs",
+      "body_snippet": "A &lt;mark&gt;TUI&lt;/mark&gt; markdown viewer written in &lt;mark&gt;Rust&lt;/mark&gt;...",
+      "summary": "Rust TUI markdown viewer",
+      "repo_name": "glow-rs",
+      "author_handle": "desertthunder.dev",
+      "score": 0.842,
+      "created_at": "2026-03-20T10:00:00Z",
+      "updated_at": "2026-03-22T15:03:11Z"
+    }
+  ]
+}</code></pre>
+
+<h2>Query Syntax</h2>
+<p>The keyword search uses Tantivy query syntax:</p>
+<table>
+  <thead><tr><th>Feature</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td>Boolean AND</td><td><code>go AND search</code></td></tr>
+    <tr><td>Boolean NOT</td><td><code>rust NOT unsafe</code></td></tr>
+    <tr><td>Phrase</td><td><code>"pull request"</code></td></tr>
+    <tr><td>Prefix</td><td><code>tang*</code></td></tr>
+    <tr><td>Field-scoped</td><td><code>title:parser</code></td></tr>
+  </tbody>
+</table>
+
+<h2>Errors</h2>
+<table>
+  <thead><tr><th>Status</th><th>Condition</th></tr></thead>
+  <tbody>
+    <tr><td>400</td><td>Missing <code>q</code>, invalid <code>limit</code>/<code>offset</code>, unknown parameters.</td></tr>
+    <tr><td>500</td><td>Internal search failure.</td></tr>
+  </tbody>
+</table>
+{{end}}
+{{template "layout" .}}

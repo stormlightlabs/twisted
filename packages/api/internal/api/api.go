@@ -12,6 +12,7 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/config"
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
+	"tangled.org/desertthunder.dev/twister/internal/view"
 )
 
 // Server is the HTTP search API server.
@@ -36,26 +37,27 @@ func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	// Health
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("GET /readyz", s.handleReadyz)
-
-	// Search — M5
 	mux.HandleFunc("GET /search", s.handleSearch)
 	mux.HandleFunc("GET /search/keyword", s.handleSearchKeyword)
-
-	// Search — placeholders (Phase 2/3)
 	mux.HandleFunc("GET /search/semantic", s.handleNotImplemented)
 	mux.HandleFunc("GET /search/hybrid", s.handleNotImplemented)
 
-	// Documents
 	mux.HandleFunc("GET /documents/{id}", s.handleGetDocument)
 
-	// Admin — placeholders (M7)
 	if s.cfg.EnableAdminEndpoints {
 		mux.HandleFunc("POST /admin/reindex", s.handleNotImplemented)
 		mux.HandleFunc("POST /admin/reembed", s.handleNotImplemented)
 	}
+
+	site := view.Handler()
+	mux.Handle("GET /static/", site)
+	mux.Handle("GET /docs", site)
+	mux.Handle("GET /docs/search", site)
+	mux.Handle("GET /docs/documents", site)
+	mux.Handle("GET /docs/health", site)
+	mux.Handle("GET /{$}", site)
 
 	return s.withMiddleware(mux)
 }
@@ -84,8 +86,6 @@ func (s *Server) Run(ctx context.Context) error {
 		return srv.Shutdown(shutdownCtx)
 	}
 }
-
-// --- Middleware ---
 
 func (s *Server) withMiddleware(next http.Handler) http.Handler {
 	return s.corsMiddleware(s.loggingMiddleware(next))
@@ -129,8 +129,6 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// --- Health Handlers ---
-
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -143,8 +141,6 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
-
-// --- Search Handlers ---
 
 // knownSearchParams is the whitelist of accepted query parameters for search endpoints.
 var knownSearchParams = map[string]bool{
@@ -169,7 +165,6 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSearchKeyword(w http.ResponseWriter, r *http.Request) {
-	// Reject unknown parameters.
 	for key := range r.URL.Query() {
 		if !knownSearchParams[key] {
 			writeJSON(w, http.StatusBadRequest, errorBody("unknown_parameter", fmt.Sprintf("unknown parameter: %s", key)))
@@ -219,8 +214,6 @@ func (s *Server) handleSearchKeyword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// --- Document Handler ---
-
 func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -228,8 +221,6 @@ func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Path value may be URL-encoded with | separators. The mux already decodes it,
-	// but callers may use pipe-encoded or slash-separated IDs; accept as-is.
 	doc, err := s.store.GetDocument(r.Context(), id)
 	if err != nil {
 		s.log.Error("get document failed", slog.String("error", err.Error()), slog.String("id", id))
@@ -248,13 +239,9 @@ func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, documentResponse(doc))
 }
 
-// --- Placeholder ---
-
 func (s *Server) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusNotImplemented, errorBody("not_implemented", "this endpoint is not yet available"))
 }
-
-// --- Helpers ---
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -319,4 +306,3 @@ func documentResponse(doc *store.Document) documentJSON {
 		IndexedAt:    doc.IndexedAt,
 	}
 }
-

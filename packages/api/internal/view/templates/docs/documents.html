@@ -1,0 +1,48 @@
+{{define "title"}}GET /documents/{id} &mdash; Twister API{{end}}
+{{define "content"}}
+<h1><code>GET /documents/{id}</code></h1>
+<p>Fetch a single indexed document by its stable ID.</p>
+
+<h2>Path Parameters</h2>
+<table>
+  <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code></td><td>string</td><td>Document stable ID (format: <code>did|collection|rkey</code>).</td></tr>
+  </tbody>
+</table>
+
+<h2>Example Request</h2>
+<pre><code>curl "https://your-domain/documents/did:plc:abc|sh.tangled.repo|3kb3fge5lm32x"</code></pre>
+
+<h2>Example Response</h2>
+<pre><code>{
+  "id": "did:plc:abc|sh.tangled.repo|3kb3fge5lm32x",
+  "did": "did:plc:abc",
+  "collection": "sh.tangled.repo",
+  "rkey": "3kb3fge5lm32x",
+  "at_uri": "at://did:plc:abc/sh.tangled.repo/3kb3fge5lm32x",
+  "cid": "bafyreig...",
+  "record_type": "repo",
+  "title": "glow-rs",
+  "body": "A TUI markdown viewer inspired by Glow, written in Rust.",
+  "summary": "Rust TUI markdown viewer",
+  "repo_name": "glow-rs",
+  "author_handle": "desertthunder.dev",
+  "tags_json": "[\"rust\", \"tui\", \"markdown\"]",
+  "language": "en",
+  "created_at": "2026-03-20T10:00:00Z",
+  "updated_at": "2026-03-22T15:03:11Z",
+  "indexed_at": "2026-03-22T15:05:00Z"
+}</code></pre>
+
+<h2>Errors</h2>
+<table>
+  <thead><tr><th>Status</th><th>Condition</th></tr></thead>
+  <tbody>
+    <tr><td>400</td><td>Missing or empty document ID.</td></tr>
+    <tr><td>404</td><td>Document not found or has been deleted.</td></tr>
+    <tr><td>500</td><td>Database error.</td></tr>
+  </tbody>
+</table>
+{{end}}
+{{template "layout" .}}

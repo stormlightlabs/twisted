@@ -1,0 +1,34 @@
+{{define "title"}}API Docs &mdash; Twister{{end}}
+{{define "content"}}
+<h1>API Documentation</h1>
+<p>Twister exposes a public JSON API for searching indexed <a href="https://tangled.sh" target="_blank" rel="noopener">Tangled</a> content. No authentication is required for read endpoints.</p>
+
+<h2>Base URL</h2>
+<pre><code>https://&lt;your-twister-domain&gt;</code></pre>
+<p>All endpoints are relative to the base URL. When using the search site, the API is on the same origin.</p>
+
+<h2>Response Shape</h2>
+<p>All responses are JSON. Successful responses return the resource directly. Errors return:</p>
+<pre><code>{
+  "error": "error_code",
+  "message": "Human-readable description"
+}</code></pre>
+
+<h2>Endpoints</h2>
+<table>
+  <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>GET</code></td><td><a href="/docs/search"><code>/search</code></a></td><td>Search indexed documents</td></tr>
+    <tr><td><code>GET</code></td><td><a href="/docs/documents"><code>/documents/{id}</code></a></td><td>Fetch a single document</td></tr>
+    <tr><td><code>GET</code></td><td><a href="/docs/health"><code>/healthz</code></a></td><td>Liveness probe</td></tr>
+    <tr><td><code>GET</code></td><td><a href="/docs/health"><code>/readyz</code></a></td><td>Readiness probe</td></tr>
+  </tbody>
+</table>
+
+<h2>Pagination</h2>
+<p>List endpoints use <code>limit</code> and <code>offset</code> query parameters. The default limit is 20, maximum is 100.</p>
+
+<h2>Filtering</h2>
+<p>Search supports filters via query parameters: <code>collection</code>, <code>type</code>, <code>author</code>, <code>repo</code>, <code>language</code>, <code>state</code>, <code>from</code>, <code>to</code>. See the <a href="/docs/search">search endpoint docs</a> for details.</p>
+{{end}}
+{{template "layout" .}}
