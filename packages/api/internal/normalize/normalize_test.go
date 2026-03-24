@@ -394,12 +394,30 @@ func TestIssueStateHandler_MissingFields(t *testing.T) {
 	t.Run("missing status", func(t *testing.T) {
 		event := normalize.TapRecordEvent{
 			Record: &normalize.TapRecord{
-				Record: map[string]any{"subject": "at://did:plc:x/col/rkey"},
+				Record: map[string]any{"issue": "at://did:plc:x/col/rkey"},
 			},
 		}
 		_, err := handler.HandleState(event)
 		if err == nil {
 			t.Error("expected error for missing status")
+		}
+	})
+
+	t.Run("legacy field names still work", func(t *testing.T) {
+		event := normalize.TapRecordEvent{
+			Record: &normalize.TapRecord{
+				Record: map[string]any{
+					"subject": "at://did:plc:x/col/rkey",
+					"status":  "closed",
+				},
+			},
+		}
+		update, err := handler.HandleState(event)
+		if err != nil {
+			t.Fatalf("HandleState legacy: %v", err)
+		}
+		if update.SubjectURI != "at://did:plc:x/col/rkey" || update.State != "closed" {
+			t.Fatalf("legacy update = %#v", update)
 		}
 	})
 }

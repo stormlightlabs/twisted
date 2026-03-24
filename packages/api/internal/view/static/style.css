@@ -54,6 +54,7 @@ a:hover { text-decoration: underline; }
   margin: 0 auto;
   padding: 2rem 1rem;
   flex: 1;
+  min-width: 0;
 }
 
 /* Footer */
@@ -132,9 +133,17 @@ a:hover { text-decoration: underline; }
   margin-bottom: .6rem;
   color: var(--text);
   transition: border-color .15s;
+  min-width: 0;
 }
 .card:hover { border-color: var(--accent); text-decoration: none; }
-.card-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  margin-bottom: .35rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
 .badge {
   font-family: var(--mono);
   font-size: .7rem;
@@ -145,12 +154,20 @@ a:hover { text-decoration: underline; }
   color: var(--text-dim);
   white-space: nowrap;
 }
-.card-title { font-weight: 500; font-size: .95rem; }
+.card-title {
+  font-weight: 500;
+  font-size: .95rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .card-snippet {
   font-size: .85rem;
   color: var(--text-dim);
   margin-bottom: .35rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .card-snippet mark {
   background: var(--mark-bg);
@@ -158,7 +175,19 @@ a:hover { text-decoration: underline; }
   padding: 0 .1rem;
   border-radius: 2px;
 }
-.card-meta { font-size: .78rem; color: var(--text-dim); display: flex; gap: .5rem; }
+.card-meta {
+  font-size: .78rem;
+  color: var(--text-dim);
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.card-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .meta-sep::before { content: "\00b7"; margin-right: .5rem; }
 
 /* Docs */
@@ -171,6 +200,8 @@ a:hover { text-decoration: underline; }
   border-collapse: collapse;
   margin-bottom: 1rem;
   font-size: .85rem;
+  display: block;
+  overflow-x: auto;
 }
 .main th, .main td {
   text-align: left;
@@ -196,10 +227,19 @@ a:hover { text-decoration: underline; }
   line-height: 1.5;
 }
 .main pre code { background: none; padding: 0; }
+.main p,
+.main li,
+.main td,
+.main th,
+.main code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 
 /* Mobile */
 @media (max-width: 640px) {
   .search-form { flex-direction: column; }
+  .btn-primary { width: 100%; }
   .filter-bar { flex-direction: column; }
   .filter-input { width: 100%; }
   .card-meta { flex-wrap: wrap; }

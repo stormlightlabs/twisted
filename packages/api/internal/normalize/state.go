@@ -16,13 +16,13 @@ func (h *IssueStateHandler) HandleState(event TapRecordEvent) (*StateUpdate, err
 	r := event.Record
 	rec := r.Record
 
-	subject := str(rec, "subject")
+	subject := firstString(rec, "issue", "subject")
 	if subject == "" {
-		return nil, fmt.Errorf("issue state record missing subject field")
+		return nil, fmt.Errorf("issue state record missing issue field")
 	}
-	state := str(rec, "status")
+	state := firstString(rec, "state", "status")
 	if state == "" {
-		return nil, fmt.Errorf("issue state record missing status field")
+		return nil, fmt.Errorf("issue state record missing state field")
 	}
 
 	return &StateUpdate{
@@ -40,11 +40,11 @@ func (h *PullStatusHandler) HandleState(event TapRecordEvent) (*StateUpdate, err
 	r := event.Record
 	rec := r.Record
 
-	subject := str(rec, "subject")
+	subject := firstString(rec, "pull", "subject")
 	if subject == "" {
-		return nil, fmt.Errorf("pull status record missing subject field")
+		return nil, fmt.Errorf("pull status record missing pull field")
 	}
-	status := str(rec, "status")
+	status := firstString(rec, "status", "state")
 	if status == "" {
 		return nil, fmt.Errorf("pull status record missing status field")
 	}

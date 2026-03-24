@@ -31,6 +31,7 @@ type Result struct {
 	BodySnippet  string   `json:"body_snippet,omitempty"`
 	Summary      string   `json:"summary,omitempty"`
 	RepoName     string   `json:"repo_name,omitempty"`
+	RepoOwnerHandle string `json:"repo_owner_handle,omitempty"`
 	AuthorHandle string   `json:"author_handle,omitempty"`
 	DID          string   `json:"did"`
 	ATURI        string   `json:"at_uri"`
@@ -126,12 +127,13 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 
 	// Fetch results with score and snippet.
 	resultsSQL := fmt.Sprintf(`
-		SELECT d.id, d.title, d.summary, d.repo_name, d.author_handle,
+		SELECT d.id, d.title, d.summary, d.repo_name, repo_owner.handle, d.author_handle,
 		       d.did, d.at_uri, d.collection, d.record_type, d.created_at, d.updated_at,
 		       -bm25(documents_fts, 0.0, 3.0, 1.0, 1.5, 2.5, 2.0, 1.2) AS score,
 		       snippet(documents_fts, 2, '<mark>', '</mark>', '...', 20) AS body_snippet
 		FROM documents_fts
 		JOIN documents d ON d.id = documents_fts.id
+		LEFT JOIN identity_handles repo_owner ON repo_owner.did = d.repo_did AND repo_owner.is_active = 1
 		%s
 		WHERE %s
 		ORDER BY score DESC
@@ -151,12 +153,12 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 	results := make([]Result, 0)
 	for rows.Next() {
 		var res Result
-		var title, summary, repoName, authorHandle sql.NullString
+		var title, summary, repoName, repoOwnerHandle, authorHandle sql.NullString
 		var createdAt, updatedAt sql.NullString
 		var bodySnippet sql.NullString
 
 		if err := rows.Scan(
-			&res.ID, &title, &summary, &repoName, &authorHandle,
+			&res.ID, &title, &summary, &repoName, &repoOwnerHandle, &authorHandle,
 			&res.DID, &res.ATURI, &res.Collection, &res.RecordType,
 			&createdAt, &updatedAt, &res.Score, &bodySnippet,
 		); err != nil {
@@ -165,6 +167,7 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 		res.Title = title.String
 		res.Summary = summary.String
 		res.RepoName = repoName.String
+		res.RepoOwnerHandle = repoOwnerHandle.String
 		res.AuthorHandle = authorHandle.String
 		res.BodySnippet = bodySnippet.String
 		res.CreatedAt = createdAt.String

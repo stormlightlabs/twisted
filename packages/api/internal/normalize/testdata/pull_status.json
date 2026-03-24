@@ -11,7 +11,7 @@
     "cid": "bafyreigabc129",
     "record": {
       "$type": "sh.tangled.repo.pull.status",
-      "subject": "at://did:plc:abc123/sh.tangled.repo.pull/3kb3fge5lm32z",
+      "pull": "at://did:plc:abc123/sh.tangled.repo.pull/3kb3fge5lm32z",
       "status": "merged"
     }
   }

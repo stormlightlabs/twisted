@@ -11,8 +11,8 @@
     "cid": "bafyreigabc128",
     "record": {
       "$type": "sh.tangled.repo.issue.state",
-      "subject": "at://did:plc:abc123/sh.tangled.repo.issue/3kb3fge5lm32y",
-      "status": "closed"
+      "issue": "at://did:plc:abc123/sh.tangled.repo.issue/3kb3fge5lm32y",
+      "state": "closed"
     }
   }
 }

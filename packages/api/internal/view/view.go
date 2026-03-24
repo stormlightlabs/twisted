@@ -10,17 +10,22 @@ import (
 //go:embed templates static
 var content embed.FS
 
-var templates *template.Template
+var pageTemplates map[string]*template.Template
 
 func init() {
-	templates = template.Must(template.ParseFS(content,
-		"templates/layout.html",
-		"templates/index.html",
-		"templates/docs/index.html",
-		"templates/docs/search.html",
-		"templates/docs/documents.html",
-		"templates/docs/health.html",
-	))
+	pageTemplates = make(map[string]*template.Template)
+	for _, name := range []string{
+		"index.html",
+		"docs/index.html",
+		"docs/search.html",
+		"docs/documents.html",
+		"docs/health.html",
+	} {
+		pageTemplates[name] = template.Must(template.New("layout").ParseFS(content,
+			"templates/layout.html",
+			"templates/"+name,
+		))
+	}
 }
 
 // Handler returns an http.Handler that serves the site pages and static assets.
@@ -41,8 +46,14 @@ func Handler() http.Handler {
 
 func renderPage(name string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		tmpl, ok := pageTemplates[name]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := templates.ExecuteTemplate(w, name, nil); err != nil {
+		if err := tmpl.ExecuteTemplate(w, "layout", nil); err != nil {
 			http.Error(w, "template error", http.StatusInternalServerError)
 		}
 	}

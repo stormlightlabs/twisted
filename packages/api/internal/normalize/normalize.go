@@ -108,6 +108,15 @@ func str(m map[string]any, key string) string {
 	return ""
 }
 
+func firstString(m map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if v := str(m, key); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // nestedMap safely extracts a nested map[string]any from a map.
 func nestedMap(m map[string]any, key string) map[string]any {
 	if v, ok := m[key]; ok {

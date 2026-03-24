@@ -1,4 +1,6 @@
 function searchApp() {
+  const TANGLED_BASE = "https://tangled.org";
+
   return {
     query: "",
     filters: { type: "", author: "", language: "", state: "" },
@@ -85,19 +87,51 @@ function searchApp() {
     },
 
     canonicalURL(r) {
-      const h = r.author_handle || "";
+      const explicitURL = this.extractTangledURL(r.body_snippet) || this.extractTangledURL(r.summary);
+      if (explicitURL) return explicitURL;
+
+      const author = this.normalizeOwner(r.author_handle);
+      const repoOwner = this.normalizeOwner(r.repo_owner_handle) || author;
+      const repoName = this.normalizeSegment(r.repo_name);
+
       switch (r.record_type) {
-        case "repo":
-          return h && r.repo_name ? "https://tangled.org/" + h + "/" + r.repo_name : "#";
-        case "issue":
-          return h && r.repo_name ? "https://tangled.org/" + h + "/" + r.repo_name + "/issues" : "#";
-        case "pull":
-          return h && r.repo_name ? "https://tangled.org/" + h + "/" + r.repo_name + "/pulls" : "#";
         case "profile":
-          return h ? "https://tangled.org/" + h : "#";
+          return author ? this.buildTangledURL(author) : "#";
+        case "repo":
+          return repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName) : "#";
+        case "issue":
+        case "issue_comment":
+          return repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "issues") : "#";
+        case "pull":
+        case "pull_comment":
+          return repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "pulls") : "#";
+        case "string":
+          return author ? this.buildTangledURL(author) : "#";
         default:
           return "#";
       }
+    },
+
+    buildTangledURL() {
+      const segments = Array.from(arguments)
+        .filter(Boolean)
+        .map((segment) => encodeURIComponent(segment));
+      return TANGLED_BASE + "/" + segments.join("/");
+    },
+
+    normalizeOwner(owner) {
+      return owner ? owner.replace(/^@+/, "").trim() : "";
+    },
+
+    normalizeSegment(segment) {
+      return segment ? segment.trim() : "";
+    },
+
+    extractTangledURL(text) {
+      if (!text) return "";
+      const match = text.match(/https:\/\/tangled\.org\/[^\s<>"']+/i);
+      if (!match) return "";
+      return match[0].replace(/[),.;:>]+$/, "");
     },
 
     relTime(iso) {

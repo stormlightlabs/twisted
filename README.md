@@ -30,6 +30,62 @@ just api-run-api
 
 To enable indexed search in the client, set `VITE_TWISTER_API_BASE_URL` in `apps/twisted/.env`.
 
+## Run Locally
+
+Install dependencies once from the repo root:
+
+```bash
+pnpm install
+```
+
+Start the Ionic/Vite app:
+
+```bash
+pnpm dev
+# or: just dev
+```
+
+That serves the client from `apps/twisted` with Vite.
+
+To run the Go API locally, make sure `packages/api/.env` has at least:
+
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+
+Then start the API:
+
+```bash
+pnpm api:run:api
+# or: just api-dev
+```
+
+This serves the API and search site on `http://localhost:8080`.
+
+To run the indexer as well, `packages/api/.env` also needs:
+
+- `TAP_URL`
+- `TAP_AUTH_PASSWORD`
+- `INDEXED_COLLECTIONS`
+
+Then start the indexer in a separate terminal:
+
+```bash
+pnpm api:run:indexer
+# or: just api-run-indexer
+```
+
+Typical local setup is three terminals:
+
+1. `pnpm dev`
+2. `pnpm api:run:api`
+3. `pnpm api:run:indexer`
+
+If you want the app to call the local API, set this in `apps/twisted/.env`:
+
+```bash
+VITE_TWISTER_API_BASE_URL=http://localhost:8080
+```
+
 ## Infrastructure Setup
 
 ### Turso

@@ -21,8 +21,9 @@ import (
 const (
 	minReconnectBackoff = 500 * time.Millisecond
 	maxReconnectBackoff = 10 * time.Second
-	keepAliveInterval   = 20 * time.Second
-	keepAliveTimeout    = 5 * time.Second
+	keepAliveInterval   = 2 * time.Minute
+	keepAliveTimeout    = 20 * time.Second
+	maxReadMessageBytes = 8 << 20
 )
 
 // Client receives Tap events over WebSocket and sends acks after processing.
@@ -31,10 +32,11 @@ type Client struct {
 	password string
 	log      *slog.Logger
 
-	mu          sync.Mutex
-	conn        *websocket.Conn
-	ackAsJSON   bool
-	disableAcks bool
+	mu           sync.Mutex
+	conn         *websocket.Conn
+	ackAsJSON    bool
+	disableAcks  bool
+	lastActivity time.Time
 }
 
 func New(url, password string, log *slog.Logger) *Client {
@@ -43,11 +45,12 @@ func New(url, password string, log *slog.Logger) *Client {
 	}
 	disableAcks, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("TAP_DISABLE_ACKS")))
 	return &Client{
-		url:         url,
-		password:    password,
-		log:         log,
-		ackAsJSON:   true,
-		disableAcks: disableAcks,
+		url:          url,
+		password:     password,
+		log:          log,
+		ackAsJSON:    true,
+		disableAcks:  disableAcks,
+		lastActivity: time.Now(),
 	}
 }
 
@@ -67,6 +70,8 @@ func (c *Client) ReadEvent(ctx context.Context) (normalize.TapRecordEvent, error
 			}
 			continue
 		}
+
+		c.markActivity()
 
 		var event normalize.TapRecordEvent
 		if err := json.Unmarshal(data, &event); err != nil {
@@ -95,6 +100,7 @@ func (c *Client) AckEvent(ctx context.Context, id int64) error {
 	if ackAsJSON {
 		payload, _ := json.Marshal(map[string]int64{"id": id})
 		if err := conn.Write(ctx, websocket.MessageText, payload); err == nil {
+			c.markActivity()
 			return nil
 		} else if isConnectionWriteError(err) {
 			c.resetConn(websocket.StatusInternalError, "ack json write failed")
@@ -109,6 +115,7 @@ func (c *Client) AckEvent(ctx context.Context, id int64) error {
 			c.resetConn(websocket.StatusInternalError, "ack failed")
 			return fmt.Errorf("ack event %d: %w", id, err)
 		}
+		c.markActivity()
 
 		c.mu.Lock()
 		c.ackAsJSON = false
@@ -120,6 +127,7 @@ func (c *Client) AckEvent(ctx context.Context, id int64) error {
 		c.resetConn(websocket.StatusInternalError, "ack failed")
 		return fmt.Errorf("ack event %d: %w", id, err)
 	}
+	c.markActivity()
 	return nil
 }
 
@@ -157,9 +165,11 @@ func (c *Client) ensureConnected(ctx context.Context) (*websocket.Conn, error) {
 
 		conn, _, err := websocket.Dial(ctx, c.url, &websocket.DialOptions{HTTPHeader: h})
 		if err == nil {
+			conn.SetReadLimit(maxReadMessageBytes)
 			c.mu.Lock()
 			if c.conn == nil {
 				c.conn = conn
+				c.lastActivity = time.Now()
 				c.startKeepAlive(conn)
 			} else {
 				_ = conn.Close(websocket.StatusNormalClosure, "duplicate")
@@ -187,6 +197,12 @@ func (c *Client) ensureConnected(ctx context.Context) (*websocket.Conn, error) {
 	}
 }
 
+func (c *Client) markActivity() {
+	c.mu.Lock()
+	c.lastActivity = time.Now()
+	c.mu.Unlock()
+}
+
 func (c *Client) resetConn(status websocket.StatusCode, reason string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -207,6 +223,10 @@ func (c *Client) startKeepAlive(conn *websocket.Conn) {
 			if c.conn != conn {
 				c.mu.Unlock()
 				return
+			}
+			if time.Since(c.lastActivity) < keepAliveInterval {
+				c.mu.Unlock()
+				continue
 			}
 			c.mu.Unlock()
 
