@@ -31,3 +31,5 @@ node_modules
 platforms
 plugins
 www
+
+*.db

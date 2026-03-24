@@ -28,6 +28,8 @@ var (
 )
 
 func main() {
+	var local bool
+
 	root := &cobra.Command{
 		Use:           "twister",
 		Short:         "Tangled search service",
@@ -36,14 +38,16 @@ func main() {
 		SilenceErrors: true,
 	}
 
+	root.PersistentFlags().BoolVar(&local, "local", false, "Use a local twister-dev.db database and text logs for development")
+
 	root.AddCommand(
-		newAPICmd(),
-		newIndexerCmd(),
-		newBackfillCmd(),
-		newEmbedWorkerCmd(),
-		newReindexCmd(),
-		newReembedCmd(),
-		newHealthcheckCmd(),
+		newAPICmd(&local),
+		newIndexerCmd(&local),
+		newBackfillCmd(&local),
+		newEmbedWorkerCmd(&local),
+		newReindexCmd(&local),
+		newReembedCmd(&local),
+		newHealthcheckCmd(&local),
 	)
 
 	if err := root.Execute(); err != nil {
@@ -63,13 +67,13 @@ func baseContext() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
-func newAPICmd() *cobra.Command {
+func newAPICmd(local *bool) *cobra.Command {
 	return &cobra.Command{
 		Use:     "api",
 		Aliases: []string{"serve"},
 		Short:   "Start the HTTP search API",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
@@ -103,12 +107,12 @@ func newAPICmd() *cobra.Command {
 	}
 }
 
-func newIndexerCmd() *cobra.Command {
+func newIndexerCmd(local *bool) *cobra.Command {
 	return &cobra.Command{
 		Use:   "indexer",
 		Short: "Start the Tap consumer and indexer",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
@@ -176,12 +180,12 @@ func newIndexerCmd() *cobra.Command {
 	}
 }
 
-func newEmbedWorkerCmd() *cobra.Command {
+func newEmbedWorkerCmd(local *bool) *cobra.Command {
 	return &cobra.Command{
 		Use:   "embed-worker",
 		Short: "Start the async embedding worker",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
@@ -196,14 +200,14 @@ func newEmbedWorkerCmd() *cobra.Command {
 	}
 }
 
-func newBackfillCmd() *cobra.Command {
+func newBackfillCmd(local *bool) *cobra.Command {
 	var opts backfill.Options
 
 	cmd := &cobra.Command{
 		Use:   "backfill",
 		Short: "Discover users from seeds and register repos for Tap backfill",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
@@ -259,12 +263,12 @@ func newBackfillCmd() *cobra.Command {
 	return cmd
 }
 
-func newReindexCmd() *cobra.Command {
+func newReindexCmd(local *bool) *cobra.Command {
 	return &cobra.Command{
 		Use:   "reindex",
 		Short: "Re-normalize and upsert all documents",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
@@ -275,12 +279,12 @@ func newReindexCmd() *cobra.Command {
 	}
 }
 
-func newReembedCmd() *cobra.Command {
+func newReembedCmd(local *bool) *cobra.Command {
 	return &cobra.Command{
 		Use:   "reembed",
 		Short: "Re-generate all embeddings",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
@@ -291,12 +295,12 @@ func newReembedCmd() *cobra.Command {
 	}
 }
 
-func newHealthcheckCmd() *cobra.Command {
+func newHealthcheckCmd(local *bool) *cobra.Command {
 	return &cobra.Command{
 		Use:   "healthcheck",
 		Short: "One-shot health probe",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}

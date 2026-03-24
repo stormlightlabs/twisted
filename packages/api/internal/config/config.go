@@ -35,7 +35,12 @@ type Config struct {
 	AdminAuthToken       string
 }
 
-func Load() (*Config, error) {
+type LoadOptions struct {
+	Local   bool
+	WorkDir string
+}
+
+func Load(opts LoadOptions) (*Config, error) {
 	loadDotEnv()
 
 	cfg := &Config{
@@ -63,6 +68,16 @@ func Load() (*Config, error) {
 		EnableAdminEndpoints: envBool("ENABLE_ADMIN_ENDPOINTS", false),
 	}
 
+	if opts.Local {
+		dbURL, err := localDatabaseURL(opts.WorkDir)
+		if err != nil {
+			return nil, err
+		}
+		cfg.TursoURL = dbURL
+		cfg.TursoToken = ""
+		cfg.LogFormat = "text"
+	}
+
 	var errs []error
 	if cfg.TursoURL == "" {
 		errs = append(errs, errors.New("TURSO_DATABASE_URL is required"))
@@ -74,6 +89,17 @@ func Load() (*Config, error) {
 		return nil, errors.Join(errs...)
 	}
 	return cfg, nil
+}
+
+func localDatabaseURL(workDir string) (string, error) {
+	if strings.TrimSpace(workDir) == "" {
+		var err error
+		workDir, err = os.Getwd()
+		if err != nil {
+			return "", err
+		}
+	}
+	return "file:" + filepath.Join(workDir, "twister-dev.db"), nil
 }
 
 func loadDotEnv() {
