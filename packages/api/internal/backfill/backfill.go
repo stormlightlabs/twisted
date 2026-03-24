@@ -7,10 +7,14 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"tangled.org/desertthunder.dev/twister/internal/store"
 )
 
 type discoveryStore interface {
 	GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error)
+	UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error
+	UpsertDocument(ctx context.Context, doc *store.Document) error
 }
 
 // Runner executes seed resolution, graph discovery, and Tap registration.
@@ -19,21 +23,25 @@ type Runner struct {
 	tap      tapAdmin
 	resolver handleResolver
 	follows  followFetcher
+	profiles profileFetcher
 	log      *slog.Logger
 }
 
 func NewRunner(store discoveryStore, tap tapAdmin, resolver handleResolver, log *slog.Logger) *Runner {
-	return NewRunnerWithDeps(store, tap, resolver, NewHTTPFollowFetcher(), log)
+	return NewRunnerWithDeps(store, tap, resolver, NewHTTPFollowFetcher(), NewHTTPProfileFetcher(), log)
 }
 
-func NewRunnerWithDeps(store discoveryStore, tap tapAdmin, resolver handleResolver, follows followFetcher, log *slog.Logger) *Runner {
+func NewRunnerWithDeps(store discoveryStore, tap tapAdmin, resolver handleResolver, follows followFetcher, profiles profileFetcher, log *slog.Logger) *Runner {
 	if log == nil {
 		log = slog.Default()
 	}
 	if follows == nil {
 		follows = NewHTTPFollowFetcher()
 	}
-	return &Runner{store: store, tap: tap, resolver: resolver, follows: follows, log: log}
+	if profiles == nil {
+		profiles = NewHTTPProfileFetcher()
+	}
+	return &Runner{store: store, tap: tap, resolver: resolver, follows: follows, profiles: profiles, log: log}
 }
 
 func (r *Runner) Run(ctx context.Context, opts Options) error {
@@ -57,7 +65,7 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 	if err != nil {
 		return err
 	}
-	seeds, err := r.resolveSeeds(ctx, seedEntries)
+	seeds, seedHandles, err := r.resolveSeeds(ctx, seedEntries)
 	if err != nil {
 		return err
 	}
@@ -167,12 +175,20 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 		slog.Int("status_failures", statusFailures),
 		slog.Int("submit_failures", submitFailures),
 	)
+
+	if err := r.indexProfiles(ctx, discovered, seedHandles, opts.Concurrency); err != nil {
+		return fmt.Errorf("index profiles: %w", err)
+	}
+
 	return nil
 }
 
-func (r *Runner) resolveSeeds(ctx context.Context, entries []seedEntry) ([]string, error) {
+// resolveSeeds returns (dids, did→handle map, error). The handle map contains
+// entries for seeds that were specified as handles rather than DIDs.
+func (r *Runner) resolveSeeds(ctx context.Context, entries []seedEntry) ([]string, map[string]string, error) {
 	seen := map[string]bool{}
 	seeds := make([]string, 0, len(entries))
+	handles := make(map[string]string) // did → handle
 	for _, entry := range entries {
 		if entry.isDID {
 			seen[entry.raw] = true
@@ -181,15 +197,16 @@ func (r *Runner) resolveSeeds(ctx context.Context, entries []seedEntry) ([]strin
 		}
 		did, err := r.resolver.Resolve(ctx, entry.raw)
 		if err != nil {
-			return nil, fmt.Errorf("resolve handle at line %d (%s): %w", entry.lineNo, entry.raw, err)
+			return nil, nil, fmt.Errorf("resolve handle at line %d (%s): %w", entry.lineNo, entry.raw, err)
 		}
 		if seen[did] {
 			continue
 		}
 		seen[did] = true
 		seeds = append(seeds, did)
+		handles[did] = entry.raw
 	}
-	return seeds, nil
+	return seeds, handles, nil
 }
 
 func (r *Runner) discover(ctx context.Context, seeds []string, maxHops int, concurrency int) ([]DiscoveredUser, error) {
@@ -299,4 +316,124 @@ func (r *Runner) discover(ctx context.Context, seeds []string, maxHops int, conc
 	}
 
 	return ordered, nil
+}
+
+// indexProfiles fetches sh.tangled.actor.profile records via XRPC for each
+// discovered user, persists the DID→handle mapping, and upserts a searchable
+// profile document.
+func (r *Runner) indexProfiles(ctx context.Context, users []DiscoveredUser, seedHandles map[string]string, concurrency int) error {
+	if concurrency <= 0 {
+		concurrency = 5
+	}
+
+	type result struct {
+		did     string
+		profile *ProfileRecord
+		err     error
+	}
+
+	jobs := make(chan string)
+	results := make(chan result, len(users))
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for did := range jobs {
+				pr, err := r.profiles.FetchProfile(ctx, did)
+				results <- result{did: did, profile: pr, err: err}
+			}
+		}()
+	}
+
+	go func() {
+		for _, u := range users {
+			jobs <- u.DID
+		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
+
+	indexed := 0
+	identities := 0
+	failures := 0
+	for res := range results {
+		if res.err != nil {
+			failures++
+			r.log.Warn("profile fetch failed",
+				slog.String("did", res.did),
+				slog.String("error", res.err.Error()),
+			)
+			continue
+		}
+
+		handle := res.profile.Handle
+		// Prefer the seed handle if the user was specified by handle in seeds.
+		if h, ok := seedHandles[res.did]; ok && h != "" {
+			handle = h
+		}
+
+		if handle != "" {
+			if err := r.store.UpsertIdentityHandle(ctx, res.did, handle, true, "active"); err != nil {
+				r.log.Warn("upsert identity handle failed",
+					slog.String("did", res.did),
+					slog.String("handle", handle),
+					slog.String("error", err.Error()),
+				)
+			} else {
+				identities++
+			}
+		}
+
+		// Only create a document if we got a profile record back.
+		if res.profile.Record == nil {
+			continue
+		}
+
+		description, _ := res.profile.Record["description"].(string)
+		location, _ := res.profile.Record["location"].(string)
+		summary := description
+		if location != "" {
+			if summary != "" {
+				summary = summary + " · " + location
+			} else {
+				summary = location
+			}
+		}
+		if len(summary) > 200 {
+			summary = summary[:200]
+		}
+
+		doc := &store.Document{
+			ID:           fmt.Sprintf("%s|%s|self", res.did, profileCollection),
+			DID:          res.did,
+			Collection:   profileCollection,
+			RKey:         "self",
+			ATURI:        fmt.Sprintf("at://%s/%s/self", res.did, profileCollection),
+			CID:          res.profile.CID,
+			RecordType:   "profile",
+			Title:        handle,
+			Body:         description,
+			Summary:      summary,
+			AuthorHandle: handle,
+			TagsJSON:     "[]",
+		}
+
+		if err := r.store.UpsertDocument(ctx, doc); err != nil {
+			r.log.Warn("upsert profile document failed",
+				slog.String("did", res.did),
+				slog.String("error", err.Error()),
+			)
+			continue
+		}
+		indexed++
+	}
+
+	r.log.Info("profile indexing complete",
+		slog.Int("identities_stored", identities),
+		slog.Int("profiles_indexed", indexed),
+		slog.Int("failures", failures),
+	)
+	return nil
 }
