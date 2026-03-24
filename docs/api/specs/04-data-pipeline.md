@@ -324,6 +324,7 @@ If embedding generation fails:
 - Jobs are retried with exponential backoff up to a max attempt count
 - After max attempts, the job enters `dead` state
 - The embed-worker exposes failed job count as a metric
+- If Ollama is unreachable (sidecar down), all pending jobs pause until connectivity is restored
 
 ### DB Failures
 

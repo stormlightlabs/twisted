@@ -93,6 +93,17 @@ CREATE INDEX idx_documents_fts ON documents USING fts (
 ) WITH (weights='title=3.0,repo_name=2.5,author_handle=2.0,summary=1.5,tags_json=1.2,body=1.0');
 ```
 
+### FTS Maintenance
+
+Turso's Tantivy-backed FTS uses `NoMergePolicy` — segment count grows with writes and is never automatically compacted. This increases query fan-out over time.
+
+**Required maintenance:** Run `OPTIMIZE INDEX idx_documents_fts;` periodically (e.g., daily cron or after bulk backfill). This merges segments and reclaims space.
+
+**Known limitations:**
+- No read-your-writes within a transaction — FTS queries see a pre-commit snapshot
+- No snippet function (use `fts_highlight()` for highlighting)
+- FTS is experimental in Turso; requires the `fts` feature flag
+
 ## 4. Embeddings Table
 
 ```sql
@@ -108,7 +119,27 @@ CREATE INDEX idx_embeddings_vec ON document_embeddings(
 );
 ```
 
-The vector dimension (768) is configurable by model. Changing models requires a new column or table migration.
+The vector dimension (768) matches nomic-embed-text-v1.5 and EmbeddingGemma defaults. Changing models may require a new column or table migration if the dimension changes.
+
+### Vector Index Tuning
+
+The DiskANN index accepts tuning parameters at creation time:
+
+```sql
+CREATE INDEX idx_embeddings_vec ON document_embeddings(
+    libsql_vector_idx(embedding, 'metric=cosine', 'max_neighbors=50', 'search_l=200')
+);
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `max_neighbors` | 3*sqrt(D) | Graph connectivity; higher = better recall, more storage |
+| `search_l` | 200 | Neighbors visited during search; higher = better recall, slower |
+| `insert_l` | 70 | Neighbors visited during insert |
+| `alpha` | 1.2 | Graph sparsity factor |
+| `compress_neighbors` | — | Quantize neighbor vectors for storage savings |
+
+Start with defaults and tune after measuring recall on representative queries.
 
 ## 5. Sync State Table
 

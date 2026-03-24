@@ -41,16 +41,14 @@ All configuration is via environment variables.
 | `SEARCH_MAX_LIMIT`     | `100`     | Maximum results per page |
 | `SEARCH_DEFAULT_MODE`  | `keyword` | Default search mode      |
 
-### Embedding
+### Embedding (Ollama — self-hosted)
 
-| Variable               | Default | Description                                          |
-| ---------------------- | ------- | ---------------------------------------------------- |
-| `EMBEDDING_PROVIDER`   | —       | Provider name (e.g., `openai`, `ollama`, `voyageai`) |
-| `EMBEDDING_MODEL`      | —       | Model name (e.g., `text-embedding-3-small`)          |
-| `EMBEDDING_API_KEY`    | —       | Provider API key                                     |
-| `EMBEDDING_API_URL`    | —       | Provider base URL (for self-hosted)                  |
-| `EMBEDDING_DIM`        | `768`   | Vector dimensionality                                |
-| `EMBEDDING_BATCH_SIZE` | `32`    | Batch size for embed-worker                          |
+| Variable               | Default                                    | Description                                    |
+| ---------------------- | ------------------------------------------ | ---------------------------------------------- |
+| `OLLAMA_URL`           | `http://ollama.railway.internal:11434`     | Ollama server URL                              |
+| `EMBEDDING_MODEL`      | `nomic-embed-text`                         | Ollama model name                              |
+| `EMBEDDING_DIM`        | `768`                                      | Vector dimensionality (must match model)       |
+| `EMBEDDING_BATCH_SIZE` | `32`                                       | Documents per embedding batch                  |
 
 ### Hybrid Search
 
@@ -87,10 +85,9 @@ INDEXED_COLLECTIONS=sh.tangled.repo,sh.tangled.repo.issue,sh.tangled.repo.pull,s
 SEARCH_DEFAULT_LIMIT=20
 SEARCH_MAX_LIMIT=100
 
-# Embedding (Phase 2)
-# EMBEDDING_PROVIDER=openai
-# EMBEDDING_MODEL=text-embedding-3-small
-# EMBEDDING_API_KEY=sk-...
+# Embedding — Ollama (Phase 2)
+# OLLAMA_URL=http://ollama.railway.internal:11434
+# EMBEDDING_MODEL=nomic-embed-text
 # EMBEDDING_DIM=768
 
 # Server
@@ -285,7 +282,7 @@ Required secrets:
 | ------------------- | --------------------------------- |
 | `TURSO_AUTH_TOKEN`  | Turso database authentication     |
 | `TAP_AUTH_PASSWORD` | Tap admin API authentication      |
-| `EMBEDDING_API_KEY` | Embedding provider authentication |
+| `OLLAMA_URL`        | Ollama sidecar connection (no secret if internal networking) |
 | `ADMIN_AUTH_TOKEN`  | Admin endpoint authentication     |
 
 ### Admin Endpoints
@@ -331,6 +328,7 @@ All Twister services deploy as separate Railway services within the same project
 | api          | `twister api`          | `GET /healthz`     | yes    |
 | indexer      | `twister indexer`      | `GET :9090/health` | no     |
 | embed-worker | `twister embed-worker` | `GET :9091/health` | no     |
+| ollama       | (Railway template)     | `GET /api/tags`    | no     |
 
 All services share the same Docker image. Railway uses the start command to select the subcommand.
 
@@ -356,10 +354,9 @@ TAP_URL=wss://${{tap.RAILWAY_PUBLIC_DOMAIN}}/channel  # Railway service referenc
 TAP_AUTH_PASSWORD=...
 INDEXED_COLLECTIONS=sh.tangled.repo,sh.tangled.repo.issue,sh.tangled.repo.pull,sh.tangled.string,sh.tangled.actor.profile
 
-# Embed-worker (Phase 2)
-# EMBEDDING_PROVIDER=openai
-# EMBEDDING_MODEL=text-embedding-3-small
-# EMBEDDING_API_KEY=sk-...
+# Embed-worker + Ollama (Phase 2)
+# OLLAMA_URL=http://ollama.railway.internal:11434
+# EMBEDDING_MODEL=nomic-embed-text
 ```
 
 Railway supports referencing other services' variables with `${{service.VAR}}` syntax, which is useful for linking the indexer to Tap's domain.

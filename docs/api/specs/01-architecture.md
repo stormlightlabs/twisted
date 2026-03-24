@@ -64,8 +64,8 @@ The system shall prioritize:
 - **AT Protocol network** — source of all Tangled content
 - **Tap** — filtered event delivery from the AT Protocol firehose (deployed on Railway)
 - **Turso/libSQL** — relational storage, Tantivy-backed FTS, and native vector search
-- **Embedding provider** — generates vectors for semantic search
-- **Railway** — deployment platform for Twister services and Tap
+- **Ollama** — local embedding model server (nomic-embed-text or EmbeddingGemma); deployed as a Railway sidecar service
+- **Railway** — deployment platform for Twister services, Tap, and Ollama
 
 ## 7. Architecture Summary
 
@@ -106,7 +106,8 @@ ATProto Firehose / PDS
 | -------------- | -------------------------------------------- | -------------------------- |
 | `api`          | HTTP search, graph summary, and document API | Railway service (public)   |
 | `indexer`      | Tap consumer, normalizer, DB writer          | Railway service (internal) |
-| `embed-worker` | Async embedding generation                   | Optional Railway service   |
+| `embed-worker` | Async embedding generation via Ollama        | Optional Railway service   |
+| `ollama`       | Local embedding model server                 | Railway service (internal) |
 | `tap`          | ATProto sync                                 | Railway (already deployed) |
 
 ## 9. Repository Structure
@@ -141,6 +142,22 @@ twister healthcheck   # One-shot health probe
 ```
 
 ## 11. Technology Choices
+
+### Embedding: Ollama (self-hosted)
+
+Embeddings are generated locally via Ollama rather than an external API service. This eliminates per-token costs, external service dependencies, and data egress concerns.
+
+**Recommended models (in order of preference):**
+
+| Model | Parameters | Dimensions | Quantized Size | Notes |
+|-------|-----------|------------|----------------|-------|
+| nomic-embed-text-v1.5 | 137M | 768 (Matryoshka: 64–768) | ~262 MB (F16) | 8192 context, battle-tested, Railway template exists |
+| EmbeddingGemma | 308M | 768 | <200 MB (quantized) | Best-in-class MTEB for size, released Sept 2025 |
+| all-minilm | 23M | 384 | ~46 MB | Budget option, lower quality |
+
+**Go integration:** Use the official Ollama Go client (`github.com/ollama/ollama/api`) with the `Embed()` method. The embed-worker calls Ollama over Railway's internal network (`ollama.railway.internal:11434`).
+
+**Railway deployment:** Ollama runs as a separate Railway service (~1–2 GB RAM, 1–2 vCPU, ~$10–30/mo). The nomic-embed Railway template provides a proven starting point. No cold starts on always-on services; model loads in 2–10 seconds on first request after deploy.
 
 ### Language: Go
 

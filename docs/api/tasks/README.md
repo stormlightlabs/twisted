@@ -38,3 +38,4 @@ Within MVP, run graph backfill before calling the environment search-ready for u
 - Restart does not lose sync position
 - Reindex exists for repair
 - Graph backfill populates initial content from seed users
+- A static search site with API docs is publicly accessible

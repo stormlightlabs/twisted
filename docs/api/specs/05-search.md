@@ -61,11 +61,17 @@ Use `fts_highlight()` to generate highlighted snippets:
 fts_highlight(d.body, '<mark>', '</mark>', ?) AS body_snippet
 ```
 
+### FTS Operational Notes
+
+- **Segment merging:** Turso FTS uses Tantivy's `NoMergePolicy`. Run `OPTIMIZE INDEX idx_documents_fts;` after bulk writes (backfill) and periodically in production to keep query performance stable.
+- **Read-your-writes:** FTS queries within the same transaction see a pre-commit snapshot. If a document is written and immediately searched in the same transaction, FTS will not find it. The indexer and API are separate processes, so this is not a concern in normal operation.
+- **Feature flag:** Turso FTS requires the `fts` feature flag to be enabled on the database.
+
 ## 3. Semantic Search
 
 ### Query Flow
 
-1. Convert user query text to embedding via the configured provider
+1. Convert user query text to embedding via Ollama (self-hosted)
 2. Query `vector_top_k` for nearest neighbors
 3. Join back to `documents` to get metadata
 4. Filter out deleted/hidden documents

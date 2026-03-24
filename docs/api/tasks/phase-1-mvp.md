@@ -16,6 +16,7 @@ Get a searchable product online: ingestion, keyword search, deployment, and oper
 - Restart does not lose sync position
 - Reindex exists for repair
 - Graph backfill populates initial content from seed users
+- A static search site with API docs is publicly accessible
 
 ## M0 — Repository Bootstrap ✅
 
@@ -261,6 +262,62 @@ Expose a usable public search API backed by Turso's Tantivy-backed FTS.
 
 A user can search Tangled content reliably with keyword search.
 
+## M5a — Search Site
+
+refs: [specs/09-search-site.md](../specs/09-search-site.md)
+
+### Goal
+
+Ship a static site that doubles as public API documentation and a live search demo. Alpine.js via CDN for reactivity, no build step.
+
+### Deliverables
+
+- `internal/view/` package exporting `Handler() http.Handler`
+- Embedded templates (`templates/`) and static assets (`static/`) via `//go:embed`
+- Search page (`/`) wired to `GET /search` with result cards, filters, and pagination
+- API docs pages (`/docs/*`) covering search, documents, and health endpoints
+- Dark-mode-only styling with Google Sans fonts and minimal CSS tokens
+
+### Tasks
+
+- [ ] Create `internal/view/` package with `view.go`, `templates/`, and `static/` directories
+- [ ] Implement `Handler()` that returns an `http.Handler` with routes for all pages and `/static/*`
+- [ ] Embed templates and static assets via `//go:embed`; parse templates once at init
+- [ ] Use a shared `layout.html` template for the shell (head, nav, footer)
+- [ ] Mount `view.Handler()` in the `api` package router as a fallback after API routes
+- [ ] Build search page:
+  - Text input + submit
+  - Fetch `GET /search` with relative path (same origin)
+  - Render result cards with type badge, title, snippet (preserve `<mark>`), author, repo, relative time
+  - "Load more" pagination via offset
+  - Filter bar: type, language, author (reflected in URL query params)
+  - Empty and error states
+- [ ] Build API docs pages:
+  - `/docs` — overview (base URL, response shape, no auth)
+  - `/docs/search` — `GET /search` params, filters, example curl, example response
+  - `/docs/documents` — `GET /documents/{id}` request/response
+  - `/docs/health` — `GET /healthz`, `GET /readyz`
+- [ ] Implement `style.css` with design tokens (`--bg`, `--surface`, `--border`, `--accent`, etc.)
+- [ ] Load Google Sans and Google Sans Mono via Google Fonts `<link>`
+- [ ] Result card links open canonical Tangled URLs in new tab
+- [ ] Verify total site weight under 50 KB (excluding fonts and Alpine CDN)
+
+### Verification
+
+- [ ] `twister api` serves the search page at `http://localhost:8080/`
+- [ ] API endpoints (`/search`, `/healthz`, etc.) still work alongside the site
+- [ ] Searching a known repo name shows it in results
+- [ ] Filter by type restricts results to that type
+- [ ] "Load more" appends next page of results
+- [ ] API docs pages render correct endpoint signatures, parameter tables, and example JSON
+- [ ] Site works on mobile viewport (stacked layout at 640px)
+- [ ] Site works with API unavailable (error state shown, no crash)
+- [ ] All pages share consistent styling and navigation
+
+### Exit Criteria
+
+A user can search Tangled content and read API docs from a public URL without installing anything.
+
 ## M6 — Railway Deployment
 
 refs: [specs/06-operations.md](../specs/06-operations.md)
@@ -336,7 +393,8 @@ Make the system recoverable and operable with repair tools.
   2. For each document, re-run normalization from stored fields (or re-fetch if source available)
   3. Update FTS-relevant fields
   4. Upsert back to store
-  5. Log progress (N/total, errors)
+  5. Run `OPTIMIZE INDEX idx_documents_fts` after bulk reindex to merge Tantivy segments
+  6. Log progress (N/total, errors)
 - [ ] Implement `POST /admin/reindex` endpoint (behind `ENABLE_ADMIN_ENDPOINTS` + `ADMIN_AUTH_TOKEN`)
 - [ ] Add error summary output on completion
 - [ ] Exit non-zero on unrecoverable failures
