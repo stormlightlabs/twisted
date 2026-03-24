@@ -40,11 +40,20 @@ type RecordState struct {
 	UpdatedAt  string
 }
 
+// DocumentFilter scopes a ListDocuments query to a subset of documents.
+type DocumentFilter struct {
+	Collection string // filter by collection NSID
+	DID        string // filter by author DID
+	DocumentID string // filter to a single document by stable ID
+}
+
 // Store is the persistence interface for Twister.
 type Store interface {
 	UpsertDocument(ctx context.Context, doc *Document) error
 	GetDocument(ctx context.Context, id string) (*Document, error)
 	MarkDeleted(ctx context.Context, id string) error
+	ListDocuments(ctx context.Context, filter DocumentFilter) ([]*Document, error)
+	OptimizeFTS(ctx context.Context) error
 	GetSyncState(ctx context.Context, consumer string) (*SyncState, error)
 	SetSyncState(ctx context.Context, consumer string, cursor string) error
 	UpdateRecordState(ctx context.Context, subjectURI string, state string) error

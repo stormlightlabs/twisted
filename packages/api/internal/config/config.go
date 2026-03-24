@@ -124,7 +124,7 @@ func loadDotEnv() {
 		if _, err := os.Stat(candidate); err != nil {
 			continue
 		}
-		// Load does not override existing process env vars.
+
 		_ = godotenv.Load(candidate)
 	}
 }

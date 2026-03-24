@@ -101,7 +101,6 @@ func TestRepoAdapter(t *testing.T) {
 		t.Errorf("ATURI = %q", doc.ATURI)
 	}
 
-	// Searchable
 	if !adapter.Searchable(event.Record.Record) {
 		t.Error("Searchable returned false for a named repo")
 	}
@@ -136,7 +135,6 @@ func TestIssueAdapter(t *testing.T) {
 		t.Errorf("TagsJSON = %q, want []", doc.TagsJSON)
 	}
 
-	// Deterministic output
 	doc2, _ := adapter.Normalize(event)
 	if doc.ID != doc2.ID {
 		t.Error("Normalize is not deterministic")
@@ -234,7 +232,6 @@ func TestStringAdapter(t *testing.T) {
 		t.Errorf("RecordType = %q", doc.RecordType)
 	}
 
-	// Searchable only when contents is non-empty
 	if !adapter.Searchable(event.Record.Record) {
 		t.Error("Searchable = false for non-empty contents")
 	}
@@ -262,12 +259,11 @@ func TestProfileAdapter(t *testing.T) {
 	if doc.RecordType != "profile" {
 		t.Errorf("RecordType = %q", doc.RecordType)
 	}
-	// Title is intentionally empty (handle resolved separately via identity events)
+
 	if doc.Title != "" {
 		t.Errorf("Title = %q, want empty (handle resolved externally)", doc.Title)
 	}
 
-	// Searchable only when description is non-empty
 	if !adapter.Searchable(event.Record.Record) {
 		t.Error("Searchable = false for non-empty description")
 	}

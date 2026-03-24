@@ -40,10 +40,9 @@ func (a *ProfileAdapter) Normalize(event TapRecordEvent) (*store.Document, error
 		ATURI:      BuildATURI(r.DID, r.Collection, r.RKey),
 		CID:        r.CID,
 		RecordType: a.RecordType(),
-		// Title (handle) is resolved from DID by the indexer via identity events.
-		Title:    "",
-		Body:     description,
-		Summary:  truncate(summary, 200),
-		TagsJSON: "[]",
+		Title:      "",
+		Body:       description,
+		Summary:    truncate(summary, 200),
+		TagsJSON:   "[]",
 	}, nil
 }

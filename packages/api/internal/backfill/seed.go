@@ -64,7 +64,6 @@ func parseSeedInput(input string) ([]seedEntry, error) {
 		return parseSeedFile(input)
 	}
 
-	// Single inline DID/handle is supported for convenience.
 	return parseSeedList(input)
 }
 

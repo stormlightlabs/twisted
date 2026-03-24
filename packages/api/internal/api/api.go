@@ -7,9 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"tangled.org/desertthunder.dev/twister/internal/config"
+	"tangled.org/desertthunder.dev/twister/internal/reindex"
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
 	"tangled.org/desertthunder.dev/twister/internal/view"
@@ -47,7 +49,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /documents/{id}", s.handleGetDocument)
 
 	if s.cfg.EnableAdminEndpoints {
-		mux.HandleFunc("POST /admin/reindex", s.handleNotImplemented)
+		mux.HandleFunc("POST /admin/reindex", s.handleAdminReindex)
 		mux.HandleFunc("POST /admin/reembed", s.handleNotImplemented)
 	}
 
@@ -237,6 +239,47 @@ func (s *Server) handleGetDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, documentResponse(doc))
+}
+
+func (s *Server) handleAdminReindex(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.AdminAuthToken != "" {
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if token != s.cfg.AdminAuthToken {
+			writeJSON(w, http.StatusUnauthorized, errorBody("unauthorized", "invalid admin token"))
+			return
+		}
+	}
+
+	opts := reindex.Options{
+		Collection: r.URL.Query().Get("collection"),
+		DID:        r.URL.Query().Get("did"),
+		DocumentID: r.URL.Query().Get("document"),
+	}
+
+	runner := reindex.New(s.store, s.log)
+	result, err := runner.Run(r.Context(), opts)
+	if err != nil {
+		s.log.Error("admin reindex failed", slog.String("error", err.Error()))
+		if result != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"error":   "reindex_error",
+				"message": err.Error(),
+				"total":   result.Total,
+				"updated": result.Updated,
+				"errors":  result.Errors,
+			})
+		} else {
+			writeJSON(w, http.StatusInternalServerError, errorBody("reindex_error", err.Error()))
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":  "ok",
+		"total":   result.Total,
+		"updated": result.Updated,
+		"errors":  result.Errors,
+	})
 }
 
 func (s *Server) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {

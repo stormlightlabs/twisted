@@ -310,12 +310,10 @@ func TestRunner_IndexesProfilesAndHandles(t *testing.T) {
 		t.Fatalf("run backfill: %v", err)
 	}
 
-	// Identity handle should be persisted.
 	if st.identities["did:plc:seed"] != "alice.tangled.sh" {
 		t.Fatalf("expected identity handle for seed DID, got %#v", st.identities)
 	}
 
-	// Profile document should be created.
 	if len(st.documents) != 1 {
 		t.Fatalf("expected 1 profile document, got %d", len(st.documents))
 	}

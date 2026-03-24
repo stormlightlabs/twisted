@@ -63,7 +63,6 @@ func (f *HTTPProfileFetcher) FetchProfile(ctx context.Context, did string) (*Pro
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		// No profile record — return handle only so identity can still be stored.
 		return &ProfileRecord{Handle: handle}, nil
 	}
 	if resp.StatusCode != http.StatusOK {

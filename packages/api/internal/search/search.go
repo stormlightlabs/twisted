@@ -24,21 +24,21 @@ type Params struct {
 
 // Result is a single search hit.
 type Result struct {
-	ID           string   `json:"id"`
-	Collection   string   `json:"collection"`
-	RecordType   string   `json:"record_type"`
-	Title        string   `json:"title"`
-	BodySnippet  string   `json:"body_snippet,omitempty"`
-	Summary      string   `json:"summary,omitempty"`
-	RepoName     string   `json:"repo_name,omitempty"`
-	RepoOwnerHandle string `json:"repo_owner_handle,omitempty"`
-	AuthorHandle string   `json:"author_handle,omitempty"`
-	DID          string   `json:"did"`
-	ATURI        string   `json:"at_uri"`
-	Score        float64  `json:"score"`
-	MatchedBy    []string `json:"matched_by"`
-	CreatedAt    string   `json:"created_at,omitempty"`
-	UpdatedAt    string   `json:"updated_at,omitempty"`
+	ID              string   `json:"id"`
+	Collection      string   `json:"collection"`
+	RecordType      string   `json:"record_type"`
+	Title           string   `json:"title"`
+	BodySnippet     string   `json:"body_snippet,omitempty"`
+	Summary         string   `json:"summary,omitempty"`
+	RepoName        string   `json:"repo_name,omitempty"`
+	RepoOwnerHandle string   `json:"repo_owner_handle,omitempty"`
+	AuthorHandle    string   `json:"author_handle,omitempty"`
+	DID             string   `json:"did"`
+	ATURI           string   `json:"at_uri"`
+	Score           float64  `json:"score"`
+	MatchedBy       []string `json:"matched_by"`
+	CreatedAt       string   `json:"created_at,omitempty"`
+	UpdatedAt       string   `json:"updated_at,omitempty"`
 }
 
 // Response is the search API response envelope.
@@ -70,7 +70,6 @@ func (r *Repository) Ping(ctx context.Context) error {
 func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 	ftsQuery := toFTS5Query(p.Query)
 
-	// Build filter conditions beyond the base FTS match.
 	var filters []string
 	var filterArgs []any
 
@@ -103,7 +102,6 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 		filterArgs = append(filterArgs, p.To)
 	}
 
-	// State filter requires a JOIN.
 	var join string
 	if p.State != "" {
 		join = "JOIN record_state rs ON rs.subject_uri = d.at_uri"
@@ -116,7 +114,6 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 		where += " AND " + strings.Join(filters, " AND ")
 	}
 
-	// Count total matching documents.
 	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM documents_fts JOIN documents d ON d.id = documents_fts.id %s WHERE %s", join, where)
 	countArgs := append([]any{ftsQuery}, filterArgs...)
 
@@ -125,7 +122,6 @@ func (r *Repository) Keyword(ctx context.Context, p Params) (*Response, error) {
 		return nil, explainNativeFTSError("count", err)
 	}
 
-	// Fetch results with score and snippet.
 	resultsSQL := fmt.Sprintf(`
 		SELECT d.id, d.title, d.summary, d.repo_name, repo_owner.handle, d.author_handle,
 		       d.did, d.at_uri, d.collection, d.record_type, d.created_at, d.updated_at,

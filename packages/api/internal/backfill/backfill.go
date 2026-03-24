@@ -369,7 +369,6 @@ func (r *Runner) indexProfiles(ctx context.Context, users []DiscoveredUser, seed
 		}
 
 		handle := res.profile.Handle
-		// Prefer the seed handle if the user was specified by handle in seeds.
 		if h, ok := seedHandles[res.did]; ok && h != "" {
 			handle = h
 		}
@@ -386,7 +385,6 @@ func (r *Runner) indexProfiles(ctx context.Context, users []DiscoveredUser, seed
 			}
 		}
 
-		// Only create a document if we got a profile record back.
 		if res.profile.Record == nil {
 			continue
 		}

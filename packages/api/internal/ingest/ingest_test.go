@@ -111,6 +111,18 @@ func (f *fakeStore) GetRepoCollaborators(_ context.Context, _ string) ([]string,
 	return nil, nil
 }
 
+func (f *fakeStore) ListDocuments(_ context.Context, _ store.DocumentFilter) ([]*store.Document, error) {
+	docs := make([]*store.Document, 0, len(f.docs))
+	for _, d := range f.docs {
+		docs = append(docs, d)
+	}
+	return docs, nil
+}
+
+func (f *fakeStore) OptimizeFTS(_ context.Context) error {
+	return nil
+}
+
 func (f *fakeStore) CountDocuments(_ context.Context) (int64, error) {
 	return int64(len(f.docs)), nil
 }

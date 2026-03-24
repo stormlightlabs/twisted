@@ -67,6 +67,73 @@ func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
 	return nil
 }
 
+func (s *SQLStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]*Document, error) {
+	query := `SELECT id, did, collection, rkey, at_uri, cid, record_type,
+		       title, body, summary, repo_did, repo_name, author_handle,
+		       tags_json, language, created_at, updated_at, indexed_at, deleted_at
+		FROM documents WHERE deleted_at IS NULL`
+	args := []any{}
+
+	if filter.DocumentID != "" {
+		query += " AND id = ?"
+		args = append(args, filter.DocumentID)
+	}
+	if filter.Collection != "" {
+		query += " AND collection = ?"
+		args = append(args, filter.Collection)
+	}
+	if filter.DID != "" {
+		query += " AND did = ?"
+		args = append(args, filter.DID)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list documents: %w", err)
+	}
+	defer rows.Close()
+
+	var docs []*Document
+	for rows.Next() {
+		doc := &Document{}
+		var (
+			title, body, summary, repoDID, repoName, authorHandle sql.NullString
+			tagsJSON, language, createdAt, updatedAt, deletedAt   sql.NullString
+		)
+		if err := rows.Scan(
+			&doc.ID, &doc.DID, &doc.Collection, &doc.RKey, &doc.ATURI, &doc.CID, &doc.RecordType,
+			&title, &body, &summary, &repoDID, &repoName, &authorHandle,
+			&tagsJSON, &language, &createdAt, &updatedAt, &doc.IndexedAt, &deletedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan document: %w", err)
+		}
+		doc.Title = title.String
+		doc.Body = body.String
+		doc.Summary = summary.String
+		doc.RepoDID = repoDID.String
+		doc.RepoName = repoName.String
+		doc.AuthorHandle = authorHandle.String
+		doc.TagsJSON = tagsJSON.String
+		doc.Language = language.String
+		doc.CreatedAt = createdAt.String
+		doc.UpdatedAt = updatedAt.String
+		doc.DeletedAt = deletedAt.String
+		docs = append(docs, doc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate documents: %w", err)
+	}
+	return docs, nil
+}
+
+func (s *SQLStore) OptimizeFTS(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `INSERT INTO documents_fts(documents_fts) VALUES('optimize')`)
+	if err != nil {
+		return fmt.Errorf("optimize fts: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLStore) GetDocument(ctx context.Context, id string) (*Document, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, did, collection, rkey, at_uri, cid, record_type,

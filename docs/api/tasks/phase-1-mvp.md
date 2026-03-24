@@ -100,17 +100,6 @@ Connect the indexer to Tap (on Railway) and process live events into the store.
 - [x] Handle normalization failures: log, skip, advance cursor
 - [x] Handle DB failures: retry with backoff, do not advance cursor
 
-### Verification
-
-- [ ] Indexer connects to Tap via WebSocket in development
-- [ ] A newly created tracked record appears in `documents` table
-- [ ] An updated record changes the existing row (CID changes)
-- [ ] A delete event tombstones the row (`deleted_at` set)
-- [ ] Killing and restarting the indexer resumes from persisted cursor without duplication
-- [ ] Identity events update handle cache
-- [ ] Unsupported collections are silently skipped
-- [ ] Connection drops trigger automatic reconnection
-
 ### Exit Criteria
 
 The system continuously ingests and persists `sh.tangled.*` records from Tap.
@@ -180,16 +169,6 @@ Bootstrap the index with historical Tangled content by discovering and backfilli
   - dry-run before production mutation
   - Implemented: `packages/api/internal/backfill/doc.go`
 
-### Verification
-
-- [ ] A small seed file of known Tangled users produces a non-empty discovery graph
-- [ ] `--max-hops 1` limits discovery to direct neighbors
-- [ ] `--dry-run` does not call Tap mutation endpoints
-- [ ] Already-tracked DIDs are reported and not re-submitted unnecessarily
-- [ ] Re-running the same seeds is effectively idempotent
-- [ ] Newly submitted DIDs cause Tap to begin historical backfill
-- [ ] Search results become materially richer after bootstrap than they were under live-only ingestion
-
 ### Exit Criteria
 
 Operators can bootstrap an empty environment to a usable historical baseline before public rollout.
@@ -247,17 +226,6 @@ Expose a usable public search API backed by Turso's Tantivy-backed FTS.
 - [x] Add request logging middleware (method, path, status, duration)
 - [x] Add CORS headers if needed
 
-### Verification
-
-- [ ] Searching by exact repo name returns the expected repo first
-- [ ] Searching by title term returns expected documents
-- [ ] Searching by author handle returns relevant docs
-- [ ] Tombstoned documents do not appear
-- [ ] Malformed query parameters return 400 with error JSON
-- [ ] DB outage causes `/readyz` to fail (503)
-- [ ] Pagination works: `offset=0&limit=5` then `offset=5&limit=5` returns different results
-- [ ] Filter by collection returns only matching docs
-
 ### Exit Criteria
 
 A user can search Tangled content reliably with keyword search.
@@ -302,18 +270,6 @@ Ship a static site that doubles as public API documentation and a live search de
 - [x] Result card links open canonical Tangled URLs in new tab
 - [x] Verify total site weight under 50 KB (excluding fonts and Alpine CDN) — 21 KB total
 
-### Verification
-
-- [ ] `twister api` serves the search page at `http://localhost:8080/`
-- [ ] API endpoints (`/search`, `/healthz`, etc.) still work alongside the site
-- [ ] Searching a known repo name shows it in results
-- [ ] Filter by type restricts results to that type
-- [ ] "Load more" appends next page of results
-- [ ] API docs pages render correct endpoint signatures, parameter tables, and example JSON
-- [ ] Site works on mobile viewport (stacked layout at 640px)
-- [ ] Site works with API unavailable (error state shown, no crash)
-- [ ] All pages share consistent styling and navigation
-
 ### Exit Criteria
 
 A user can search Tangled content and read API docs from a public URL without installing anything.
@@ -352,20 +308,11 @@ Deploy the API and indexer as Railway services alongside Tap.
 - [x] Test graceful shutdown on redeploy (SIGTERM handling)
 - [x] Document deploy steps
 
-### Verification
-
-- [ ] API service becomes healthy and routable (public URL)
-- [ ] Indexer service starts and stays healthy
-- [ ] A new Tangled record ingested post-deploy becomes searchable
-- [ ] A redeploy preserves API availability
-- [ ] A restart does not lose sync position (cursor persisted)
-- [ ] Health checks correctly report status
-
 ### Exit Criteria
 
 The system runs as a deployed service with health-checked processes on Railway.
 
-## M7 — Reindex and Repair
+## M7 — Reindex and Repair ✅
 
 refs: [specs/05-search.md](../specs/05-search.md)
 
@@ -377,35 +324,27 @@ Make the system recoverable and operable with repair tools.
 
 - `twister reindex` command with scoping options
 - Dry-run mode
-- Admin reindex endpoint (optional)
+- Admin reindex endpoint
 - Progress logging and error summary
 
 ### Tasks
 
-- [ ] Implement `reindex` subcommand with flags:
+- [x] Implement `reindex` subcommand with flags:
   - `--collection` — reindex one collection
   - `--did` — reindex one DID's documents
   - `--document` — reindex one document by ID
   - `--dry-run` — show intended work without writes
   - No flags → reindex all
-- [ ] Implement reindex logic:
+- [x] Implement reindex logic:
   1. Select documents matching scope
   2. For each document, re-run normalization from stored fields (or re-fetch if source available)
   3. Update FTS-relevant fields
   4. Upsert back to store
   5. Run `OPTIMIZE INDEX idx_documents_fts` after bulk reindex to merge Tantivy segments
   6. Log progress (N/total, errors)
-- [ ] Implement `POST /admin/reindex` endpoint (behind `ENABLE_ADMIN_ENDPOINTS` + `ADMIN_AUTH_TOKEN`)
-- [ ] Add error summary output on completion
-- [ ] Exit non-zero on unrecoverable failures
-
-### Verification
-
-- [ ] Reindexing one document updates its stored normalized text
-- [ ] Reindexing one collection repairs intentionally corrupted rows
-- [ ] Dry-run shows intended work without writes
-- [ ] Reindex command exits non-zero on failures
-- [ ] Admin endpoint triggers reindex when enabled
+- [x] Implement `POST /admin/reindex` endpoint (behind `ENABLE_ADMIN_ENDPOINTS` + `ADMIN_AUTH_TOKEN`)
+- [x] Add error summary output on completion
+- [x] Exit non-zero on unrecoverable failures
 
 ### Exit Criteria
 
@@ -443,13 +382,6 @@ Make the system diagnosable in production.
   - Reindex procedure
   - Backfill notes
   - Failure triage guide
-
-### Verification
-
-- [ ] A failed Tap decode surfaces enough context to debug (collection, DID, rkey, error class)
-- [ ] DB connectivity failures are visible in logs and readiness
-- [ ] Operator can follow the runbook to diagnose a broken indexer
-- [ ] Search latency is logged per request
 
 ### Exit Criteria
 

@@ -17,6 +17,7 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/ingest"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/observability"
+	"tangled.org/desertthunder.dev/twister/internal/reindex"
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
 	"tangled.org/desertthunder.dev/twister/internal/tapclient"
@@ -141,7 +142,6 @@ func newIndexerCmd(local *bool) *cobra.Command {
 			ctx, cancel := baseContext()
 			defer cancel()
 
-			// Start health server on separate port for Railway health checks.
 			healthMux := http.NewServeMux()
 			healthMux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 				if err := st.Ping(r.Context()); err != nil {
@@ -264,19 +264,51 @@ func newBackfillCmd(local *bool) *cobra.Command {
 }
 
 func newReindexCmd(local *bool) *cobra.Command {
-	return &cobra.Command{
+	var opts reindex.Options
+
+	cmd := &cobra.Command{
 		Use:   "reindex",
-		Short: "Re-normalize and upsert all documents",
+		Short: "Re-normalize and upsert all documents into the FTS index",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
 			log := observability.NewLogger(cfg)
-			log.Info("reindex: not yet implemented")
-			return nil
+			log.Info("starting reindex", slog.String("service", "reindex"), slog.String("version", version))
+
+			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer db.Close()
+
+			if err := store.Migrate(db, cfg.TursoURL); err != nil {
+				return fmt.Errorf("migrate database: %w", err)
+			}
+
+			ctx, cancel := baseContext()
+			defer cancel()
+
+			runner := reindex.New(store.New(db), log)
+			result, err := runner.Run(ctx, opts)
+			if result != nil {
+				log.Info("reindex finished",
+					slog.Int("total", result.Total),
+					slog.Int("updated", result.Updated),
+					slog.Int("errors", result.Errors),
+				)
+			}
+			return err
 		},
 	}
+
+	cmd.Flags().StringVar(&opts.Collection, "collection", "", "Reindex only documents in this collection")
+	cmd.Flags().StringVar(&opts.DID, "did", "", "Reindex only documents authored by this DID")
+	cmd.Flags().StringVar(&opts.DocumentID, "document", "", "Reindex a single document by stable ID")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show intended work without writing")
+
+	return cmd
 }
 
 func newReembedCmd(local *bool) *cobra.Command {

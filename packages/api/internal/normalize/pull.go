@@ -23,7 +23,6 @@ func (a *PullAdapter) Normalize(event TapRecordEvent) (*store.Document, error) {
 	title := str(rec, "title")
 	body := str(rec, "body")
 
-	// repo DID is extracted from record.target.repo AT-URI
 	repoDID := ""
 	target := nestedMap(rec, "target")
 	if target != nil {
