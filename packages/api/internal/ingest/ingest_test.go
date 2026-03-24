@@ -115,6 +115,10 @@ func (f *fakeStore) CountDocuments(_ context.Context) (int64, error) {
 	return int64(len(f.docs)), nil
 }
 
+func (f *fakeStore) Ping(_ context.Context) error {
+	return nil
+}
+
 func newRunnerForTest(st *fakeStore, tap *fakeTapClient, indexedCollections string) *Runner {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return NewRunner(st, normalize.NewRegistry(), tap, indexedCollections, logger)

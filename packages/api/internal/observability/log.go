@@ -4,27 +4,29 @@ import (
 	"log/slog"
 	"os"
 
+	charmlog "github.com/charmbracelet/log"
 	"tangled.org/desertthunder.dev/twister/internal/config"
 )
 
 func NewLogger(cfg *config.Config) *slog.Logger {
-	level := slog.LevelInfo
+	level := charmlog.InfoLevel
 	switch cfg.LogLevel {
 	case "debug":
-		level = slog.LevelDebug
+		level = charmlog.DebugLevel
 	case "warn":
-		level = slog.LevelWarn
+		level = charmlog.WarnLevel
 	case "error":
-		level = slog.LevelError
+		level = charmlog.ErrorLevel
 	}
 
-	opts := &slog.HandlerOptions{Level: level}
-
 	var handler slog.Handler
-	if cfg.LogFormat == "text" {
-		handler = slog.NewTextHandler(os.Stdout, opts)
+	if cfg.LogFormat == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.Level(level)})
 	} else {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		handler = charmlog.NewWithOptions(os.Stdout, charmlog.Options{
+			Level:           level,
+			ReportTimestamp: true,
+		})
 	}
 
 	return slog.New(handler)

@@ -251,6 +251,10 @@ func (s *SQLStore) CountDocuments(ctx context.Context) (int64, error) {
 	return n, nil
 }
 
+func (s *SQLStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
 func scanDocument(row *sql.Row) (*Document, error) {
 	doc := &Document{}
 	var (

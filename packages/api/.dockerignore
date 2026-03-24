@@ -1,0 +1,5 @@
+twister
+*.exe
+.env
+.env.*
+!.env.example

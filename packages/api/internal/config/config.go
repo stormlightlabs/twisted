@@ -28,6 +28,7 @@ type Config struct {
 	HybridKeywordWeight  float64
 	HybridSemanticWeight float64
 	HTTPBindAddr         string
+	IndexerHealthAddr    string
 	LogLevel             string
 	LogFormat            string
 	EnableAdminEndpoints bool
@@ -49,6 +50,7 @@ func Load() (*Config, error) {
 		EmbeddingAPIKey:      os.Getenv("EMBEDDING_API_KEY"),
 		EmbeddingAPIURL:      os.Getenv("EMBEDDING_API_URL"),
 		HTTPBindAddr:         envOrDefault("HTTP_BIND_ADDR", ":8080"),
+		IndexerHealthAddr:    envOrDefault("INDEXER_HEALTH_ADDR", ":9090"),
 		LogLevel:             envOrDefault("LOG_LEVEL", "info"),
 		LogFormat:            envOrDefault("LOG_FORMAT", "json"),
 		AdminAuthToken:       os.Getenv("ADMIN_AUTH_TOKEN"),

@@ -318,9 +318,9 @@ Ship a static site that doubles as public API documentation and a live search de
 
 A user can search Tangled content and read API docs from a public URL without installing anything.
 
-## M6 — Railway Deployment
+## M6 — Railway Deployment ✅
 
-refs: [specs/06-operations.md](../specs/06-operations.md)
+refs: [specs/06-operations.md](../specs/06-operations.md), [deploy.md](../deploy.md)
 
 ### Goal
 
@@ -336,21 +336,21 @@ Deploy the API and indexer as Railway services alongside Tap.
 
 ### Tasks
 
-- [ ] Finalize Dockerfile (multi-stage, CGO_ENABLED=0, Alpine runtime)
-- [ ] Create Railway services:
+- [x] Finalize Dockerfile (multi-stage, CGO_ENABLED=0, Alpine runtime)
+- [x] Create Railway services:
   - `api` — start command: `twister api`
   - `indexer` — start command: `twister indexer`
-- [ ] Configure environment variables per service:
+- [x] Configure environment variables per service:
   - Shared: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `LOG_LEVEL`, `LOG_FORMAT`
   - API: `HTTP_BIND_ADDR`, `SEARCH_DEFAULT_LIMIT`, `SEARCH_MAX_LIMIT`
   - Indexer: `TAP_URL` (reference Tap service domain), `TAP_AUTH_PASSWORD`, `INDEXED_COLLECTIONS`
-- [ ] Configure health checks:
+- [x] Configure health checks:
   - API: HTTP check on `/healthz` port 8080
   - Indexer: HTTP check on `/health` port 9090
-- [ ] Use Railway internal networking for indexer → Tap connection
-- [ ] Connect GitHub repo for autodeploy
-- [ ] Test graceful shutdown on redeploy (SIGTERM handling)
-- [ ] Document deploy steps
+- [x] Use Railway internal networking for indexer → Tap connection
+- [x] Connect GitHub repo for autodeploy
+- [x] Test graceful shutdown on redeploy (SIGTERM handling)
+- [x] Document deploy steps
 
 ### Verification
 

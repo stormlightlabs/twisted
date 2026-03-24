@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
@@ -135,6 +136,35 @@ func newIndexerCmd() *cobra.Command {
 
 			ctx, cancel := baseContext()
 			defer cancel()
+
+			// Start health server on separate port for Railway health checks.
+			healthMux := http.NewServeMux()
+			healthMux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+				if err := st.Ping(r.Context()); err != nil {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusServiceUnavailable)
+					fmt.Fprintf(w, `{"status":"unhealthy","error":"db_unreachable"}`)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				fmt.Fprintf(w, `{"status":"ok"}`)
+			})
+			healthSrv := &http.Server{
+				Addr:              cfg.IndexerHealthAddr,
+				Handler:           healthMux,
+				ReadHeaderTimeout: 5 * time.Second,
+			}
+			go func() {
+				log.Info("indexer health server listening", slog.String("addr", cfg.IndexerHealthAddr))
+				if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					log.Error("indexer health server failed", slog.String("error", err.Error()))
+				}
+			}()
+			defer func() {
+				shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer shutdownCancel()
+				_ = healthSrv.Shutdown(shutdownCtx)
+			}()
 
 			if err := runner.Run(ctx); err != nil {
 				return fmt.Errorf("run indexer: %w", err)
