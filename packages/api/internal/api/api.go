@@ -18,7 +18,6 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/reindex"
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
-	"tangled.org/desertthunder.dev/twister/internal/view"
 	"tangled.org/desertthunder.dev/twister/internal/xrpc"
 )
 
@@ -47,66 +46,8 @@ func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log 
 }
 
 // Handler returns the HTTP handler with all routes registered.
-//
-// TODO: refactor this to have a func router() that returns [http.Handler] (mux),
-// then registerXXX routes
 func (s *Server) Handler() http.Handler {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /healthz", s.handleHealthz)
-	mux.HandleFunc("GET /readyz", s.handleReadyz)
-	mux.HandleFunc("GET /oauth/client-metadata.json", s.handleOAuthClientMetadata)
-	mux.HandleFunc("GET /search", s.handleSearch)
-	mux.HandleFunc("GET /search/keyword", s.handleSearchKeyword)
-
-	mux.HandleFunc("GET /documents/{id}", s.handleGetDocument)
-	mux.HandleFunc("GET /profiles/{did}/summary", s.handleProfileSummary)
-
-	mux.HandleFunc("GET /backlinks/count", s.handleBacklinksCount)
-	mux.HandleFunc("GET /activity", s.handleActivity)
-	mux.HandleFunc("GET /activity/stream", s.handleActivityStream)
-	mux.HandleFunc("GET /identity/resolve", s.handleResolveHandle)
-	mux.HandleFunc("GET /identity/did/{did}", s.handleDidDocument)
-	mux.HandleFunc("GET /xrpc/knot/{knotHost}/{nsid}", s.handleKnotProxy)
-	mux.HandleFunc("GET /xrpc/pds/{pds}/{nsid}", s.handlePdsProxy)
-	mux.HandleFunc("GET /xrpc/bsky/{nsid}", s.handleBskyProxy)
-
-	mux.HandleFunc("GET /actors/{handle}", s.handleGetActor)
-	mux.HandleFunc("GET /actors/{handle}/repos", s.handleListActorRepos)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}", s.handleGetActorRepo)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/tree", s.handleRepoTree)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/blob", s.handleRepoBlob)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/log", s.handleRepoLog)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/branches", s.handleRepoBranches)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/default-branch", s.handleRepoDefaultBranch)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/languages", s.handleRepoLanguages)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/tags", s.handleRepoTags)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/diff", s.handleRepoDiff)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/compare", s.handleRepoCompare)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/issues", s.handleRepoIssues)
-	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/pulls", s.handleRepoPulls)
-	mux.HandleFunc("GET /actors/{handle}/issues", s.handleActorIssues)
-	mux.HandleFunc("GET /actors/{handle}/pulls", s.handleActorPulls)
-	mux.HandleFunc("GET /actors/{handle}/following", s.handleActorFollowing)
-	mux.HandleFunc("GET /actors/{handle}/strings", s.handleActorStrings)
-	mux.HandleFunc("GET /issues/{handle}/{rkey}", s.handleIssueDetail)
-	mux.HandleFunc("GET /issues/{handle}/{rkey}/comments", s.handleIssueComments)
-	mux.HandleFunc("GET /pulls/{handle}/{rkey}", s.handlePullDetail)
-	mux.HandleFunc("GET /pulls/{handle}/{rkey}/comments", s.handlePullComments)
-
-	if s.cfg.EnableAdminEndpoints {
-		mux.HandleFunc("POST /admin/reindex", s.handleAdminReindex)
-	}
-
-	site := view.Handler()
-	mux.Handle("GET /static/", site)
-	mux.Handle("GET /docs", site)
-	mux.Handle("GET /docs/search", site)
-	mux.Handle("GET /docs/documents", site)
-	mux.Handle("GET /docs/health", site)
-	mux.Handle("GET /{$}", site)
-
-	return s.withMiddleware(mux)
+	return s.router()
 }
 
 // Run starts the HTTP server and blocks until ctx is cancelled.
@@ -406,6 +347,79 @@ func (s *Server) handleProfileSummary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, summary)
 }
 
+const tapConsumerName = "indexer-tap-v1"
+
+// handleAdminStatus returns Tap cursor, JetStream cursor, document count, and pending job count.
+// Route: GET /admin/status
+func (s *Server) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.AdminAuthToken != "" {
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if token != s.cfg.AdminAuthToken {
+			writeJSON(w, http.StatusUnauthorized, errorBody("unauthorized", "invalid admin token"))
+			return
+		}
+	}
+
+	tapState, err := s.store.GetSyncState(r.Context(), tapConsumerName)
+	if err != nil {
+		s.log.Error("admin status: get tap sync state failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("db_error", "failed to fetch tap sync state"))
+		return
+	}
+
+	jsState, err := s.store.GetSyncState(r.Context(), jetstreamConsumerName)
+	if err != nil {
+		s.log.Error("admin status: get jetstream sync state failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("db_error", "failed to fetch jetstream sync state"))
+		return
+	}
+
+	docs, err := s.store.CountDocuments(r.Context())
+	if err != nil {
+		s.log.Error("admin status: count documents failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("db_error", "failed to count documents"))
+		return
+	}
+
+	pending, err := s.store.CountPendingIndexingJobs(r.Context())
+	if err != nil {
+		s.log.Error("admin status: count pending jobs failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("db_error", "failed to count pending jobs"))
+		return
+	}
+
+	type syncStateJSON struct {
+		Cursor        string `json:"cursor"`
+		HighWaterMark string `json:"high_water_mark,omitempty"`
+		UpdatedAt     string `json:"updated_at,omitempty"`
+	}
+
+	tapJSON := syncStateJSON{}
+	if tapState != nil {
+		tapJSON = syncStateJSON{
+			Cursor:        tapState.Cursor,
+			HighWaterMark: tapState.HighWaterMark,
+			UpdatedAt:     tapState.UpdatedAt,
+		}
+	}
+
+	jsJSON := syncStateJSON{}
+	if jsState != nil {
+		jsJSON = syncStateJSON{
+			Cursor:        jsState.Cursor,
+			HighWaterMark: jsState.HighWaterMark,
+			UpdatedAt:     jsState.UpdatedAt,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"tap":          tapJSON,
+		"jetstream":    jsJSON,
+		"documents":    docs,
+		"pending_jobs": pending,
+	})
+}
+
 // knownActivityParams is the whitelist of accepted query parameters for the activity endpoint.
 var knownActivityParams = map[string]bool{
 	"limit": true, "offset": true,
@@ -477,4 +491,3 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 		"events": out,
 	})
 }
-

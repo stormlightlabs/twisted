@@ -174,3 +174,13 @@ The API proxies all upstream AT Protocol and social-graph requests so the app ha
 | `GET /identity/did/{did}`       | `https://plc.directory/{did}` or `/.well-known/did.json`      |
 | `GET /backlinks/count`          | Constellation `getBacklinksCount` (cached)                    |
 | `WS  /activity/stream`          | `wss://jetstream2.us-east.bsky.network/subscribe`             |
+
+## Admin endpoints
+
+Available when `ENABLE_ADMIN_ENDPOINTS=true`. Require `Authorization: Bearer <ADMIN_AUTH_TOKEN>` when
+`ADMIN_AUTH_TOKEN` is set.
+
+| Route                  | Description                                              |
+| ---------------------- | -------------------------------------------------------- |
+| `GET /admin/status`    | Tap cursor, JetStream cursor, document count, job queue  |
+| `POST /admin/reindex`  | Re-sync all (or filtered) documents into the FTS index   |

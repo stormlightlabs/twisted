@@ -26,8 +26,8 @@ Highest priority. This work blocks further investment in search quality and broa
 - [x] Add a JetStream cache consumer with a persisted timestamp cursor
 - [x] Seed the JetStream cursor to `now - 24h` on first boot and rewind slightly on reconnect
 - [x] Store and serve bounded recent activity from the local cache
-- [ ] Keep Tap as the authoritative indexing and bulk backfill path
-- [ ] Define a controlled backfill and repo-resync playbook for recovery (`docs/references/resync.md`)
+- [x] Keep Tap as the authoritative indexing and bulk backfill path
+- [x] Define a controlled backfill and repo-resync playbook for recovery (`docs/reference/resync.md`)
 
 ## API: Constellation Integration
 
