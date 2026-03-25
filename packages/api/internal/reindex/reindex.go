@@ -12,10 +12,14 @@ import (
 
 // Options controls which documents are reindexed.
 type Options struct {
-	Collection string // reindex documents in this collection only
-	DID        string // reindex documents authored by this DID only
-	DocumentID string // reindex a single document by stable ID
-	DryRun     bool   // log intended work without writing
+	// reindex documents in this collection only
+	Collection string
+	// reindex documents authored by this DID only
+	DID string
+	// reindex a single document by stable ID
+	DocumentID string
+	// log intended work without writing
+	DryRun bool
 }
 
 // Result summarises the outcome of a reindex run.

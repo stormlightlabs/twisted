@@ -120,5 +120,8 @@ func (c *Client) ensurePDS(ctx context.Context, pdsURL, repo string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("resolve pds for %s: %w", repo, err)
 	}
+	if info.PDS == "" {
+		return "", fmt.Errorf("no atproto pds in did document for %s", repo)
+	}
 	return info.PDS, nil
 }

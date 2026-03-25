@@ -193,7 +193,7 @@
 
   onIonViewWillLeave(() => {
     client.disconnect();
-    status.value = "connecting"; // Reset so next enter shows "connecting"
+    status.value = "connecting";
   });
 
   onUnmounted(() => {
@@ -217,7 +217,6 @@
     client.disconnect();
     status.value = "connecting";
     client.connect();
-    // Complete the refresher after a short delay
     await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     (event.target as HTMLIonRefresherElement).complete();
   }

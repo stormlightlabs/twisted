@@ -120,7 +120,7 @@ const MOCK_REPO_FILES: RepoFile[] = [
 
 const README_CONTENT = `# twisted
 
-A mobile companion reader for [Tangled](https://tangled.sh), built with Ionic Vue and Capacitor.
+A mobile companion reader for [Tangled](https://tangled.org), built with Ionic Vue and Capacitor.
 
 ## Features
 

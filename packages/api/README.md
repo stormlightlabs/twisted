@@ -142,8 +142,24 @@ Copy `.env.example` to `.env` in the repo root (or `packages/api/`). The server 
 twister api        # Start the HTTP API server
 twister indexer    # Start the Tap firehose consumer
 twister backfill   # Seed the index from upstream APIs
-twister reindex    # Re-process existing documents
+twister reindex    # Re-process existing documents (re-syncs FTS)
+twister enrich     # Backfill RepoName, AuthorHandle, WebURL on existing documents
 ```
+
+### enrich
+
+Resolves missing `author_handle`, `repo_name`, and `web_url` fields on documents already
+in the database. Run this after deploying enrichment changes or when search results show
+documents with empty author handles.
+
+```sh
+twister enrich --local                          # all documents
+twister enrich --local --collection sh.tangled.repo
+twister enrich --local --did did:plc:abc123
+twister enrich --local --dry-run                # preview without writing
+```
+
+Flags: `--collection`, `--did`, `--document`, `--dry-run`, `--concurrency` (default 5).
 
 ## Proxy endpoints
 

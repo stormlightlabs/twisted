@@ -82,7 +82,7 @@ func Load(opts LoadOptions) (*Config, error) {
 		IdentityServiceURL:     envOrDefault("IDENTITY_SERVICE_URL", "https://public.api.bsky.app"),
 		XRPCTimeout:            envDuration("XRPC_TIMEOUT", 15*time.Second),
 		ConstellationURL:       envOrDefault("CONSTELLATION_URL", "https://constellation.microcosm.blue"),
-		ConstellationUserAgent: envOrDefault("CONSTELLATION_USER_AGENT", "twister/1.0 (https://tangled.sh; Owais <desertthunder.dev@gmail.com>)"),
+		ConstellationUserAgent: envOrDefault("CONSTELLATION_USER_AGENT", "twister/1.0 (https://tangled.org/desertthunder.dev/twisted; Owais <desertthunder.dev@gmail.com>)"),
 		ConstellationTimeout:   envDuration("CONSTELLATION_TIMEOUT", 10*time.Second),
 		ConstellationCacheTTL:  envDuration("CONSTELLATION_CACHE_TTL", 5*time.Minute),
 		OAuthClientID:          os.Getenv("OAUTH_CLIENT_ID"),

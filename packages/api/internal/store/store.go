@@ -96,5 +96,6 @@ type Store interface {
 	GetFollowSubjects(ctx context.Context, did string) ([]string, error)
 	GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error)
 	CountDocuments(ctx context.Context) (int64, error)
+	CountPendingIndexingJobs(ctx context.Context) (int64, error)
 	Ping(ctx context.Context) error
 }

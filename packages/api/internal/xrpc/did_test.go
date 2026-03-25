@@ -85,6 +85,31 @@ func TestResolveIdentity(t *testing.T) {
 	}
 }
 
+func TestResolveIdentity_NoPDS(t *testing.T) {
+	doc := DIDDocument{
+		ID:          "did:plc:nopds",
+		AlsoKnownAs: []string{"at://alice.test"},
+		Service:     []DIDService{},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(doc)
+	}))
+	defer srv.Close()
+
+	c := NewClient(WithPLCDirectory(srv.URL))
+	info, err := c.ResolveIdentity(context.Background(), "did:plc:nopds")
+	if err != nil {
+		t.Fatal("ResolveIdentity should succeed even with no PDS service:", err)
+	}
+	if info.Handle != "alice.test" {
+		t.Errorf("expected handle alice.test, got %q", info.Handle)
+	}
+	if info.PDS != "" {
+		t.Errorf("expected empty PDS, got %q", info.PDS)
+	}
+}
+
 func TestResolveDIDDoc_UnsupportedMethod(t *testing.T) {
 	c := NewClient()
 	_, err := c.ResolveDIDDoc(context.Background(), "did:key:z123")

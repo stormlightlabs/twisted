@@ -79,7 +79,9 @@ export async function resolveRepoImageUrl(
     const objectUrl = createObjectUrlFromBlobContent(blob);
     if (objectUrl) return { url: objectUrl, revoke: true };
   } catch {
-    // Fall back to the public raw URL if the XRPC lookup fails.
+    console.warn(
+      `Failed to fetch blob for ${context.owner}/${context.repo} at ${repoPath}, falling back to public URL.`,
+    );
   }
 
   return { url: buildPublicRawUrl(context, repoPath), revoke: false };

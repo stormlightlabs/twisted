@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
@@ -12,11 +13,19 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/xrpc"
 )
 
-const readThroughIdlePoll = 1 * time.Second
+const (
+	readThroughIdlePoll       = 1 * time.Second
+	readThroughStatusInterval = 30 * time.Second
+	maxIndexingAttempts       = 10
+)
 
 func (s *Server) runReadThroughIndexer(ctx context.Context) {
 	ticker := time.NewTicker(readThroughIdlePoll)
 	defer ticker.Stop()
+
+	var mu sync.Mutex
+	var processedTick int64
+	go s.runIndexerStatusLogger(ctx, &mu, &processedTick)
 
 	s.log.Info("read-through indexer worker started")
 	for {
@@ -45,6 +54,15 @@ func (s *Server) runReadThroughIndexer(ctx context.Context) {
 		}
 
 		if err := s.processReadThroughJob(ctx, job); err != nil {
+			if job.Attempts+1 >= maxIndexingAttempts {
+				s.log.Error("read-through job exceeded max attempts; discarding",
+					slog.String("document_id", job.DocumentID),
+					slog.Int("attempts", job.Attempts+1),
+					slog.String("last_error", err.Error()),
+				)
+				_ = s.store.CompleteIndexingJob(ctx, job.DocumentID)
+				continue
+			}
 			nextDelay := retryDelay(job.Attempts + 1)
 			nextAt := time.Now().UTC().Add(nextDelay).Format(time.RFC3339)
 			retryErr := s.store.RetryIndexingJob(ctx, job.DocumentID, nextAt, truncateErr(err))
@@ -70,6 +88,37 @@ func (s *Server) runReadThroughIndexer(ctx context.Context) {
 				slog.String("error", err.Error()),
 			)
 			continue
+		}
+
+		s.log.Debug("read-through job completed", slog.String("document_id", job.DocumentID))
+		mu.Lock()
+		processedTick++
+		mu.Unlock()
+	}
+}
+
+func (s *Server) runIndexerStatusLogger(ctx context.Context, mu *sync.Mutex, processedTick *int64) {
+	ticker := time.NewTicker(readThroughStatusInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			mu.Lock()
+			n := *processedTick
+			*processedTick = 0
+			mu.Unlock()
+
+			pending, err := s.store.CountPendingIndexingJobs(ctx)
+			if err != nil {
+				s.log.Warn("read-through status: count failed", slog.String("error", err.Error()))
+				continue
+			}
+			s.log.Info("read-through indexer status",
+				slog.Int64("jobs_processed", n),
+				slog.Int64("jobs_pending", pending),
+			)
 		}
 	}
 }
@@ -124,6 +173,8 @@ func (s *Server) processReadThroughJob(ctx context.Context, job *store.IndexingJ
 		}
 	}
 
+	s.enrichDocument(ctx, doc, record)
+
 	if err := s.store.UpsertDocument(ctx, doc); err != nil {
 		return fmt.Errorf("upsert document: %w", err)
 	}
@@ -137,6 +188,75 @@ func (s *Server) processReadThroughJob(ctx context.Context, job *store.IndexingJ
 		}
 	}
 	return nil
+}
+
+// enrichDocument fills RepoName, AuthorHandle, and WebURL via XRPC when possible.
+// Failures are logged but never block indexing.
+func (s *Server) enrichDocument(ctx context.Context, doc *store.Document, record map[string]any) {
+	if s.xrpc == nil {
+		return
+	}
+
+	if doc.RepoDID != "" && doc.RepoName == "" {
+		repoURI := repoURIFromRecord(record)
+		if repoURI != "" {
+			_, _, repoRKey, err := normalize.ParseATURI(repoURI)
+			if err == nil && repoRKey != "" {
+				name, err := s.xrpc.ResolveRepoName(ctx, doc.RepoDID, repoRKey)
+				if err == nil {
+					doc.RepoName = name
+				} else {
+					s.log.Debug("read-through enrich: resolve repo name failed",
+						slog.String("doc_id", doc.ID),
+						slog.String("repo_did", doc.RepoDID),
+						slog.String("error", err.Error()),
+					)
+				}
+			}
+		}
+	}
+
+	if doc.AuthorHandle == "" && doc.DID != "" {
+		info, err := s.xrpc.ResolveIdentity(ctx, doc.DID)
+		if err == nil && info.Handle != "" {
+			doc.AuthorHandle = info.Handle
+			if doc.RecordType == "profile" {
+				doc.Title = info.Handle
+			}
+		} else if err != nil {
+			s.log.Debug("read-through enrich: resolve author handle failed",
+				slog.String("doc_id", doc.ID),
+				slog.String("did", doc.DID),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
+	if doc.WebURL == "" {
+		ownerHandle := doc.AuthorHandle
+		if doc.RepoDID != "" && doc.RepoDID != doc.DID {
+			if h, err := s.store.GetIdentityHandle(ctx, doc.RepoDID); err == nil && h != "" {
+				ownerHandle = h
+			} else if info, err := s.xrpc.ResolveIdentity(ctx, doc.RepoDID); err == nil && info.Handle != "" {
+				ownerHandle = info.Handle
+			}
+		}
+		doc.WebURL = xrpc.BuildWebURL(ownerHandle, doc.RepoName, doc.RecordType, doc.RKey)
+	}
+}
+
+// repoURIFromRecord extracts the repo AT-URI from common record fields.
+// Issues store it in rec["repo"]; pulls store it in rec["target"]["repo"].
+func repoURIFromRecord(record map[string]any) string {
+	if uri, _ := record["repo"].(string); uri != "" {
+		return uri
+	}
+	if target, _ := record["target"].(map[string]any); target != nil {
+		if uri, _ := target["repo"].(string); uri != "" {
+			return uri
+		}
+	}
+	return ""
 }
 
 func (s *Server) enqueueXRPCRecord(ctx context.Context, uri, cid string, value map[string]any) {

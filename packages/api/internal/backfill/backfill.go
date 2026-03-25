@@ -189,7 +189,7 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 func (r *Runner) resolveSeeds(ctx context.Context, entries []seedEntry) ([]string, map[string]string, error) {
 	seen := map[string]bool{}
 	seeds := make([]string, 0, len(entries))
-	handles := make(map[string]string) // did → handle
+	handles := make(map[string]string)
 	for _, entry := range entries {
 		if entry.isDID {
 			seen[entry.raw] = true

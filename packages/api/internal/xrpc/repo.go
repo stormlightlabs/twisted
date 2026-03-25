@@ -31,7 +31,7 @@ func (c *Client) ResolveRepoName(ctx context.Context, repoDID, repoRKey string) 
 	return name, nil
 }
 
-// BuildWebURL builds a canonical tangled.sh URL for a record.
+// BuildWebURL builds a canonical tangled.org URL for a record.
 // recordType should be one of: "repo", "issue", "pull", "issue_comment", "pull_comment", "profile".
 func BuildWebURL(ownerHandle, repoName, recordType, rkey string) string {
 	if ownerHandle == "" {
@@ -41,32 +41,32 @@ func BuildWebURL(ownerHandle, repoName, recordType, rkey string) string {
 
 	switch recordType {
 	case "profile":
-		return fmt.Sprintf("https://tangled.sh/%s", owner)
+		return fmt.Sprintf("https://tangled.org/%s", owner)
 	case "repo":
 		if repoName == "" {
 			return ""
 		}
-		return fmt.Sprintf("https://tangled.sh/%s/%s", owner, repoName)
+		return fmt.Sprintf("https://tangled.org/%s/%s", owner, repoName)
 	case "issue":
 		if repoName == "" || rkey == "" {
 			return ""
 		}
-		return fmt.Sprintf("https://tangled.sh/%s/%s/issues/%s", owner, repoName, rkey)
+		return fmt.Sprintf("https://tangled.org/%s/%s/issues/%s", owner, repoName, rkey)
 	case "pull":
 		if repoName == "" || rkey == "" {
 			return ""
 		}
-		return fmt.Sprintf("https://tangled.sh/%s/%s/pulls/%s", owner, repoName, rkey)
+		return fmt.Sprintf("https://tangled.org/%s/%s/pulls/%s", owner, repoName, rkey)
 	case "issue_comment":
 		if repoName == "" {
 			return ""
 		}
-		return fmt.Sprintf("https://tangled.sh/%s/%s/issues", owner, repoName)
+		return fmt.Sprintf("https://tangled.org/%s/%s/issues", owner, repoName)
 	case "pull_comment":
 		if repoName == "" {
 			return ""
 		}
-		return fmt.Sprintf("https://tangled.sh/%s/%s/pulls", owner, repoName)
+		return fmt.Sprintf("https://tangled.org/%s/%s/pulls", owner, repoName)
 	default:
 		return ""
 	}

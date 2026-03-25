@@ -20,14 +20,14 @@ Highest priority. This work blocks further investment in semantic search, hybrid
   - Follow AT URI (desertthunder.dev follows npmx): `at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.graph.follow/3mhofstanru22`
   - Star AT URI (desertthunder.dev stars microcosm-rs): `at://did:plc:lulmyldiq4sb2ikags5sfb25/sh.tangled.repo/3lvsxzinfz222`
 - ~~Add `just` targets for smoke-test runs locally and against a remote base URL~~ directly invoking the scripts is fine.
-- [ ] Reuse the existing normalization and upsert path for on-demand indexing jobs
-- [ ] Trigger indexing jobs from repo, issue, PR, profile, and similar fetch handlers
-- [ ] Add dedupe, retries, and observability for indexing jobs
+- [x] Reuse the existing normalization and upsert path for on-demand indexing jobs
+- [x] Trigger indexing jobs from repo, issue, PR, profile, and similar fetch handlers
+- [x] Add dedupe, retries, and observability for indexing jobs
 - [ ] Add a JetStream cache consumer with a persisted timestamp cursor
 - [ ] Seed the JetStream cursor to `now - 24h` on first boot and rewind slightly on reconnect
 - [ ] Store and serve bounded recent activity from the local cache
 - [ ] Keep Tap as the authoritative indexing and bulk backfill path
-- [ ] Define a controlled backfill and repo-resync playbook for recovery
+- [ ] Define a controlled backfill and repo-resync playbook for recovery (`docs/references/resync.md`)
 
 ## API: Constellation Integration
 

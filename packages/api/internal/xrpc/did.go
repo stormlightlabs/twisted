@@ -77,6 +77,7 @@ func (c *Client) ResolveDIDDoc(ctx context.Context, did string) (*DIDDocument, e
 }
 
 // ResolveIdentity resolves a DID to its PDS endpoint and handle.
+// Both fields are best-effort: callers that require PDS should check info.PDS != "".
 func (c *Client) ResolveIdentity(ctx context.Context, did string) (*IdentityInfo, error) {
 	doc, err := c.ResolveDIDDoc(ctx, did)
 	if err != nil {
@@ -90,9 +91,6 @@ func (c *Client) ResolveIdentity(ctx context.Context, did string) (*IdentityInfo
 			info.PDS = strings.TrimSpace(svc.ServiceEndpoint)
 			break
 		}
-	}
-	if info.PDS == "" {
-		return nil, fmt.Errorf("no atproto pds endpoint in did document for %s", did)
 	}
 
 	for _, aka := range doc.AlsoKnownAs {

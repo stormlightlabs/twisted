@@ -22,20 +22,23 @@ type recordEntry struct {
 // issueEntry extends recordEntry with pre-joined issue state.
 type issueEntry struct {
 	recordEntry
-	State string `json:"state"` // "open" or "closed"
+	// "open" or "closed"
+	State string `json:"state"`
 }
 
 // pullEntry extends recordEntry with pre-joined pull status.
 type pullEntry struct {
 	recordEntry
-	Status string `json:"status"` // "open", "merged", or "closed"
+	// "open", "merged", or "closed"
+	Status string `json:"status"`
 }
 
 // actorContext holds resolved identity for a request.
 type actorContext struct {
 	DID    string `json:"did"`
 	Handle string `json:"handle"`
-	PDS    string `json:"pds"` // full URL, e.g. "https://bsky.social"
+	// full URL, e.g. "https://bsky.social"
+	PDS string `json:"pds"`
 }
 
 // repoContext extends actorContext with the repo's knot host and AT URI.
@@ -64,6 +67,9 @@ func (s *Server) resolveActor(r *http.Request, handleOrDID string) (*actorContex
 	identity, err := s.xrpc.ResolveIdentity(ctx, did)
 	if err != nil {
 		return nil, fmt.Errorf("resolve identity %q: %w", did, err)
+	}
+	if identity.PDS == "" {
+		return nil, fmt.Errorf("no atproto pds in did document for %q", did)
 	}
 
 	return &actorContext{

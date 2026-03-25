@@ -7,13 +7,13 @@ func TestBuildWebURL(t *testing.T) {
 		owner, repo, recordType, rkey string
 		want                          string
 	}{
-		{"alice.test", "myrepo", "repo", "", "https://tangled.sh/alice.test/myrepo"},
-		{"alice.test", "myrepo", "issue", "123", "https://tangled.sh/alice.test/myrepo/issues/123"},
-		{"alice.test", "myrepo", "pull", "456", "https://tangled.sh/alice.test/myrepo/pulls/456"},
-		{"alice.test", "myrepo", "issue_comment", "789", "https://tangled.sh/alice.test/myrepo/issues"},
-		{"alice.test", "myrepo", "pull_comment", "789", "https://tangled.sh/alice.test/myrepo/pulls"},
-		{"alice.test", "", "profile", "", "https://tangled.sh/alice.test"},
-		{"@alice.test", "myrepo", "repo", "", "https://tangled.sh/alice.test/myrepo"},
+		{"alice.test", "myrepo", "repo", "", "https://tangled.org/alice.test/myrepo"},
+		{"alice.test", "myrepo", "issue", "123", "https://tangled.org/alice.test/myrepo/issues/123"},
+		{"alice.test", "myrepo", "pull", "456", "https://tangled.org/alice.test/myrepo/pulls/456"},
+		{"alice.test", "myrepo", "issue_comment", "789", "https://tangled.org/alice.test/myrepo/issues"},
+		{"alice.test", "myrepo", "pull_comment", "789", "https://tangled.org/alice.test/myrepo/pulls"},
+		{"alice.test", "", "profile", "", "https://tangled.org/alice.test"},
+		{"@alice.test", "myrepo", "repo", "", "https://tangled.org/alice.test/myrepo"},
 		{"", "myrepo", "repo", "", ""},
 		{"alice.test", "", "repo", "", ""},
 		{"alice.test", "myrepo", "unknown", "", ""},

@@ -143,6 +143,10 @@ func (f *fakeStore) CountDocuments(_ context.Context) (int64, error) {
 	return int64(len(f.docs)), nil
 }
 
+func (f *fakeStore) CountPendingIndexingJobs(_ context.Context) (int64, error) {
+	return 0, nil
+}
+
 func (f *fakeStore) Ping(_ context.Context) error {
 	return nil
 }

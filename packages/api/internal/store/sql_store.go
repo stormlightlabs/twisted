@@ -460,6 +460,15 @@ func (s *SQLStore) CountDocuments(ctx context.Context) (int64, error) {
 	return n, nil
 }
 
+func (s *SQLStore) CountPendingIndexingJobs(ctx context.Context) (int64, error) {
+	var n int64
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM indexing_jobs WHERE status = 'pending'`).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count pending indexing jobs: %w", err)
+	}
+	return n, nil
+}
+
 func (s *SQLStore) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
