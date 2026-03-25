@@ -31,13 +31,7 @@ Highest priority. This work blocks further investment in semantic search, hybrid
 
 ## API: Constellation Integration
 
-Add a Constellation client to the Go API for enriching search results with social signals.
-
-- [x] Constellation XRPC client (`internal/constellation/`) with `getBacklinksCount` and `getBacklinks`
-- [x] User-agent header with project name and contact
-- [x] Enrich search results with star counts from Constellation
-- [x] Profile summary endpoint (`GET /profiles/{did}/summary`) with follower/following counts from Constellation
-- [x] Cache Constellation responses with short TTL (star/follower counts change infrequently)
+Completed on [2026-03-25](../CHANGELOG.md#2026-03-25)
 
 ## API: Semantic Search Pipeline
 
