@@ -1,18 +1,19 @@
 ---
 title: Data Sources & Integration
-updated: 2026-03-24
+updated: 2026-03-25
 ---
 
-Twisted pulls data from four external sources and authenticates users via Bluesky OAuth. Each source has a distinct role — no single source is authoritative for everything.
+Twisted pulls data from five external sources and authenticates users via Bluesky OAuth. Each source has a distinct role — no single source is authoritative for everything.
 
 ## Source Overview
 
-| Source                   | What it provides                                                               | Access pattern                                             |
-| ------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| **Tangled XRPC (Knots)** | Git data — file trees, blobs, commits, branches, diffs, tags                   | Direct XRPC calls to the knot hosting each repo            |
-| **AT Protocol (PDS)**    | User records — profiles, repos, issues, PRs, comments, stars, follows          | `com.atproto.repo.getRecord` / `listRecords` on user's PDS |
-| **Constellation**        | Social signals — star counts, follower counts, reaction counts, backlink lists | Public JSON API at `constellation.microcosm.blue`          |
-| **Tap**                  | Real-time firehose of AT Protocol record events for indexing                   | WebSocket consumer, feeds our search index                 |
+| Source | What it provides | Access pattern |
+| --- | --- | --- |
+| **Tangled XRPC (Knots)** | Git data — file trees, blobs, commits, branches, diffs, tags | Direct XRPC calls to the knot hosting each repo |
+| **AT Protocol (PDS)** | User records — profiles, repos, issues, PRs, comments, stars, follows | `com.atproto.repo.getRecord` / `listRecords` on user's PDS |
+| **Constellation** | Social signals — star counts, follower counts, reaction counts, backlink lists | Public JSON API at `constellation.microcosm.blue` |
+| **Tap** | Real-time firehose of AT Protocol record events for authoritative indexing | WebSocket consumer, feeds the search index |
+| **JetStream** | Recent JSON activity stream for cached feed data | WebSocket consumer, feeds a bounded recent-activity cache |
 
 ## Constellation
 
@@ -114,12 +115,39 @@ Tap provides a filtered firehose of AT Protocol events. Our indexer consumes Tap
 
 Stars, followers, reactions — Constellation handles counts and lists. We still process these events for graph discovery but don't need to maintain our own counters.
 
+### Role In The Search Plan
+
+Tap remains the authoritative ingestion and backfill path for searchable documents. If search correctness depends on complete historical coverage, Tap or a repo resync path is the right source.
+
 ### Tap Protocol
 
 - WebSocket connection with cursor-based resume
 - Events contain: operation (create/update/delete), DID, collection, rkey, CID, record payload
 - Acks required after processing each event
 - Backfill via `/repos/add` endpoint to request historical data for specific users
+
+## JetStream
+
+JetStream is a lighter JSON stream derived from the firehose. It is useful for recent activity and developer ergonomics, but it is not the authoritative source for search indexing.
+
+### Usage In Twisted
+
+- Recent activity cache for the Activity tab
+- Collection-filtered stream for `sh.tangled.*` events
+- Cursor-based resume using event timestamps
+
+### Constraints
+
+- Use JetStream for recent, cached activity only
+- Do not rely on it as the only historical backfill mechanism
+- Keep retention bounded and reconnect idempotent
+
+### Role In The Search Plan
+
+- Seed the cursor to roughly 24 hours ago on first boot
+- Persist the last processed timestamp and rewind slightly on reconnect
+- Cache normalized activity locally so clients do not each need a raw upstream stream
+- Keep Tap as the source of truth for search indexing and bulk backfill
 
 ## Bluesky OAuth
 

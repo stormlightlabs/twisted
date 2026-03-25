@@ -1,7 +1,33 @@
 ---
 title: Roadmap
-updated: 2026-03-24
+updated: 2026-03-25
 ---
+
+## API: Search Stabilization
+
+Highest priority. This work blocks further investment in semantic search, hybrid ranking, and broader discovery features.
+
+- [ ] Stabilize local development and experimentation around a local `file:` database
+- [x] Document backup, restore, and disk-growth procedures for the experimental local DB
+- [x] Research production backend options: PostgreSQL, Turso remote/libSQL, and Turso embedded replicas
+- [x] Write a production storage decision record with workload and operational tradeoffs, using `docs/adr/pg.md` and `docs/adr/turso.md`
+- [x] Define the migration path from the experimental local setup to the chosen production backend
+- [ ] Add cURL smoke tests for `healthz`, `readyz`, `search`, `documents`, indexing, and activity in `scripts/api/`
+  - desertthunder.dev DID: `did:plc:xg2vq45muivyy3xwatcehspu`
+  - Twisted AT URI: `at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.repo/3mho6hukiei22`
+  - Profile AT URI: `at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.actor.profile/self`
+  - Follow AT URI (desertthunder.dev follows npmx): `at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.graph.follow/3mhofstanru22`
+  - Star AT URI (desertthunder.dev stars microcosm-rs): `at://did:plc:lulmyldiq4sb2ikags5sfb25/sh.tangled.repo/3lvsxzinfz222`
+- ~~Add `just` targets for smoke-test runs locally and against a remote base URL~~ directly invoking the scripts is fine.
+- [ ] Add a durable read-through indexing job queue for records fetched through the API
+- [ ] Reuse the existing normalization and upsert path for on-demand indexing jobs
+- [ ] Trigger indexing jobs from repo, issue, PR, profile, and similar fetch handlers
+- [ ] Add dedupe, retries, and observability for indexing jobs
+- [ ] Add a JetStream cache consumer with a persisted timestamp cursor
+- [ ] Seed the JetStream cursor to `now - 24h` on first boot and rewind slightly on reconnect
+- [ ] Store and serve bounded recent activity from the local cache
+- [ ] Keep Tap as the authoritative indexing and bulk backfill path
+- [ ] Define a controlled backfill and repo-resync playbook for recovery
 
 ## API: Constellation Integration
 
@@ -17,6 +43,8 @@ Add a Constellation client to the Go API for enriching search results with socia
 
 Nomic Embed Text v1.5 via Railway template, async embedding pipeline.
 
+**Blocked on:** API: Search Stabilization
+
 - [ ] Deploy nomic-embed Railway template (`POST /api/embeddings` with Bearer auth)
 - [ ] Embedding client in Go API (`internal/embedding/`) calling the Nomic service
 - [ ] Embed-worker: consume `embedding_jobs` queue, generate 768-dim vectors, store in `document_embeddings`
@@ -27,12 +55,16 @@ Nomic Embed Text v1.5 via Railway template, async embedding pipeline.
 
 Combine keyword and semantic results.
 
+**Blocked on:** API: Search Stabilization, API: Semantic Search Pipeline
+
 - [ ] Score normalization (keyword BM25 → [0,1], semantic cosine → [0,1])
 - [ ] Weighted merge (0.65 keyword + 0.35 semantic, configurable)
 - [ ] Deduplication by document ID
 - [ ] `matched_by` metadata in results
 
 ## API: Search Quality
+
+**Blocked on:** API: Search Stabilization
 
 - [ ] Field weight tuning based on real queries
 - [ ] Recency boost for recently updated content
@@ -42,6 +74,8 @@ Combine keyword and semantic results.
 - [ ] Relevance test fixtures
 
 ## API: Observability
+
+**Depends on:** API: Search Stabilization
 
 - [ ] Structured metrics: ingestion rate, search latency, embedding throughput
 - [ ] Dashboard or log-based monitoring

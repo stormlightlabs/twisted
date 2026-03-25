@@ -18,6 +18,85 @@ go run . api --local
 
 The server listens on `:8080` by default. Logs are printed as text when `--local` is set.
 
+## Experimental Local DB Operations
+
+The experimental local database lives at `packages/api/twister-dev.db` when you run Twister from `packages/api` with `--local`.
+
+This database is for local experimentation only. Treat it as disposable unless you explicitly back it up.
+
+### Backup
+
+Recommended procedure:
+
+1. Stop the Twister process using the local DB.
+2. Copy the database file and any SQLite sidecar files if they exist.
+
+Example:
+
+```sh
+cd packages/api
+mkdir -p backups
+timestamp="$(date +%Y%m%d-%H%M%S)"
+cp twister-dev.db "backups/twister-dev-${timestamp}.db"
+test -f twister-dev.db-wal && cp twister-dev.db-wal "backups/twister-dev-${timestamp}.db-wal"
+test -f twister-dev.db-shm && cp twister-dev.db-shm "backups/twister-dev-${timestamp}.db-shm"
+```
+
+For this experimental DB, stop-and-copy is preferred over hot backup complexity.
+
+### Restore
+
+Recommended procedure:
+
+1. Stop the Twister process.
+2. Move the current local DB aside if you want to keep it.
+3. Copy the backup file back to `twister-dev.db`.
+4. Restore matching `-wal` and `-shm` files only if they were captured with the same backup set.
+
+Example:
+
+```sh
+cd packages/api
+mv twister-dev.db "twister-dev.db.broken.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+cp backups/twister-dev-YYYYMMDD-HHMMSS.db twister-dev.db
+```
+
+After restore, restart Twister and let the app run migrations normally.
+
+### Disk Growth
+
+The local DB will grow during experimentation because of:
+
+- indexed documents
+- FTS tables
+- activity cache rows
+- repeated backfill or reindex runs
+
+Recommended operating procedure:
+
+1. Check file growth periodically.
+2. Delete and rebuild the experimental DB freely when the dataset is no longer useful.
+3. Run `VACUUM` only when you intentionally want to compact a long-lived local DB.
+4. Keep old backups out of the repo and rotate them manually.
+
+Example inspection commands:
+
+```sh
+cd packages/api
+du -h twister-dev.db*
+ls -lh twister-dev.db*
+```
+
+For experimental use, the simplest policy is usually:
+
+- back up anything worth keeping
+- remove the DB when the experiment is over
+- let Twister rebuild from migrations and backfill paths
+
+### Failure Recovery Rule
+
+If the experimental DB becomes suspicious or inconsistent, prefer restore-or-rebuild over manual repair. This is a developer convenience database, not the source of truth.
+
 ## Environment variables
 
 Copy `.env.example` to `.env` in the repo root (or `packages/api/`). The server loads `.env`, `../.env`, and `../../.env` automatically.

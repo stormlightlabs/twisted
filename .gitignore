@@ -21,6 +21,7 @@ npm-debug.log*
 /.idea
 /.ionic
 /.sass-cache
+/.sandbox
 /.sourcemaps
 /.versions
 /.vscode/*

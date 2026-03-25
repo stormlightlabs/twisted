@@ -13,8 +13,16 @@ Completed work — architecture, APIs, and data models as built.
 Forward-looking designs for remaining work.
 
 - [`specs/data-sources.md`](specs/data-sources.md) — Constellation, Tangled XRPC, Tap, AT Protocol, Bluesky OAuth
-- [`specs/search.md`](specs/search.md) — Keyword, semantic, and hybrid search
+- [`specs/search.md`](specs/search.md) — Search stabilization, indexing, activity cache, and later ranking work
 - [`specs/app-features.md`](specs/app-features.md) — Remaining mobile app features
+
+## ADR Research
+
+Focused option analysis for pending architectural decisions.
+
+- [`adr/pg.md`](adr/pg.md) — PostgreSQL as a production backend option for Twister search
+- [`adr/turso.md`](adr/turso.md) — Turso/libSQL as a production backend option for Twister search
+- [`adr/storage.md`](adr/storage.md) — Accepted production storage decision for Twister search
 
 ## Roadmap
 
