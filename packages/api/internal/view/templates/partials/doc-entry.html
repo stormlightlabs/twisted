@@ -1,0 +1,38 @@
+{{define "doc-entry"}}
+<section class="doc-entry">
+  <h2><code>{{.Method}} {{.Route}}</code></h2>
+  <p>{{.Summary}}</p>
+  {{if .Details}}<p class="doc-details">{{.Details}}</p>{{end}}
+  {{if .PathParams}}
+  <h3>Path parameters</h3>
+  <table>
+    <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      {{range .PathParams}}
+      <tr>
+        <td><code>{{.Name}}</code></td>
+        <td>{{.Type}}</td>
+        <td>{{.Description}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+  {{if .QueryParams}}
+  <h3>Query parameters</h3>
+  <table>
+    <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+      {{range .QueryParams}}
+      <tr>
+        <td><code>{{.Name}}</code></td>
+        <td>{{.Type}}</td>
+        <td>{{if .Required}}yes{{else}}&mdash;{{end}}</td>
+        <td>{{.Description}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</section>
+{{end}}

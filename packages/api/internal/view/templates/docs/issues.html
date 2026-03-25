@@ -1,0 +1,9 @@
+{{define "title"}}Issues &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>Issues</h1>
+<p>Issue endpoints fetch records and comments from an actor&rsquo;s PDS.
+Responses include a pre-joined <code>state</code> field derived from
+<code>sh.tangled.repo.issue.state</code> records.</p>
+{{range .}}{{template "doc-entry" .}}{{end}}
+{{end}}
+{{template "layout" .}}

@@ -1,0 +1,9 @@
+{{define "title"}}Profiles &amp; Backlinks &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>Profiles &amp; Backlinks</h1>
+<p>These endpoints surface derived social data from Constellation, the external
+graph service. Both are best-effort: counts default to zero when Constellation
+is not configured or unavailable.</p>
+{{range .}}{{template "doc-entry" .}}{{end}}
+{{end}}
+{{template "layout" .}}

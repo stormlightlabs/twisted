@@ -1,0 +1,9 @@
+{{define "title"}}Activity &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>Activity</h1>
+<p>Activity endpoints expose the recent ATProto event cache and a real-time
+WebSocket proxy to the Bluesky Jetstream firehose. The cache is populated as
+the indexer consumes the firehose.</p>
+{{range .}}{{template "doc-entry" .}}{{end}}
+{{end}}
+{{template "layout" .}}

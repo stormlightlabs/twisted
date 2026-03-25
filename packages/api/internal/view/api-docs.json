@@ -1,0 +1,408 @@
+[
+  {
+    "page": "search",
+    "route": "/search",
+    "method": "GET",
+    "summary": "Unified search across all indexed Tangled documents.",
+    "details": "Delegates to keyword search. The mode parameter is accepted but only \"keyword\" is supported.",
+    "queryParams": [
+      { "name": "q", "type": "string", "required": true, "description": "Search query. Supports boolean operators, phrases, and prefix matching." },
+      { "name": "mode", "type": "string", "required": false, "description": "Search mode. Only \"keyword\" is supported." },
+      { "name": "limit", "type": "int", "required": false, "description": "Results per page (1–100). Default 20." },
+      { "name": "offset", "type": "int", "required": false, "description": "Pagination offset. Default 0." },
+      { "name": "collection", "type": "string", "required": false, "description": "Filter by ATProto collection NSID." },
+      { "name": "type", "type": "string", "required": false, "description": "Filter by record type: repo, issue, pull, profile, string." },
+      { "name": "author", "type": "string", "required": false, "description": "Filter by author handle or DID." },
+      { "name": "repo", "type": "string", "required": false, "description": "Filter by repository name." },
+      { "name": "language", "type": "string", "required": false, "description": "Filter by programming language." },
+      { "name": "state", "type": "string", "required": false, "description": "Filter by state: open, closed, merged." },
+      { "name": "from", "type": "string", "required": false, "description": "Created after (ISO 8601)." },
+      { "name": "to", "type": "string", "required": false, "description": "Created before (ISO 8601)." }
+    ]
+  },
+  {
+    "page": "search",
+    "route": "/search/keyword",
+    "method": "GET",
+    "summary": "FTS5 keyword search over indexed Tangled documents.",
+    "details": "Same parameters and response shape as GET /search. Use this route to bypass mode negotiation.",
+    "queryParams": [
+      { "name": "q", "type": "string", "required": true, "description": "Search query. Supports boolean operators, phrases, and prefix matching." },
+      { "name": "limit", "type": "int", "required": false, "description": "Results per page (1–100). Default 20." },
+      { "name": "offset", "type": "int", "required": false, "description": "Pagination offset. Default 0." },
+      { "name": "collection", "type": "string", "required": false, "description": "Filter by ATProto collection NSID." },
+      { "name": "type", "type": "string", "required": false, "description": "Filter by record type: repo, issue, pull, profile, string." },
+      { "name": "author", "type": "string", "required": false, "description": "Filter by author handle or DID." },
+      { "name": "repo", "type": "string", "required": false, "description": "Filter by repository name." },
+      { "name": "language", "type": "string", "required": false, "description": "Filter by programming language." },
+      { "name": "state", "type": "string", "required": false, "description": "Filter by state: open, closed, merged." },
+      { "name": "from", "type": "string", "required": false, "description": "Created after (ISO 8601)." },
+      { "name": "to", "type": "string", "required": false, "description": "Created before (ISO 8601)." }
+    ]
+  },
+  {
+    "page": "documents",
+    "route": "/documents/{id}",
+    "method": "GET",
+    "summary": "Fetch a single indexed document by its stable ID.",
+    "details": "The document ID has the format did|collection|rkey. Deleted documents return 404.",
+    "pathParams": [
+      { "name": "id", "type": "string", "description": "Stable document ID (did|collection|rkey)." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}",
+    "method": "GET",
+    "summary": "Tangled actor profile with optional Bluesky social data.",
+    "details": "Resolves handle to DID, fetches sh.tangled.actor.profile from the actor's PDS. If the profile record has bluesky:true, Bluesky display name and avatar are also returned.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos",
+    "method": "GET",
+    "summary": "List all sh.tangled.repo records for an actor.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}",
+    "method": "GET",
+    "summary": "Repo record with resolved knot host and AT URI.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/tree",
+    "method": "GET",
+    "summary": "Directory tree for a ref, proxied from the actor's knot.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ],
+    "queryParams": [
+      { "name": "ref", "type": "string", "required": false, "description": "Branch, tag, or commit SHA. Defaults to default branch." },
+      { "name": "path", "type": "string", "required": false, "description": "Subdirectory path within the tree." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/blob",
+    "method": "GET",
+    "summary": "File contents at a path and ref, proxied from the actor's knot.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ],
+    "queryParams": [
+      { "name": "ref", "type": "string", "required": false, "description": "Branch, tag, or commit SHA." },
+      { "name": "path", "type": "string", "required": true, "description": "File path within the repository." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/log",
+    "method": "GET",
+    "summary": "Commit log for a ref, proxied from the actor's knot (raw bytes).",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ],
+    "queryParams": [
+      { "name": "ref", "type": "string", "required": false, "description": "Branch, tag, or commit SHA." },
+      { "name": "path", "type": "string", "required": false, "description": "Limit log to commits touching this path." },
+      { "name": "limit", "type": "int", "required": false, "description": "Max commits to return." },
+      { "name": "cursor", "type": "string", "required": false, "description": "Pagination cursor from a previous response." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/branches",
+    "method": "GET",
+    "summary": "Branch list for a repo, proxied from the actor's knot (raw bytes).",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ],
+    "queryParams": [
+      { "name": "limit", "type": "int", "required": false, "description": "Max branches to return." },
+      { "name": "cursor", "type": "string", "required": false, "description": "Pagination cursor." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/default-branch",
+    "method": "GET",
+    "summary": "Default branch name for a repo, proxied from the actor's knot.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/languages",
+    "method": "GET",
+    "summary": "Language breakdown for a repo at a ref, proxied from the actor's knot.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ],
+    "queryParams": [
+      { "name": "ref", "type": "string", "required": false, "description": "Branch, tag, or commit SHA." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/tags",
+    "method": "GET",
+    "summary": "Tag list for a repo, proxied from the actor's knot (raw bytes).",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/diff",
+    "method": "GET",
+    "summary": "Diff for a ref, proxied from the actor's knot (raw bytes).",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ],
+    "queryParams": [
+      { "name": "ref", "type": "string", "required": false, "description": "Commit SHA or branch to diff." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/compare",
+    "method": "GET",
+    "summary": "Comparison between two refs, proxied from the actor's knot (raw bytes).",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ],
+    "queryParams": [
+      { "name": "from", "type": "string", "required": true, "description": "Base ref (branch, tag, or SHA)." },
+      { "name": "to", "type": "string", "required": true, "description": "Head ref (branch, tag, or SHA)." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/issues",
+    "method": "GET",
+    "summary": "Issues scoped to a repo, pre-joined with state (open/closed).",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/repos/{repo}/pulls",
+    "method": "GET",
+    "summary": "Pull requests targeting a repo, pre-joined with status (open/closed/merged).",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." },
+      { "name": "repo", "type": "string", "description": "Repository name." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/issues",
+    "method": "GET",
+    "summary": "All issues authored by an actor, pre-joined with state.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/pulls",
+    "method": "GET",
+    "summary": "All pull requests authored by an actor, pre-joined with status.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/following",
+    "method": "GET",
+    "summary": "sh.tangled.graph.follow records for an actor.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
+    ]
+  },
+  {
+    "page": "actors",
+    "route": "/actors/{handle}/strings",
+    "method": "GET",
+    "summary": "sh.tangled.string records posted by an actor.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
+    ]
+  },
+  {
+    "page": "issues",
+    "route": "/issues/{handle}/{rkey}",
+    "method": "GET",
+    "summary": "Single issue with pre-joined state (open/closed).",
+    "details": "State is derived from sh.tangled.repo.issue.state records. If no state record exists the issue is considered open.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Author's Tangled handle or DID." },
+      { "name": "rkey", "type": "string", "description": "Record key of the issue." }
+    ]
+  },
+  {
+    "page": "issues",
+    "route": "/issues/{handle}/{rkey}/comments",
+    "method": "GET",
+    "summary": "All comments for a specific issue.",
+    "details": "Filters sh.tangled.repo.issue.comment records from the actor's PDS by matching the issue AT URI.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Author's Tangled handle or DID." },
+      { "name": "rkey", "type": "string", "description": "Record key of the parent issue." }
+    ]
+  },
+  {
+    "page": "pulls",
+    "route": "/pulls/{handle}/{rkey}",
+    "method": "GET",
+    "summary": "Single pull request with pre-joined status (open/closed/merged).",
+    "details": "Status is derived from sh.tangled.repo.pull.status records. If no status record exists the PR is considered open.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Author's Tangled handle or DID." },
+      { "name": "rkey", "type": "string", "description": "Record key of the pull request." }
+    ]
+  },
+  {
+    "page": "pulls",
+    "route": "/pulls/{handle}/{rkey}/comments",
+    "method": "GET",
+    "summary": "All comments for a specific pull request.",
+    "details": "Filters sh.tangled.repo.pull.comment records from the actor's PDS by matching the pull AT URI.",
+    "pathParams": [
+      { "name": "handle", "type": "string", "description": "Author's Tangled handle or DID." },
+      { "name": "rkey", "type": "string", "description": "Record key of the parent pull request." }
+    ]
+  },
+  {
+    "page": "identity",
+    "route": "/identity/resolve",
+    "method": "GET",
+    "summary": "Resolve a handle to a DID via bsky.social.",
+    "details": "Proxies com.atproto.identity.resolveHandle. The response shape mirrors the ATProto lexicon.",
+    "queryParams": [
+      { "name": "handle", "type": "string", "required": true, "description": "Tangled or ATProto handle to resolve." }
+    ]
+  },
+  {
+    "page": "identity",
+    "route": "/identity/did/{did}",
+    "method": "GET",
+    "summary": "Fetch a DID document for did:plc or did:web identifiers.",
+    "details": "did:plc resolves via plc.directory. did:web resolves via https://{host}/.well-known/did.json. Other DID methods return 400.",
+    "pathParams": [
+      { "name": "did", "type": "string", "description": "A did:plc:… or did:web:… identifier." }
+    ]
+  },
+  {
+    "page": "activity",
+    "route": "/activity",
+    "method": "GET",
+    "summary": "Paginated list of recent ATProto events from the Jetstream cache.",
+    "details": "Events are cached as the Jetstream firehose is consumed. Only Tangled-relevant collections are retained by default.",
+    "queryParams": [
+      { "name": "limit", "type": "int", "required": false, "description": "Results per page (1–200). Default 50." },
+      { "name": "offset", "type": "int", "required": false, "description": "Pagination offset. Default 0." },
+      { "name": "collection", "type": "string", "required": false, "description": "Filter by ATProto collection NSID." },
+      { "name": "operation", "type": "string", "required": false, "description": "Filter by operation: create, update, delete." },
+      { "name": "did", "type": "string", "required": false, "description": "Filter by actor DID." }
+    ]
+  },
+  {
+    "page": "activity",
+    "route": "/activity/stream",
+    "method": "GET",
+    "summary": "WebSocket proxy to the Bluesky Jetstream firehose.",
+    "details": "Accepts a WebSocket upgrade and forwards all query parameters to jetstream2.us-east.bsky.network. Standard Jetstream params: wantedCollections, wantedDids, cursor."
+  },
+  {
+    "page": "profiles",
+    "route": "/profiles/{did}/summary",
+    "method": "GET",
+    "summary": "Social summary for an actor: follower count via Constellation.",
+    "details": "Best-effort — if Constellation is unavailable follower_count is 0 rather than an error.",
+    "pathParams": [
+      { "name": "did", "type": "string", "description": "ATProto DID, e.g. did:plc:abc." }
+    ]
+  },
+  {
+    "page": "profiles",
+    "route": "/backlinks/count",
+    "method": "GET",
+    "summary": "Constellation backlinks count for any subject/source pair.",
+    "details": "Used by the mobile client for star counts (source: sh.tangled.graph.star) and follower counts (source: sh.tangled.graph.follow).",
+    "queryParams": [
+      { "name": "subject", "type": "string", "required": true, "description": "AT URI or DID being linked to." },
+      { "name": "source", "type": "string", "required": true, "description": "Collection NSID of the backlink records." }
+    ]
+  },
+  {
+    "page": "proxy",
+    "route": "/xrpc/knot/{knotHost}/{nsid}",
+    "method": "GET",
+    "summary": "Proxy a GET request to a Tangled knot's XRPC endpoint.",
+    "details": "Forwards to https://{knotHost}/xrpc/{nsid} with all query parameters. knotHost must not contain slashes or whitespace.",
+    "pathParams": [
+      { "name": "knotHost", "type": "string", "description": "Knot hostname (no scheme), e.g. knot.example." },
+      { "name": "nsid", "type": "string", "description": "XRPC NSID to call on the knot." }
+    ]
+  },
+  {
+    "page": "proxy",
+    "route": "/xrpc/pds/{pds}/{nsid}",
+    "method": "GET",
+    "summary": "Proxy a GET request to an ATProto PDS XRPC endpoint.",
+    "details": "Forwards to https://{pds}/xrpc/{nsid} with all query parameters. pds must not contain slashes or whitespace.",
+    "pathParams": [
+      { "name": "pds", "type": "string", "description": "PDS hostname (no scheme), e.g. bsky.social." },
+      { "name": "nsid", "type": "string", "description": "XRPC NSID to call on the PDS." }
+    ]
+  },
+  {
+    "page": "proxy",
+    "route": "/xrpc/bsky/{nsid}",
+    "method": "GET",
+    "summary": "Proxy a GET request to the Bluesky public API.",
+    "details": "Forwards to https://public.api.bsky.app/xrpc/{nsid}. No authentication is forwarded; only public endpoints are accessible.",
+    "pathParams": [
+      { "name": "nsid", "type": "string", "description": "XRPC NSID to call on the Bluesky public API." }
+    ]
+  },
+  {
+    "page": "health",
+    "route": "/healthz",
+    "method": "GET",
+    "summary": "Liveness probe. Returns 200 if the process is responsive.",
+    "details": "No dependency checks. Safe to call at any frequency."
+  },
+  {
+    "page": "health",
+    "route": "/readyz",
+    "method": "GET",
+    "summary": "Readiness probe. Checks database reachability.",
+    "details": "Executes a test query against the Turso/SQLite database. Returns 503 if the database cannot be reached."
+  }
+]

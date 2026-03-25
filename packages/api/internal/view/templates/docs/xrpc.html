@@ -1,0 +1,10 @@
+{{define "title"}}XRPC &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>XRPC</h1>
+<p>XRPC endpoints provide a single-origin pass-through to Tangled knots, PDS
+hosts, and the Bluesky public API. All query parameters are forwarded verbatim.
+Responses are streamed back unchanged, making these suitable for browser clients
+that cannot make direct cross-origin requests.</p>
+{{range .}}{{template "doc-entry" .}}{{end}}
+{{end}}
+{{template "layout" .}}

@@ -102,10 +102,21 @@ func (s *Server) registerAdminRoutes(mux *http.ServeMux) {
 }
 
 func (s *Server) registerDocsRoutes(mux *http.ServeMux, h http.Handler) {
-	mux.Handle("GET /docs", h)
-	mux.Handle("GET /docs/search", h)
-	mux.Handle("GET /docs/documents", h)
-	mux.Handle("GET /docs/health", h)
+	for _, path := range []string{
+		"GET /docs",
+		"GET /docs/search",
+		"GET /docs/documents",
+		"GET /docs/health",
+		"GET /docs/actors",
+		"GET /docs/issues",
+		"GET /docs/pulls",
+		"GET /docs/identity",
+		"GET /docs/activity",
+		"GET /docs/profiles",
+		"GET /docs/xrpc",
+	} {
+		mux.Handle(path, h)
+	}
 }
 
 func (s *Server) registerSiteRoutes(mux *http.ServeMux) {

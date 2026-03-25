@@ -1,34 +1,50 @@
 {{define "title"}}API Docs &mdash; Twister{{end}}
 {{define "content"}}
 <h1>API Documentation</h1>
-<p>Twister exposes a public JSON API for searching indexed <a href="https://tangled.org" target="_blank" rel="noopener">Tangled</a> content. No authentication is required for read endpoints.</p>
+<p>Twister exposes a public JSON API for searching indexed
+<a href="https://tangled.org" target="_blank" rel="noopener">Tangled</a> content.
+No authentication is required for read endpoints.</p>
 
 <h2>Base URL</h2>
 <pre><code>https://&lt;your-twister-domain&gt;</code></pre>
-<p>All endpoints are relative to the base URL. When using the search site, the API is on the same origin.</p>
+<p>All endpoints are relative to the base URL. When using the search site, the
+API is on the same origin.</p>
 
-<h2>Response Shape</h2>
-<p>All responses are JSON. Successful responses return the resource directly. Errors return:</p>
-<pre><code>{
-  "error": "error_code",
-  "message": "Human-readable description"
-}</code></pre>
+<h2>Response shape</h2>
+<p>All responses are JSON. Successful responses return the resource directly.
+Errors return:</p>
+<pre><code>{"error": "error_code", "message": "what went wrong"}</code></pre>
 
 <h2>Endpoints</h2>
 <table>
-  <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+  <thead><tr><th>Resource</th><th>Description</th></tr></thead>
   <tbody>
-    <tr><td><code>GET</code></td><td><a href="/docs/search"><code>/search</code></a></td><td>Search indexed documents</td></tr>
-    <tr><td><code>GET</code></td><td><a href="/docs/documents"><code>/documents/{id}</code></a></td><td>Fetch a single document</td></tr>
-    <tr><td><code>GET</code></td><td><a href="/docs/health"><code>/healthz</code></a></td><td>Liveness probe</td></tr>
-    <tr><td><code>GET</code></td><td><a href="/docs/health"><code>/readyz</code></a></td><td>Readiness probe</td></tr>
+    <tr><td><a href="/docs/search">Search</a></td>
+        <td>FTS5 keyword search over indexed documents</td></tr>
+    <tr><td><a href="/docs/documents">Documents</a></td>
+        <td>Fetch a single indexed document by stable ID</td></tr>
+    <tr><td><a href="/docs/actors">Actors &amp; Repos</a></td>
+        <td>Actor profiles, repo records, and repo sub-resources</td></tr>
+    <tr><td><a href="/docs/issues">Issues</a></td>
+        <td>Issue detail and comments with pre-joined state</td></tr>
+    <tr><td><a href="/docs/pulls">Pull Requests</a></td>
+        <td>PR detail and comments with pre-joined status</td></tr>
+    <tr><td><a href="/docs/identity">Identity</a></td>
+        <td>Handle resolution and DID document lookup</td></tr>
+    <tr><td><a href="/docs/activity">Activity</a></td>
+        <td>Cached Jetstream events and real-time WebSocket stream</td></tr>
+    <tr><td><a href="/docs/profiles">Profiles &amp; Backlinks</a></td>
+        <td>Social signals and Constellation backlinks counts</td></tr>
+    <tr><td><a href="/docs/xrpc">XRPC Proxy</a></td>
+        <td>Pass-through proxy to knots, PDS hosts, and Bluesky</td></tr>
+    <tr><td><a href="/docs/health">Health</a></td>
+        <td>Liveness and readiness probes</td></tr>
   </tbody>
 </table>
 
 <h2>Pagination</h2>
-<p>List endpoints use <code>limit</code> and <code>offset</code> query parameters. The default limit is 20, maximum is 100.</p>
-
-<h2>Filtering</h2>
-<p>Search supports filters via query parameters: <code>collection</code>, <code>type</code>, <code>author</code>, <code>repo</code>, <code>language</code>, <code>state</code>, <code>from</code>, <code>to</code>. See the <a href="/docs/search">search endpoint docs</a> for details.</p>
+<p>List endpoints use <code>limit</code> and <code>offset</code> query
+parameters. Defaults and maximums vary per endpoint — see each resource page
+for details.</p>
 {{end}}
 {{template "layout" .}}

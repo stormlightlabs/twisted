@@ -1,0 +1,10 @@
+{{define "title"}}Pull Requests &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>Pull Requests</h1>
+<p>Pull request endpoints fetch records and comments from an actor&rsquo;s PDS.
+Responses include a pre-joined <code>status</code> field derived from
+<code>sh.tangled.repo.pull.status</code> records:
+<code>open</code>, <code>closed</code>, or <code>merged</code>.</p>
+{{range .}}{{template "doc-entry" .}}{{end}}
+{{end}}
+{{template "layout" .}}

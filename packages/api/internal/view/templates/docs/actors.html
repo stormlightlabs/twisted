@@ -1,0 +1,9 @@
+{{define "title"}}Actors &amp; Repos &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>Actors &amp; Repos</h1>
+<p>Actor endpoints resolve Tangled handles and DIDs, fetching profile and repo
+data from the actor&rsquo;s PDS. Repo sub-resource endpoints proxy live data
+from the actor&rsquo;s assigned knot host.</p>
+{{range .}}{{template "doc-entry" .}}{{end}}
+{{end}}
+{{template "layout" .}}

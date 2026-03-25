@@ -1,0 +1,9 @@
+{{define "title"}}Identity &mdash; Twister API{{end}}
+{{define "content"}}
+<h1>Identity</h1>
+<p>Identity endpoints resolve ATProto identifiers. Both routes proxy upstream
+services verbatim, making them safe to call from browser clients without
+additional CORS configuration.</p>
+{{range .}}{{template "doc-entry" .}}{{end}}
+{{end}}
+{{template "layout" .}}

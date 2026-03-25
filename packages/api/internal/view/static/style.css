@@ -229,9 +229,17 @@ a:hover { text-decoration: underline; }
 .main pre code { background: none; padding: 0; }
 .main p,
 .main li,
-.main td,
-.main th,
 .main code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.main th {
+  white-space: nowrap;
+}
+.main td:not(:last-child) {
+  white-space: nowrap;
+}
+.main td:last-child {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
