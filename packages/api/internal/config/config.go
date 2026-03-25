@@ -12,27 +12,27 @@ import (
 )
 
 type Config struct {
-	TursoURL             string
-	TursoToken           string
-	TapURL               string
-	TapAuthPassword      string
-	IndexedCollections   string
-	SearchDefaultLimit   int
-	SearchMaxLimit       int
-	SearchDefaultMode    string
-	EmbeddingProvider    string
-	EmbeddingModel       string
-	EmbeddingAPIKey      string
-	EmbeddingAPIURL      string
-	EmbeddingDim         int
-	EmbeddingBatchSize   int
-	HybridKeywordWeight  float64
-	HybridSemanticWeight float64
-	HTTPBindAddr         string
-	IndexerHealthAddr    string
-	LogLevel             string
-	LogFormat            string
-	EnableAdminEndpoints    bool
+	TursoURL               string
+	TursoToken             string
+	TapURL                 string
+	TapAuthPassword        string
+	IndexedCollections     string
+	SearchDefaultLimit     int
+	SearchMaxLimit         int
+	SearchDefaultMode      string
+	EmbeddingProvider      string
+	EmbeddingModel         string
+	EmbeddingAPIKey        string
+	EmbeddingAPIURL        string
+	EmbeddingDim           int
+	EmbeddingBatchSize     int
+	HybridKeywordWeight    float64
+	HybridSemanticWeight   float64
+	HTTPBindAddr           string
+	IndexerHealthAddr      string
+	LogLevel               string
+	LogFormat              string
+	EnableAdminEndpoints   bool
 	AdminAuthToken         string
 	EnableIngestEnrichment bool
 	PLCDirectoryURL        string
@@ -42,6 +42,8 @@ type Config struct {
 	ConstellationUserAgent string
 	ConstellationTimeout   time.Duration
 	ConstellationCacheTTL  time.Duration
+	OAuthClientID          string
+	OAuthRedirectURIs      []string
 }
 
 type LoadOptions struct {
@@ -53,28 +55,28 @@ func Load(opts LoadOptions) (*Config, error) {
 	loadDotEnv()
 
 	cfg := &Config{
-		TursoURL:             os.Getenv("TURSO_DATABASE_URL"),
-		TursoToken:           os.Getenv("TURSO_AUTH_TOKEN"),
-		TapURL:               os.Getenv("TAP_URL"),
-		TapAuthPassword:      os.Getenv("TAP_AUTH_PASSWORD"),
-		IndexedCollections:   os.Getenv("INDEXED_COLLECTIONS"),
-		SearchDefaultMode:    envOrDefault("SEARCH_DEFAULT_MODE", "keyword"),
-		EmbeddingProvider:    os.Getenv("EMBEDDING_PROVIDER"),
-		EmbeddingModel:       os.Getenv("EMBEDDING_MODEL"),
-		EmbeddingAPIKey:      os.Getenv("EMBEDDING_API_KEY"),
-		EmbeddingAPIURL:      os.Getenv("EMBEDDING_API_URL"),
-		HTTPBindAddr:         envOrDefault("HTTP_BIND_ADDR", ":8080"),
-		IndexerHealthAddr:    envOrDefault("INDEXER_HEALTH_ADDR", ":9090"),
-		LogLevel:             envOrDefault("LOG_LEVEL", "info"),
-		LogFormat:            envOrDefault("LOG_FORMAT", "json"),
-		AdminAuthToken:       os.Getenv("ADMIN_AUTH_TOKEN"),
-		SearchDefaultLimit:   envInt("SEARCH_DEFAULT_LIMIT", 20),
-		SearchMaxLimit:       envInt("SEARCH_MAX_LIMIT", 100),
-		EmbeddingDim:         envInt("EMBEDDING_DIM", 768),
-		EmbeddingBatchSize:   envInt("EMBEDDING_BATCH_SIZE", 32),
-		HybridKeywordWeight:  envFloat("HYBRID_KEYWORD_WEIGHT", 0.65),
-		HybridSemanticWeight: envFloat("HYBRID_SEMANTIC_WEIGHT", 0.35),
-		EnableAdminEndpoints:    envBool("ENABLE_ADMIN_ENDPOINTS", false),
+		TursoURL:               os.Getenv("TURSO_DATABASE_URL"),
+		TursoToken:             os.Getenv("TURSO_AUTH_TOKEN"),
+		TapURL:                 os.Getenv("TAP_URL"),
+		TapAuthPassword:        os.Getenv("TAP_AUTH_PASSWORD"),
+		IndexedCollections:     os.Getenv("INDEXED_COLLECTIONS"),
+		SearchDefaultMode:      envOrDefault("SEARCH_DEFAULT_MODE", "keyword"),
+		EmbeddingProvider:      os.Getenv("EMBEDDING_PROVIDER"),
+		EmbeddingModel:         os.Getenv("EMBEDDING_MODEL"),
+		EmbeddingAPIKey:        os.Getenv("EMBEDDING_API_KEY"),
+		EmbeddingAPIURL:        os.Getenv("EMBEDDING_API_URL"),
+		HTTPBindAddr:           envOrDefault("HTTP_BIND_ADDR", ":8080"),
+		IndexerHealthAddr:      envOrDefault("INDEXER_HEALTH_ADDR", ":9090"),
+		LogLevel:               envOrDefault("LOG_LEVEL", "info"),
+		LogFormat:              envOrDefault("LOG_FORMAT", "json"),
+		AdminAuthToken:         os.Getenv("ADMIN_AUTH_TOKEN"),
+		SearchDefaultLimit:     envInt("SEARCH_DEFAULT_LIMIT", 20),
+		SearchMaxLimit:         envInt("SEARCH_MAX_LIMIT", 100),
+		EmbeddingDim:           envInt("EMBEDDING_DIM", 768),
+		EmbeddingBatchSize:     envInt("EMBEDDING_BATCH_SIZE", 32),
+		HybridKeywordWeight:    envFloat("HYBRID_KEYWORD_WEIGHT", 0.65),
+		HybridSemanticWeight:   envFloat("HYBRID_SEMANTIC_WEIGHT", 0.35),
+		EnableAdminEndpoints:   envBool("ENABLE_ADMIN_ENDPOINTS", false),
 		EnableIngestEnrichment: envBool("ENABLE_INGEST_ENRICHMENT", true),
 		PLCDirectoryURL:        envOrDefault("PLC_DIRECTORY_URL", "https://plc.directory"),
 		IdentityServiceURL:     envOrDefault("IDENTITY_SERVICE_URL", "https://public.api.bsky.app"),
@@ -83,6 +85,8 @@ func Load(opts LoadOptions) (*Config, error) {
 		ConstellationUserAgent: envOrDefault("CONSTELLATION_USER_AGENT", "twister/1.0 (https://tangled.sh; Owais <desertthunder.dev@gmail.com>)"),
 		ConstellationTimeout:   envDuration("CONSTELLATION_TIMEOUT", 10*time.Second),
 		ConstellationCacheTTL:  envDuration("CONSTELLATION_CACHE_TTL", 5*time.Minute),
+		OAuthClientID:          os.Getenv("OAUTH_CLIENT_ID"),
+		OAuthRedirectURIs:      envSlice("OAUTH_REDIRECT_URIS", nil),
 	}
 
 	if opts.Local {
@@ -199,4 +203,12 @@ func envBool(key string, def bool) bool {
 		return def
 	}
 	return b
+}
+
+func envSlice(key string, def []string) []string {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	return strings.Split(v, ",")
 }

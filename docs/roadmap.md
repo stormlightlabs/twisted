@@ -67,11 +67,11 @@ Bluesky OAuth and authenticated actions.
 
 **Depends on:** App: Search & Discovery (for Constellation service), API: Constellation Integration
 
-- [ ] OAuth setup with `@atcute/oauth-browser-client`
-- [ ] Login page, OAuth flow, callback handling
-- [ ] Capacitor deep link configuration
-- [ ] Session management (restore, refresh, logout, account switcher)
-- [ ] Auth-aware XRPC client using dpopFetch
+- [x] OAuth setup with `@atcute/oauth-browser-client`
+- [x] Login page, OAuth flow, callback handling
+- [x] Capacitor deep link configuration
+- [x] Session management (restore, refresh, logout, account switcher)
+- [x] Auth-aware XRPC client using dpopFetch
 - [ ] Star repos (write to PDS, count from Constellation)
 - [ ] Follow users (write to PDS, count from Constellation)
 - [ ] React to content (write to PDS, count from Constellation)

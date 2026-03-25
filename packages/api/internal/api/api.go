@@ -48,6 +48,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("GET /readyz", s.handleReadyz)
+	mux.HandleFunc("GET /oauth/client-metadata.json", s.handleOAuthClientMetadata)
 	mux.HandleFunc("GET /search", s.handleSearch)
 	mux.HandleFunc("GET /search/keyword", s.handleSearchKeyword)
 	mux.HandleFunc("GET /search/semantic", s.handleNotImplemented)

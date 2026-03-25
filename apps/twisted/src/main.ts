@@ -9,6 +9,7 @@ import { queryClient } from "./core/query/client.js";
 import { persistQueryClient } from "@tanstack/query-persist-client-core";
 import { createIdbPersister } from "./core/query/persister.js";
 import { initializeThemePreference } from "./core/theme/preferences.js";
+import { useAuthStore } from "./core/auth/store.js";
 
 import "@ionic/vue/css/core.css";
 import "@ionic/vue/css/normalize.css";
@@ -42,8 +43,13 @@ if (import.meta.env.DEV) {
   persistQueryClient({ queryClient: queryClient as any, persister: createIdbPersister(), maxAge: 30 * 60 * 1000 });
 }
 
-const app = createApp(App).use(IonicVue).use(router).use(createPinia()).use(VueQueryPlugin, { queryClient });
+const pinia = createPinia();
+const app = createApp(App).use(IonicVue).use(router).use(pinia).use(VueQueryPlugin, { queryClient });
 
-router.isReady().then(() => {
+const authStore = useAuthStore(pinia);
+authStore.initialize();
+
+router.isReady().then(async () => {
+  await authStore.restoreSession();
   app.mount("#app");
 });

@@ -1,0 +1,14 @@
+{
+  "client_id": "io.ionic.starter://client-metadata.json",
+  "client_name": "Twisted",
+  "client_uri": "https://tangled.org",
+  "logo_uri": "https://tangled.org/logo.png",
+  "tos_uri": "https://tangled.org/terms",
+  "policy_uri": "https://tangled.org/privacy",
+  "redirect_uris": ["io.ionic.starter://oauth-callback", "http://localhost:5173/oauth-callback"],
+  "scope": "atproto",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "application_type": "native",
+  "dpop_bound_access_tokens": true
+}
