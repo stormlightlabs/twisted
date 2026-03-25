@@ -56,6 +56,28 @@ type IndexingJob struct {
 	UpdatedAt   string
 }
 
+// JetstreamEvent is a cached JetStream activity event.
+type JetstreamEvent struct {
+	ID         int64
+	TimeUS     int64
+	DID        string
+	Kind       string
+	Collection string
+	RKey       string
+	Operation  string
+	Payload    string
+	ReceivedAt string
+}
+
+// JetstreamEventFilter scopes a ListJetstreamEvents query.
+type JetstreamEventFilter struct {
+	Collection string
+	DID        string
+	Operation  string
+	Limit      int
+	Offset     int
+}
+
 // IndexingJobInput is the payload used to enqueue or refresh an indexing job.
 type IndexingJobInput struct {
 	DocumentID string
@@ -97,5 +119,7 @@ type Store interface {
 	GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error)
 	CountDocuments(ctx context.Context) (int64, error)
 	CountPendingIndexingJobs(ctx context.Context) (int64, error)
+	InsertJetstreamEvent(ctx context.Context, event *JetstreamEvent, maxEvents int) error
+	ListJetstreamEvents(ctx context.Context, filter JetstreamEventFilter) ([]*JetstreamEvent, error)
 	Ping(ctx context.Context) error
 }

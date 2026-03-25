@@ -469,6 +469,100 @@ func (s *SQLStore) CountPendingIndexingJobs(ctx context.Context) (int64, error) 
 	return n, nil
 }
 
+func (s *SQLStore) InsertJetstreamEvent(ctx context.Context, event *JetstreamEvent, maxEvents int) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin insert jetstream event tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO jetstream_events (time_us, did, kind, collection, rkey, operation, payload, received_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		event.TimeUS, event.DID, event.Kind,
+		nullableStr(event.Collection), nullableStr(event.RKey), nullableStr(event.Operation),
+		event.Payload, event.ReceivedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert jetstream event: %w", err)
+	}
+
+	if maxEvents > 0 {
+		_, err = tx.ExecContext(ctx, `
+			DELETE FROM jetstream_events
+			WHERE id NOT IN (
+				SELECT id FROM jetstream_events ORDER BY time_us DESC LIMIT ?
+			)`, maxEvents)
+		if err != nil {
+			return fmt.Errorf("trim jetstream events: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit insert jetstream event tx: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) ListJetstreamEvents(ctx context.Context, filter JetstreamEventFilter) ([]*JetstreamEvent, error) {
+	query := `
+		SELECT id, time_us, did, kind,
+		       COALESCE(collection, ''), COALESCE(rkey, ''), COALESCE(operation, ''),
+		       payload, received_at
+		FROM jetstream_events WHERE 1=1`
+	args := []any{}
+
+	if filter.Collection != "" {
+		query += " AND collection = ?"
+		args = append(args, filter.Collection)
+	}
+	if filter.DID != "" {
+		query += " AND did = ?"
+		args = append(args, filter.DID)
+	}
+	if filter.Operation != "" {
+		query += " AND operation = ?"
+		args = append(args, filter.Operation)
+	}
+
+	query += " ORDER BY time_us DESC"
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	query += " LIMIT ?"
+	args = append(args, limit)
+
+	if filter.Offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, filter.Offset)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list jetstream events: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*JetstreamEvent
+	for rows.Next() {
+		e := &JetstreamEvent{}
+		if err := rows.Scan(
+			&e.ID, &e.TimeUS, &e.DID, &e.Kind,
+			&e.Collection, &e.RKey, &e.Operation,
+			&e.Payload, &e.ReceivedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan jetstream event: %w", err)
+		}
+		events = append(events, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate jetstream events: %w", err)
+	}
+	return events, nil
+}
+
 func (s *SQLStore) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }

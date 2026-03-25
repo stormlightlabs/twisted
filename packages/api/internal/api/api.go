@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +47,9 @@ func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log 
 }
 
 // Handler returns the HTTP handler with all routes registered.
+//
+// TODO: refactor this to have a func router() that returns [http.Handler] (mux),
+// then registerXXX routes
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
@@ -63,6 +65,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /profiles/{did}/summary", s.handleProfileSummary)
 
 	mux.HandleFunc("GET /backlinks/count", s.handleBacklinksCount)
+	mux.HandleFunc("GET /activity", s.handleActivity)
 	mux.HandleFunc("GET /activity/stream", s.handleActivityStream)
 	mux.HandleFunc("GET /identity/resolve", s.handleResolveHandle)
 	mux.HandleFunc("GET /identity/did/{did}", s.handleDidDocument)
@@ -120,6 +123,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go s.runReadThroughIndexer(ctx)
+	go s.runJetstreamConsumer(ctx)
 
 	go func() {
 		s.log.Info("listening", slog.String("addr", s.cfg.HTTPBindAddr))
@@ -407,72 +411,78 @@ func (s *Server) handleProfileSummary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, summary)
 }
 
+// knownActivityParams is the whitelist of accepted query parameters for the activity endpoint.
+var knownActivityParams = map[string]bool{
+	"limit": true, "offset": true,
+	"collection": true, "operation": true, "did": true,
+}
+
+// handleActivity returns bounded recent activity from the JetStream cache.
+// Route: GET /activity
+func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
+	for key := range r.URL.Query() {
+		if !knownActivityParams[key] {
+			writeJSON(w, http.StatusBadRequest, errorBody("unknown_parameter", fmt.Sprintf("unknown parameter: %s", key)))
+			return
+		}
+	}
+
+	limit, err := intParam(r, "limit", 50)
+	if err != nil || limit < 1 || limit > 200 {
+		writeJSON(w, http.StatusBadRequest, errorBody("invalid_parameter", "limit must be between 1 and 200"))
+		return
+	}
+	offset, err := intParam(r, "offset", 0)
+	if err != nil || offset < 0 {
+		writeJSON(w, http.StatusBadRequest, errorBody("invalid_parameter", "offset must be >= 0"))
+		return
+	}
+
+	filter := store.JetstreamEventFilter{
+		Collection: r.URL.Query().Get("collection"),
+		Operation:  r.URL.Query().Get("operation"),
+		DID:        r.URL.Query().Get("did"),
+		Limit:      limit,
+		Offset:     offset,
+	}
+
+	events, err := s.store.ListJetstreamEvents(r.Context(), filter)
+	if err != nil {
+		s.log.Error("list activity failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("db_error", "failed to fetch activity"))
+		return
+	}
+
+	type eventJSON struct {
+		TimeUS     int64           `json:"time_us"`
+		DID        string          `json:"did"`
+		Kind       string          `json:"kind"`
+		Collection string          `json:"collection,omitempty"`
+		RKey       string          `json:"rkey,omitempty"`
+		Operation  string          `json:"operation,omitempty"`
+		Payload    json.RawMessage `json:"payload"`
+	}
+
+	out := make([]eventJSON, 0, len(events))
+	for _, e := range events {
+		out = append(out, eventJSON{
+			TimeUS:     e.TimeUS,
+			DID:        e.DID,
+			Kind:       e.Kind,
+			Collection: e.Collection,
+			RKey:       e.RKey,
+			Operation:  e.Operation,
+			Payload:    json.RawMessage(e.Payload),
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"limit":  limit,
+		"offset": offset,
+		"events": out,
+	})
+}
+
 func (s *Server) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusNotImplemented, errorBody("not_implemented", "this endpoint is not yet available"))
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-func errorBody(code, message string) map[string]string {
-	return map[string]string{"error": code, "message": message}
-}
-
-func intParam(r *http.Request, key string, def int) (int, error) {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return def, nil
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
-}
-
-type documentJSON struct {
-	ID           string `json:"id"`
-	DID          string `json:"did"`
-	Collection   string `json:"collection"`
-	RKey         string `json:"rkey"`
-	ATURI        string `json:"at_uri"`
-	CID          string `json:"cid"`
-	RecordType   string `json:"record_type"`
-	Title        string `json:"title"`
-	Body         string `json:"body"`
-	Summary      string `json:"summary,omitempty"`
-	RepoName     string `json:"repo_name,omitempty"`
-	AuthorHandle string `json:"author_handle,omitempty"`
-	TagsJSON     string `json:"tags_json,omitempty"`
-	Language     string `json:"language,omitempty"`
-	WebURL       string `json:"web_url,omitempty"`
-	CreatedAt    string `json:"created_at,omitempty"`
-	UpdatedAt    string `json:"updated_at,omitempty"`
-	IndexedAt    string `json:"indexed_at"`
-}
-
-func documentResponse(doc *store.Document) documentJSON {
-	return documentJSON{
-		ID:           doc.ID,
-		DID:          doc.DID,
-		Collection:   doc.Collection,
-		RKey:         doc.RKey,
-		ATURI:        doc.ATURI,
-		CID:          doc.CID,
-		RecordType:   doc.RecordType,
-		Title:        doc.Title,
-		Body:         doc.Body,
-		Summary:      doc.Summary,
-		RepoName:     doc.RepoName,
-		AuthorHandle: doc.AuthorHandle,
-		TagsJSON:     doc.TagsJSON,
-		Language:     doc.Language,
-		WebURL:       doc.WebURL,
-		CreatedAt:    doc.CreatedAt,
-		UpdatedAt:    doc.UpdatedAt,
-		IndexedAt:    doc.IndexedAt,
-	}
 }

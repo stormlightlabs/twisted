@@ -291,32 +291,3 @@ func (s *Server) enqueueXRPCList(ctx context.Context, entries []xrpc.ListRecordE
 		s.enqueueXRPCRecord(ctx, e.URI, e.CID, e.Value)
 	}
 }
-
-func retryDelay(attempt int) time.Duration {
-	if attempt < 1 {
-		attempt = 1
-	}
-	base := time.Second * time.Duration(1<<minInt(attempt-1, 8))
-	if base > 5*time.Minute {
-		return 5 * time.Minute
-	}
-	return base
-}
-
-func truncateErr(err error) string {
-	if err == nil {
-		return ""
-	}
-	msg := err.Error()
-	if len(msg) > 500 {
-		return msg[:500]
-	}
-	return msg
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

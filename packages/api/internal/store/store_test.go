@@ -316,6 +316,109 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("jetstream events insert and list", func(t *testing.T) {
+		evt := &store.JetstreamEvent{
+			TimeUS:     1_000_000,
+			DID:        "did:plc:evt1",
+			Kind:       "commit",
+			Collection: "sh.tangled.repo",
+			RKey:       "rkey1",
+			Operation:  "create",
+			Payload:    `{"did":"did:plc:evt1","time_us":1000000,"kind":"commit"}`,
+			ReceivedAt: "2026-01-01T00:00:00Z",
+		}
+		if err := st.InsertJetstreamEvent(ctx, evt, 500); err != nil {
+			t.Fatalf("insert jetstream event: %v", err)
+		}
+
+		events, err := st.ListJetstreamEvents(ctx, store.JetstreamEventFilter{Limit: 10})
+		if err != nil {
+			t.Fatalf("list jetstream events: %v", err)
+		}
+		if len(events) < 1 {
+			t.Fatal("expected at least one jetstream event")
+		}
+		found := false
+		for _, e := range events {
+			if e.DID == "did:plc:evt1" && e.Collection == "sh.tangled.repo" {
+				found = true
+				if e.Operation != "create" {
+					t.Errorf("operation: got %q, want create", e.Operation)
+				}
+				if e.TimeUS != 1_000_000 {
+					t.Errorf("time_us: got %d, want 1000000", e.TimeUS)
+				}
+			}
+		}
+		if !found {
+			t.Error("inserted event not found in list")
+		}
+	})
+
+	t.Run("jetstream events filter by collection", func(t *testing.T) {
+		evt := &store.JetstreamEvent{
+			TimeUS:     2_000_000,
+			DID:        "did:plc:evt2",
+			Kind:       "commit",
+			Collection: "sh.tangled.repo.issue",
+			RKey:       "rkey2",
+			Operation:  "create",
+			Payload:    `{"did":"did:plc:evt2","time_us":2000000,"kind":"commit"}`,
+			ReceivedAt: "2026-01-01T00:00:01Z",
+		}
+		if err := st.InsertJetstreamEvent(ctx, evt, 500); err != nil {
+			t.Fatalf("insert jetstream event: %v", err)
+		}
+
+		events, err := st.ListJetstreamEvents(ctx, store.JetstreamEventFilter{
+			Collection: "sh.tangled.repo.issue",
+			Limit:      10,
+		})
+		if err != nil {
+			t.Fatalf("list with collection filter: %v", err)
+		}
+		for _, e := range events {
+			if e.Collection != "sh.tangled.repo.issue" {
+				t.Errorf("filter leaked event with collection %q", e.Collection)
+			}
+		}
+		if len(events) == 0 {
+			t.Error("expected at least one event matching collection filter")
+		}
+	})
+
+	t.Run("jetstream events bounded by maxEvents", func(t *testing.T) {
+		// Insert 5 events with max=3; only the 3 most recent should survive.
+		for i := int64(1); i <= 5; i++ {
+			e := &store.JetstreamEvent{
+				TimeUS:     100 + i,
+				DID:        "did:plc:bound",
+				Kind:       "commit",
+				Collection: "sh.tangled.repo",
+				RKey:       "rkey-bound",
+				Operation:  "create",
+				Payload:    `{}`,
+				ReceivedAt: "2026-01-01T00:00:00Z",
+			}
+			if err := st.InsertJetstreamEvent(ctx, e, 3); err != nil {
+				t.Fatalf("insert bounded event %d: %v", i, err)
+			}
+		}
+
+		all, err := st.ListJetstreamEvents(ctx, store.JetstreamEventFilter{
+			DID:   "did:plc:bound",
+			Limit: 100,
+		})
+		if err != nil {
+			t.Fatalf("list bounded events: %v", err)
+		}
+		// After inserting 5 events total (including the one from the previous subtests),
+		// maxEvents=3 means at most 3 rows survive across all events.
+		if len(all) > 3 {
+			t.Errorf("expected at most 3 events after bounding, got %d", len(all))
+		}
+	})
+
 	t.Run("indexing jobs enqueue claim retry complete", func(t *testing.T) {
 		job := store.IndexingJobInput{
 			DocumentID: "did:plc:owner|sh.tangled.repo|repo1",

@@ -178,27 +178,6 @@ func (s *Server) actorError(w http.ResponseWriter, err error) {
 	}
 }
 
-// isError is a type-safe errors.As replacement for pointer receiver targets.
-func isError[T error](err error, target *T) bool {
-	if err == nil {
-		return false
-	}
-
-	type unwrapper interface{ Unwrap() error }
-	for e := err; e != nil; {
-		if t, ok := e.(T); ok {
-			*target = t
-			return true
-		}
-		if u, ok := e.(unwrapper); ok {
-			e = u.Unwrap()
-		} else {
-			break
-		}
-	}
-	return false
-}
-
 // handleGetActor returns the actor's Tangled profile + optional Bluesky info.
 // GET /actors/{handle}
 func (s *Server) handleGetActor(w http.ResponseWriter, r *http.Request) {
@@ -872,26 +851,6 @@ func (s *Server) fetchPullsAndStatuses(r *http.Request, pds, did string) ([]xrpc
 	return pulls, statusMap, nil
 }
 
-func resolveIssueState(stateMap map[string]string, issueURI string) string {
-	raw := stateMap[issueURI]
-	if strings.HasSuffix(raw, ".closed") {
-		return "closed"
-	}
-	return "open"
-}
-
-func resolvePullStatus(statusMap map[string]string, pullURI string) string {
-	raw := statusMap[pullURI]
-	switch {
-	case strings.HasSuffix(raw, ".merged"):
-		return "merged"
-	case strings.HasSuffix(raw, ".closed"):
-		return "closed"
-	default:
-		return "open"
-	}
-}
-
 type bskyProfileResponse struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Avatar      string `json:"avatar,omitempty"`
@@ -909,14 +868,4 @@ func (s *Server) fetchBskyProfile(r *http.Request, did string) *bskyProfileRespo
 		return nil
 	}
 	return &p
-}
-
-// parseATURI splits an AT URI (at://did/collection/rkey) into its components.
-func parseATURI(uri string) (did, collection, rkey string, err error) {
-	trimmed := strings.TrimPrefix(uri, "at://")
-	parts := strings.SplitN(trimmed, "/", 3)
-	if len(parts) != 3 {
-		return "", "", "", fmt.Errorf("invalid AT URI: %q", uri)
-	}
-	return parts[0], parts[1], parts[2], nil
 }

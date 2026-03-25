@@ -42,8 +42,12 @@ type Config struct {
 	ConstellationUserAgent string
 	ConstellationTimeout   time.Duration
 	ConstellationCacheTTL  time.Duration
-	OAuthClientID          string
-	OAuthRedirectURIs      []string
+	OAuthClientID             string
+	OAuthRedirectURIs         []string
+	JetstreamURL              string
+	JetstreamWantedCollections string
+	ActivityMaxEvents         int
+	ActivityRewindDuration    time.Duration
 }
 
 type LoadOptions struct {
@@ -85,8 +89,12 @@ func Load(opts LoadOptions) (*Config, error) {
 		ConstellationUserAgent: envOrDefault("CONSTELLATION_USER_AGENT", "twister/1.0 (https://tangled.org/desertthunder.dev/twisted; Owais <desertthunder.dev@gmail.com>)"),
 		ConstellationTimeout:   envDuration("CONSTELLATION_TIMEOUT", 10*time.Second),
 		ConstellationCacheTTL:  envDuration("CONSTELLATION_CACHE_TTL", 5*time.Minute),
-		OAuthClientID:          os.Getenv("OAUTH_CLIENT_ID"),
-		OAuthRedirectURIs:      envSlice("OAUTH_REDIRECT_URIS", nil),
+		OAuthClientID:              os.Getenv("OAUTH_CLIENT_ID"),
+		OAuthRedirectURIs:          envSlice("OAUTH_REDIRECT_URIS", nil),
+		JetstreamURL:               envOrDefault("JETSTREAM_URL", "wss://jetstream2.us-east.bsky.network/subscribe"),
+		JetstreamWantedCollections: envOrDefault("JETSTREAM_WANTED_COLLECTIONS", "sh.tangled.*"),
+		ActivityMaxEvents:          envInt("ACTIVITY_MAX_EVENTS", 500),
+		ActivityRewindDuration:     envDuration("ACTIVITY_REWIND_DURATION", 5*time.Minute),
 	}
 
 	if opts.Local {
