@@ -253,24 +253,6 @@ func (s *SQLStore) GetIdentityHandle(ctx context.Context, did string) (string, e
 	return handle.String, nil
 }
 
-func (s *SQLStore) EnqueueEmbeddingJob(ctx context.Context, documentID string) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO embedding_jobs (document_id, status, attempts, last_error, scheduled_at, updated_at)
-		VALUES (?, 'pending', 0, NULL, ?, ?)
-		ON CONFLICT(document_id) DO UPDATE SET
-			status = 'pending',
-			last_error = NULL,
-			scheduled_at = excluded.scheduled_at,
-			updated_at = excluded.updated_at`,
-		documentID, now, now,
-	)
-	if err != nil {
-		return fmt.Errorf("enqueue embedding job: %w", err)
-	}
-	return nil
-}
-
 func (s *SQLStore) EnqueueIndexingJob(ctx context.Context, input IndexingJobInput) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.ExecContext(ctx, `

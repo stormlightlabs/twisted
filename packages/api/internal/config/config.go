@@ -20,14 +20,6 @@ type Config struct {
 	SearchDefaultLimit     int
 	SearchMaxLimit         int
 	SearchDefaultMode      string
-	EmbeddingProvider      string
-	EmbeddingModel         string
-	EmbeddingAPIKey        string
-	EmbeddingAPIURL        string
-	EmbeddingDim           int
-	EmbeddingBatchSize     int
-	HybridKeywordWeight    float64
-	HybridSemanticWeight   float64
 	HTTPBindAddr           string
 	IndexerHealthAddr      string
 	LogLevel               string
@@ -65,10 +57,6 @@ func Load(opts LoadOptions) (*Config, error) {
 		TapAuthPassword:        os.Getenv("TAP_AUTH_PASSWORD"),
 		IndexedCollections:     os.Getenv("INDEXED_COLLECTIONS"),
 		SearchDefaultMode:      envOrDefault("SEARCH_DEFAULT_MODE", "keyword"),
-		EmbeddingProvider:      os.Getenv("EMBEDDING_PROVIDER"),
-		EmbeddingModel:         os.Getenv("EMBEDDING_MODEL"),
-		EmbeddingAPIKey:        os.Getenv("EMBEDDING_API_KEY"),
-		EmbeddingAPIURL:        os.Getenv("EMBEDDING_API_URL"),
 		HTTPBindAddr:           envOrDefault("HTTP_BIND_ADDR", ":8080"),
 		IndexerHealthAddr:      envOrDefault("INDEXER_HEALTH_ADDR", ":9090"),
 		LogLevel:               envOrDefault("LOG_LEVEL", "info"),
@@ -76,10 +64,6 @@ func Load(opts LoadOptions) (*Config, error) {
 		AdminAuthToken:         os.Getenv("ADMIN_AUTH_TOKEN"),
 		SearchDefaultLimit:     envInt("SEARCH_DEFAULT_LIMIT", 20),
 		SearchMaxLimit:         envInt("SEARCH_MAX_LIMIT", 100),
-		EmbeddingDim:           envInt("EMBEDDING_DIM", 768),
-		EmbeddingBatchSize:     envInt("EMBEDDING_BATCH_SIZE", 32),
-		HybridKeywordWeight:    envFloat("HYBRID_KEYWORD_WEIGHT", 0.65),
-		HybridSemanticWeight:   envFloat("HYBRID_SEMANTIC_WEIGHT", 0.35),
 		EnableAdminEndpoints:   envBool("ENABLE_ADMIN_ENDPOINTS", false),
 		EnableIngestEnrichment: envBool("ENABLE_INGEST_ENRICHMENT", true),
 		PLCDirectoryURL:        envOrDefault("PLC_DIRECTORY_URL", "https://plc.directory"),
@@ -175,18 +159,6 @@ func envInt(key string, def int) int {
 		return def
 	}
 	return n
-}
-
-func envFloat(key string, def float64) float64 {
-	v := os.Getenv(key)
-	if v == "" {
-		return def
-	}
-	f, err := strconv.ParseFloat(v, 64)
-	if err != nil {
-		return def
-	}
-	return f
 }
 
 func envDuration(key string, def time.Duration) time.Duration {

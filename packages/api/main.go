@@ -48,9 +48,7 @@ func main() {
 		newAPICmd(&local),
 		newIndexerCmd(&local),
 		newBackfillCmd(&local),
-		newEmbedWorkerCmd(&local),
 		newReindexCmd(&local),
-		newReembedCmd(&local),
 		newEnrichCmd(&local),
 		newHealthcheckCmd(&local),
 	)
@@ -209,26 +207,6 @@ func newIndexerCmd(local *bool) *cobra.Command {
 	}
 }
 
-func newEmbedWorkerCmd(local *bool) *cobra.Command {
-	return &cobra.Command{
-		Use:   "embed-worker",
-		Short: "Start the async embedding worker",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(config.LoadOptions{Local: *local})
-			if err != nil {
-				return fmt.Errorf("config: %w", err)
-			}
-			log := observability.NewLogger(cfg)
-			log.Info("starting embed-worker", slog.String("service", "embed-worker"), slog.String("version", version))
-			ctx, cancel := baseContext()
-			defer cancel()
-			<-ctx.Done()
-			log.Info("shutting down embed-worker")
-			return nil
-		},
-	}
-}
-
 func newBackfillCmd(local *bool) *cobra.Command {
 	var opts backfill.Options
 
@@ -344,22 +322,6 @@ func newReindexCmd(local *bool) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show intended work without writing")
 
 	return cmd
-}
-
-func newReembedCmd(local *bool) *cobra.Command {
-	return &cobra.Command{
-		Use:   "reembed",
-		Short: "Re-generate all embeddings",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(config.LoadOptions{Local: *local})
-			if err != nil {
-				return fmt.Errorf("config: %w", err)
-			}
-			log := observability.NewLogger(cfg)
-			log.Info("reembed: not yet implemented")
-			return nil
-		},
-	}
 }
 
 func newEnrichCmd(local *bool) *cobra.Command {

@@ -179,14 +179,6 @@ func (s *Server) processReadThroughJob(ctx context.Context, job *store.IndexingJ
 		return fmt.Errorf("upsert document: %w", err)
 	}
 
-	if adapter.Searchable(record) {
-		if err := s.store.EnqueueEmbeddingJob(ctx, doc.ID); err != nil {
-			s.log.Warn("read-through enqueue embedding failed",
-				slog.String("document_id", doc.ID),
-				slog.String("error", err.Error()),
-			)
-		}
-	}
 	return nil
 }
 

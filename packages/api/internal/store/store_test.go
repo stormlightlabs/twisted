@@ -2,7 +2,6 @@ package store_test
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -191,49 +190,6 @@ func TestIntegration(t *testing.T) {
 		}
 		if handle != "alice2.tangled.org" {
 			t.Fatalf("handle after update: got %q, want %q", handle, "alice2.tangled.org")
-		}
-	})
-
-	t.Run("enqueue embedding job is idempotent", func(t *testing.T) {
-		doc := &store.Document{
-			ID:         "did:plc:embed|sh.tangled.string|abc",
-			DID:        "did:plc:embed",
-			Collection: "sh.tangled.string",
-			RKey:       "abc",
-			ATURI:      "at://did:plc:embed/sh.tangled.string/abc",
-			CID:        "bafyreienqueue",
-			RecordType: "string",
-			Title:      "foo.go",
-			Body:       "package main",
-		}
-		if err := st.UpsertDocument(ctx, doc); err != nil {
-			t.Fatalf("upsert doc for embedding queue: %v", err)
-		}
-
-		if err := st.EnqueueEmbeddingJob(ctx, doc.ID); err != nil {
-			t.Fatalf("enqueue embedding job: %v", err)
-		}
-		if err := st.EnqueueEmbeddingJob(ctx, doc.ID); err != nil {
-			t.Fatalf("enqueue embedding job second call: %v", err)
-		}
-
-		row := db.QueryRowContext(ctx, `SELECT status, attempts, last_error FROM embedding_jobs WHERE document_id = ?`, doc.ID)
-		var (
-			status    string
-			attempts  int
-			lastError sql.NullString
-		)
-		if err := row.Scan(&status, &attempts, &lastError); err != nil {
-			t.Fatalf("query embedding job: %v", err)
-		}
-		if status != "pending" {
-			t.Fatalf("status: got %q, want pending", status)
-		}
-		if attempts != 0 {
-			t.Fatalf("attempts: got %d, want 0", attempts)
-		}
-		if lastError.Valid {
-			t.Fatalf("last_error: got %q, want NULL", lastError.String)
 		}
 	})
 

@@ -9,7 +9,7 @@ updated: 2026-03-25
 Search now has two phases:
 
 1. Stabilize indexing and activity caching so search is cheap and reliable.
-2. Resume semantic and hybrid work only after the base pipeline is stable.
+2. Enhance keyword search quality with FTS5 features once the base pipeline is stable.
 
 ## Immediate Priority
 
@@ -22,7 +22,7 @@ The current highest-priority search work is operational, not ranking:
 
 Production storage is Turso cloud. The reasoning is recorded in `docs/adr/storage.md`, with the comparison inputs in `docs/adr/pg.md` and `docs/adr/turso.md`.
 
-These tasks block further work on semantic and hybrid search.
+These tasks block further work on search quality improvements.
 
 ## Planning Decisions
 
@@ -155,7 +155,7 @@ Acceptance:
 2. Direct API reads enqueue background indexing for misses.
 3. JetStream fills only the recent-activity cache.
 4. Smoke tests guard the critical paths.
-5. Semantic and hybrid search remain blocked until the base pipeline is stable.
+5. FTS5 quality improvements (synonyms, stemming, prefix search) follow once the base pipeline is stable.
 
 ## Backfill Strategy
 
@@ -172,7 +172,7 @@ Acceptance:
 | Param        | Required | Default | Description                           |
 | ------------ | -------- | ------- | ------------------------------------- |
 | `q`          | Yes      | —       | Query string                          |
-| `mode`       | No       | keyword | keyword, semantic, or hybrid          |
+| `mode`       | No       | keyword | keyword                               |
 | `limit`      | No       | 20      | Results per page (1–100)              |
 | `offset`     | No       | 0       | Pagination offset                     |
 | `collection` | No       | —       | Filter by collection NSID             |
@@ -227,12 +227,15 @@ Indexing via Tap is useful but has proven unreliable for maintaining complete, u
 
 4. **JetStream is for recent activity, not authoritative indexing.** Use it to power the cached feed, not to replace Tap or repo re-sync.
 
-5. **Semantic search is additive.** It improves discovery for vague queries but is not required for the app to be useful.
+5. **FTS5 enhancements are the next quality step.** Synonym expansion, stemming, and prefix search improve discovery without external dependencies.
 
 6. **Graceful degradation.** The mobile app treats the search API as optional. If Twister is unavailable, handle-based direct browsing still works. Search results link into the same browsing screens.
 
 ## Quality Improvements (Planned)
 
+- Synonym expansion at query time (e.g. "repo" matches "repository")
+- Stemming tokenizer (porter or unicode61+porter)
+- Prefix search support for autocomplete
 - Field weight tuning based on real query patterns
 - Recency boost for recently updated content
 - Collection-aware ranking

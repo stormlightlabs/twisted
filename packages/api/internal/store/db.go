@@ -16,8 +16,6 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-var extensionMigrationNoticeLogged bool
-
 type migrationMode struct {
 	allowTursoExtensionSkip bool
 	targetDescription       string
@@ -189,13 +187,9 @@ func execMigration(db *sql.DB, name, content string, mode migrationMode) error {
 		if _, err := db.Exec(stmt); err != nil {
 			upper := strings.ToUpper(stmt)
 			if strings.Contains(upper, "LIBSQL_VECTOR_IDX") {
-				if !extensionMigrationNoticeLogged {
-					extensionMigrationNoticeLogged = true
-					slog.Info("migration: skipping unsupported extension index",
-						"migration", name,
-						"reason", "database engine does not support vector index DDL in this environment",
-					)
-				}
+				slog.Debug("migration: skipping unsupported vector index DDL",
+					"migration", name,
+				)
 				continue
 			}
 			if strings.Contains(upper, "CREATE VIRTUAL TABLE") && strings.Contains(upper, "USING FTS5") {

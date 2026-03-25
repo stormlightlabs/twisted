@@ -58,8 +58,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /oauth/client-metadata.json", s.handleOAuthClientMetadata)
 	mux.HandleFunc("GET /search", s.handleSearch)
 	mux.HandleFunc("GET /search/keyword", s.handleSearchKeyword)
-	mux.HandleFunc("GET /search/semantic", s.handleNotImplemented)
-	mux.HandleFunc("GET /search/hybrid", s.handleNotImplemented)
 
 	mux.HandleFunc("GET /documents/{id}", s.handleGetDocument)
 	mux.HandleFunc("GET /profiles/{did}/summary", s.handleProfileSummary)
@@ -98,7 +96,6 @@ func (s *Server) Handler() http.Handler {
 
 	if s.cfg.EnableAdminEndpoints {
 		mux.HandleFunc("POST /admin/reindex", s.handleAdminReindex)
-		mux.HandleFunc("POST /admin/reembed", s.handleNotImplemented)
 	}
 
 	site := view.Handler()
@@ -224,10 +221,8 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	switch mode {
 	case "keyword":
 		s.handleSearchKeyword(w, r)
-	case "semantic", "hybrid":
-		s.handleNotImplemented(w, r)
 	default:
-		writeJSON(w, http.StatusBadRequest, errorBody("invalid_parameter", "mode must be keyword, semantic, or hybrid"))
+		writeJSON(w, http.StatusBadRequest, errorBody("invalid_parameter", "mode must be keyword"))
 	}
 }
 
@@ -483,6 +478,3 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleNotImplemented(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, errorBody("not_implemented", "this endpoint is not yet available"))
-}

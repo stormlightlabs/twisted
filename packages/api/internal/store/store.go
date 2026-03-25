@@ -110,7 +110,6 @@ type Store interface {
 	UpdateRecordState(ctx context.Context, subjectURI string, state string) error
 	UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error
 	GetIdentityHandle(ctx context.Context, did string) (string, error)
-	EnqueueEmbeddingJob(ctx context.Context, documentID string) error
 	EnqueueIndexingJob(ctx context.Context, input IndexingJobInput) error
 	ClaimIndexingJob(ctx context.Context) (*IndexingJob, error)
 	CompleteIndexingJob(ctx context.Context, documentID string) error

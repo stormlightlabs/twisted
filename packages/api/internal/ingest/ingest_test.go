@@ -36,8 +36,7 @@ type fakeStore struct {
 	initialSync  *store.SyncState
 	recordStates map[string]string
 	handles      map[string]string
-	enqueued     map[string]bool
-	onSetSync    func()
+	onSetSync func()
 }
 
 func newFakeStore() *fakeStore {
@@ -45,8 +44,7 @@ func newFakeStore() *fakeStore {
 		docs:         make(map[string]*store.Document),
 		deleted:      make(map[string]bool),
 		recordStates: make(map[string]string),
-		handles:      make(map[string]string),
-		enqueued:     make(map[string]bool),
+		handles: make(map[string]string),
 	}
 }
 
@@ -96,11 +94,6 @@ func (f *fakeStore) UpsertIdentityHandle(_ context.Context, did, handle string, 
 
 func (f *fakeStore) GetIdentityHandle(_ context.Context, did string) (string, error) {
 	return f.handles[did], nil
-}
-
-func (f *fakeStore) EnqueueEmbeddingJob(_ context.Context, documentID string) error {
-	f.enqueued[documentID] = true
-	return nil
 }
 
 func (f *fakeStore) EnqueueIndexingJob(_ context.Context, _ store.IndexingJobInput) error {
@@ -227,10 +220,6 @@ func TestRunner_ProcessCreateAndDelete(t *testing.T) {
 	if doc.AuthorHandle != "author.tangled.org" {
 		t.Fatalf("author handle: got %q", doc.AuthorHandle)
 	}
-	if !st.enqueued[docID] {
-		t.Fatalf("embedding job not enqueued for %q", docID)
-	}
-
 	deleteEvent := normalize.TapRecordEvent{
 		ID:   202,
 		Type: "record",

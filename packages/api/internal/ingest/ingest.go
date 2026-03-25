@@ -269,16 +269,6 @@ func (r *Runner) processRecordEvent(ctx context.Context, event normalize.TapReco
 		return err
 	}
 
-	if adapter.Searchable(record.Record) {
-		if err := r.store.EnqueueEmbeddingJob(ctx, doc.ID); err != nil {
-			r.log.Warn("embedding enqueue failed",
-				slog.Int64("event_id", event.ID),
-				slog.String("document_id", doc.ID),
-				slog.String("error", err.Error()),
-			)
-		}
-	}
-
 	return r.advanceCursorAndAck(ctx, event.ID)
 }
 

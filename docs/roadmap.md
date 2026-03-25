@@ -5,7 +5,7 @@ updated: 2026-03-25
 
 ## API: Search Stabilization
 
-Highest priority. This work blocks further investment in semantic search, hybrid ranking, and broader discovery features.
+Highest priority. This work blocks further investment in search quality and broader discovery features.
 
 - [x] Stabilize local development and experimentation around a local `file:` database
 - [x] Document backup, restore, and disk-growth procedures for the experimental local DB
@@ -33,34 +33,16 @@ Highest priority. This work blocks further investment in semantic search, hybrid
 
 Completed on [2026-03-25](../CHANGELOG.md#2026-03-25)
 
-## API: Semantic Search Pipeline
+## API: FTS5 Search Quality
 
-Nomic Embed Text v1.5 via Railway template, async embedding pipeline.
+Improve keyword search quality without external dependencies.
 
-**Blocked on:** API: Search Stabilization
+**Depends on:** API: Search Stabilization
 
-- [ ] Deploy nomic-embed Railway template (`POST /api/embeddings` with Bearer auth)
-- [ ] Embedding client in Go API (`internal/embedding/`) calling the Nomic service
-- [ ] Embed-worker: consume `embedding_jobs` queue, generate 768-dim vectors, store in `document_embeddings`
-- [ ] `GET /search/semantic` endpoint using DiskANN vector_top_k
-- [ ] Reembed command for bulk re-generation
-
-## API: Hybrid Search
-
-Combine keyword and semantic results.
-
-**Blocked on:** API: Search Stabilization, API: Semantic Search Pipeline
-
-- [ ] Score normalization (keyword BM25 → [0,1], semantic cosine → [0,1])
-- [ ] Weighted merge (0.65 keyword + 0.35 semantic, configurable)
-- [ ] Deduplication by document ID
-- [ ] `matched_by` metadata in results
-
-## API: Search Quality
-
-**Blocked on:** API: Search Stabilization
-
-- [ ] Field weight tuning based on real queries
+- [ ] Synonym expansion at query time (e.g. "repo" matches "repository")
+- [ ] Stemming tokenizer (porter or unicode61+porter)
+- [ ] Prefix search support for autocomplete
+- [ ] Field weight tuning based on real query patterns
 - [ ] Recency boost for recently updated content
 - [ ] Star count ranking signal (via Constellation)
 - [ ] State filtering defaults (exclude closed issues)
