@@ -21,19 +21,19 @@ The server listens on `:8080` by default. Logs are printed as text when `--local
 ## API Smoke Tests
 
 Smoke checks for the API surface live in a uv-managed Python project at
-`scripts/api/`.
+`packages/scripts/api/`.
 
 From the repo root:
 
 ```sh
-uv run --project scripts/api twister-api-smoke
+uv run --project packages/scripts/api twister-api-smoke
 ```
 
 Optional base URL override:
 
 ```sh
 TWISTER_API_BASE_URL=http://localhost:8080 \
-	uv run --project scripts/api twister-api-smoke
+	uv run --project packages/scripts/api twister-api-smoke
 ```
 
 ## Experimental Local DB Operations

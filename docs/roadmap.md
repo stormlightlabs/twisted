@@ -13,7 +13,7 @@ Highest priority. This work blocks further investment in semantic search, hybrid
 - [x] Write a production storage decision record with workload and operational tradeoffs, using `docs/adr/pg.md` and `docs/adr/turso.md`
 - [x] Define the migration path from the experimental local setup to the chosen production backend
 - [x] Add a durable read-through indexing job queue for records fetched through the API
-- [x] Add API smoke tests for `healthz`, `readyz`, `search`, `documents`, indexing, and activity in `scripts/api/`
+- [x] Add API smoke tests for `healthz`, `readyz`, `search`, `documents`, indexing, and activity in `packages/scripts/api/`
   - desertthunder.dev DID: `did:plc:xg2vq45muivyy3xwatcehspu`
   - Twisted AT URI: `at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.repo/3mho6hukiei22`
   - Profile AT URI: `at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.actor.profile/self`

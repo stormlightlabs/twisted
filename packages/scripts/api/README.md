@@ -8,9 +8,9 @@ From the repo root:
 
 ```sh
 # Run all
-uv run --project scripts/api twister-api-smoke
+uv run --project packages/scripts/api twister-api-smoke
 # Run specific checks (healthz | readyz | search | documents | indexing | activity)
-uv run --project scripts/api twister-api-smoke --check healthz
+uv run --project packages/scripts/api twister-api-smoke --check healthz
 ```
 
 ## Options
