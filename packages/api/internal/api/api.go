@@ -17,6 +17,7 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
 	"tangled.org/desertthunder.dev/twister/internal/view"
+	"tangled.org/desertthunder.dev/twister/internal/xrpc"
 )
 
 // Server is the HTTP search API server.
@@ -26,16 +27,18 @@ type Server struct {
 	cfg           *config.Config
 	log           *slog.Logger
 	constellation *constellation.Client
+	xrpc          *xrpc.Client
 }
 
 // New creates a new API server.
-func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log *slog.Logger, constellation *constellation.Client) *Server {
+func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log *slog.Logger, constellation *constellation.Client, xrpcClient *xrpc.Client) *Server {
 	return &Server{
 		search:        searchRepo,
 		store:         st,
 		cfg:           cfg,
 		log:           log,
 		constellation: constellation,
+		xrpc:          xrpcClient,
 	}
 }
 
@@ -52,6 +55,37 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /documents/{id}", s.handleGetDocument)
 	mux.HandleFunc("GET /profiles/{did}/summary", s.handleProfileSummary)
+
+	mux.HandleFunc("GET /backlinks/count", s.handleBacklinksCount)
+	mux.HandleFunc("GET /activity/stream", s.handleActivityStream)
+	mux.HandleFunc("GET /identity/resolve", s.handleResolveHandle)
+	mux.HandleFunc("GET /identity/did/{did}", s.handleDidDocument)
+	mux.HandleFunc("GET /xrpc/knot/{knotHost}/{nsid}", s.handleKnotProxy)
+	mux.HandleFunc("GET /xrpc/pds/{pds}/{nsid}", s.handlePdsProxy)
+	mux.HandleFunc("GET /xrpc/bsky/{nsid}", s.handleBskyProxy)
+
+	mux.HandleFunc("GET /actors/{handle}", s.handleGetActor)
+	mux.HandleFunc("GET /actors/{handle}/repos", s.handleListActorRepos)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}", s.handleGetActorRepo)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/tree", s.handleRepoTree)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/blob", s.handleRepoBlob)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/log", s.handleRepoLog)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/branches", s.handleRepoBranches)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/default-branch", s.handleRepoDefaultBranch)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/languages", s.handleRepoLanguages)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/tags", s.handleRepoTags)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/diff", s.handleRepoDiff)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/compare", s.handleRepoCompare)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/issues", s.handleRepoIssues)
+	mux.HandleFunc("GET /actors/{handle}/repos/{repo}/pulls", s.handleRepoPulls)
+	mux.HandleFunc("GET /actors/{handle}/issues", s.handleActorIssues)
+	mux.HandleFunc("GET /actors/{handle}/pulls", s.handleActorPulls)
+	mux.HandleFunc("GET /actors/{handle}/following", s.handleActorFollowing)
+	mux.HandleFunc("GET /actors/{handle}/strings", s.handleActorStrings)
+	mux.HandleFunc("GET /issues/{handle}/{rkey}", s.handleIssueDetail)
+	mux.HandleFunc("GET /issues/{handle}/{rkey}/comments", s.handleIssueComments)
+	mux.HandleFunc("GET /pulls/{handle}/{rkey}", s.handlePullDetail)
+	mux.HandleFunc("GET /pulls/{handle}/{rkey}/comments", s.handlePullComments)
 
 	if s.cfg.EnableAdminEndpoints {
 		mux.HandleFunc("POST /admin/reindex", s.handleAdminReindex)

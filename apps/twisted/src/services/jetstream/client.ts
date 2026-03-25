@@ -1,18 +1,14 @@
 /**
- * JetstreamClient — subscribes to the AT Protocol Jetstream WebSocket firehose
- * and filters for sh.tangled.* collection events, emitting ActivityItems.
+ * JetstreamClient — subscribes to the Twister activity stream WebSocket, which
+ * proxies the AT Protocol Jetstream firehose and filters for sh.tangled.* events.
  *
  * Connects on demand, auto-reconnects after disconnection, and tracks the last
  * event cursor so gap-free resume is possible on reconnect.
- *
- * Data source decision: Jetstream is chosen over PDS polling because it provides
- * a public, real-time stream of all network events without requiring authentication
- * or prior knowledge of specific user DIDs. PDS polling would require a known list
- * of accounts to follow, and the Twister API does not yet expose an activity feed.
  */
 import type { ActivityItem } from "@/domain/models/activity.js";
+import { getTwisterWsUrl } from "@/core/config/project.js";
 
-const JETSTREAM_URL = "wss://jetstream2.us-east.bsky.network/subscribe";
+const ACTIVITY_STREAM_PATH = "/activity/stream";
 const MAX_ITEMS = 200;
 const RECONNECT_DELAY_MS = 3_000;
 
@@ -160,7 +156,7 @@ export class JetstreamClient {
     if (this.cursor !== null) {
       params.set("cursor", String(this.cursor));
     }
-    return `${JETSTREAM_URL}?${params.toString()}`;
+    return `${getTwisterWsUrl(ACTIVITY_STREAM_PATH)}?${params.toString()}`;
   }
 
   private _open(): void {

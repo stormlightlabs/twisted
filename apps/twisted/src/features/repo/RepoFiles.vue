@@ -78,17 +78,17 @@ import type { RepoFile } from "@/domain/models/repo.js";
 import { highlightCode } from "@/lib/syntax.js";
 import { createObjectUrlFromBlobContent } from "@/services/tangled/repo-assets.js";
 
-const props = defineProps<{ knotHost: string; knotRepo: string; branch: string }>();
+const props = defineProps<{ owner: string; repo: string; branch: string }>();
 
 const selectedFile = ref<RepoFile | null>(null);
 const currentPath = ref("");
 
 const treeQuery = useRepoTree(
-  computed(() => props.knotHost),
-  computed(() => props.knotRepo),
+  computed(() => props.owner),
+  computed(() => props.repo),
   computed(() => props.branch),
   currentPath,
-  { enabled: computed(() => !!props.knotHost && !!props.knotRepo && !!props.branch) },
+  { enabled: computed(() => !!props.owner && !!props.repo && !!props.branch) },
 );
 
 const sortedFiles = computed(() => {
@@ -107,8 +107,8 @@ const filePath = computed(() => selectedFile.value?.path ?? "");
 const isFileSelected = computed(() => !!selectedFile.value && selectedFile.value.type === "file");
 
 const blobQuery = useRepoBlob(
-  computed(() => props.knotHost),
-  computed(() => props.knotRepo),
+  computed(() => props.owner),
+  computed(() => props.repo),
   computed(() => props.branch),
   filePath,
   { enabled: isFileSelected },

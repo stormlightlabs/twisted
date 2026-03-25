@@ -1,14 +1,7 @@
 import { fetchRepoBlob } from "./endpoints.js";
 import { normalizeBlob, type BlobContent } from "./normalizers.js";
 
-export type RepoAssetContext = {
-  owner: string;
-  repo: string;
-  branch: string;
-  knotHost: string;
-  knotRepo: string;
-  sourcePath?: string;
-};
+export type RepoAssetContext = { owner: string; repo: string; branch: string; sourcePath?: string };
 
 const EXTERNAL_URL_RE = /^(?:[a-z][a-z0-9+.-]*:)?\/\//i;
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
@@ -47,9 +40,7 @@ export function resolveRepoRelativePath(sourcePath: string | undefined, src: str
   const [pathOnly] = value.split(/[?#]/, 1);
   if (!pathOnly) return null;
 
-  const baseSegments = value.startsWith("/")
-    ? []
-    : (sourcePath ? dirname(sourcePath).split("/").filter(Boolean) : []);
+  const baseSegments = value.startsWith("/") ? [] : sourcePath ? dirname(sourcePath).split("/").filter(Boolean) : [];
 
   const segments = pathOnly.replace(/^\/+/, "").split("/");
   const resolved = [...baseSegments];
@@ -77,11 +68,13 @@ export async function resolveRepoImageUrl(
   if (!repoPath) return null;
 
   try {
-    const blob = normalizeBlob(await fetchRepoBlob(context.knotHost, {
-      repo: context.knotRepo,
-      ref: context.branch,
-      path: repoPath,
-    }));
+    const blob = normalizeBlob(
+      await fetchRepoBlob(context.owner, context.repo, {
+        repo: `${context.owner}/${context.repo}`,
+        ref: context.branch,
+        path: repoPath,
+      }),
+    );
 
     const objectUrl = createObjectUrlFromBlobContent(blob);
     if (objectUrl) return { url: objectUrl, revoke: true };

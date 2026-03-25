@@ -182,12 +182,10 @@
   const hasRecentItems = computed(() => recentRepos.value.length > 0 || recentProfiles.value.length > 0);
 
   const identity = useIdentity(activeHandle, { enabled: computed(() => !!activeHandle.value) });
-  const did = computed(() => identity.data.value?.did ?? "");
-  const pds = computed(() => identity.data.value?.pds ?? "");
   const hasResolvedIdentity = computed(() => !!identity.data.value);
 
-  const profileQuery = useActorProfile(pds, did, activeHandle, undefined, { enabled: hasResolvedIdentity });
-  const reposQuery = useUserRepos(pds, did, activeHandle, { enabled: hasResolvedIdentity });
+  const profileQuery = useActorProfile(activeHandle, undefined, { enabled: hasResolvedIdentity });
+  const reposQuery = useUserRepos(activeHandle, { enabled: hasResolvedIdentity });
 
   const repos = computed(() => reposQuery.data.value ?? []);
   const displayName = computed(() => profileQuery.data.value?.displayName ?? "Public Tangled account");

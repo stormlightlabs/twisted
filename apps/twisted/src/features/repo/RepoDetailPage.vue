@@ -45,8 +45,8 @@
           :markdown-context="markdownContext" />
         <RepoFiles
           v-else-if="segment === 'files'"
-          :knot-host="knotHost"
-          :knot-repo="knotRepo"
+          :owner="owner"
+          :repo="repoName"
           :branch="defaultBranch" />
         <RepoIssues
           v-else-if="segment === 'issues'"
@@ -85,7 +85,6 @@ import RepoFiles from "./RepoFiles.vue";
 import RepoIssues from "./RepoIssues.vue";
 import RepoPRs from "./RepoPRs.vue";
 import {
-  useIdentity,
   useRepoRecord,
   useDefaultBranch,
   useRepoBlob,
@@ -129,35 +128,26 @@ watch(segment, (value) => {
   router.replace({ path: route.path, query: nextQuery });
 });
 
-const identity = useIdentity(owner, { enabled: computed(() => !!owner.value) });
-const did = computed(() => identity.data.value?.did ?? "");
-const pds = computed(() => identity.data.value?.pds ?? "");
-const hasIdentity = computed(() => !!identity.data.value);
+const recordQuery = useRepoRecord(owner, repoName, { enabled: computed(() => !!owner.value && !!repoName.value) });
+const hasRecord = computed(() => !!recordQuery.data.value);
 
-const recordQuery = useRepoRecord(pds, did, repoName, owner, { enabled: hasIdentity });
-const knotHost = computed(() => recordQuery.data.value?.knot ?? "");
-const knotRepo = computed(() => (did.value && repoName.value ? `${did.value}/${repoName.value}` : ""));
-const hasRecord = computed(() => !!recordQuery.data.value?.knot && !!did.value);
-
-const branchQuery = useDefaultBranch(knotHost, knotRepo, { enabled: hasRecord });
+const branchQuery = useDefaultBranch(owner, repoName, { enabled: hasRecord });
 const defaultBranch = computed(() => branchQuery.data.value?.name ?? "");
 const hasBranch = computed(() => !!branchQuery.data.value?.name);
 const markdownContext = computed<RepoAssetContext | undefined>(() => {
-  if (!knotHost.value || !knotRepo.value || !defaultBranch.value) return undefined;
+  if (!owner.value || !repoName.value || !defaultBranch.value) return undefined;
 
   return {
     owner: owner.value,
     repo: repoName.value,
     branch: defaultBranch.value,
-    knotHost: knotHost.value,
-    knotRepo: knotRepo.value,
     sourcePath: "README.md",
   };
 });
 
-const languagesQuery = useRepoLanguages(knotHost, knotRepo, undefined, { enabled: hasBranch });
-const readmeQuery = useRepoBlob(knotHost, knotRepo, defaultBranch, "README.md", { readme: true, enabled: hasBranch });
-const logQuery = useRepoLog(knotHost, knotRepo, defaultBranch, { limit: 20, enabled: hasBranch });
+const languagesQuery = useRepoLanguages(owner, repoName, undefined, { enabled: hasBranch });
+const readmeQuery = useRepoBlob(owner, repoName, defaultBranch, "README.md", { readme: true, enabled: hasBranch });
+const logQuery = useRepoLog(owner, repoName, defaultBranch, { limit: 20, enabled: hasBranch });
 
 const repo = computed((): RepoDetail | undefined => {
   const rec = recordQuery.data.value;
@@ -176,8 +166,8 @@ const hasAtUri = computed(() => !!repoAtUri.value);
 
 const starCountQuery = useRepoStarCount(repoAtUri, { enabled: hasAtUri });
 
-const issuesQuery = useRepoIssues(pds, did, owner, repoAtUri, { enabled: hasAtUri });
-const prsQuery = useRepoPRs(pds, did, owner, repoAtUri, { enabled: hasAtUri });
+const issuesQuery = useRepoIssues(owner, repoName, { enabled: hasAtUri });
+const prsQuery = useRepoPRs(owner, repoName, { enabled: hasAtUri });
 
 const commits = computed(() => logQuery.data.value ?? []);
 const issues = computed(() => issuesQuery.data.value ?? []);
@@ -189,10 +179,10 @@ const tabPrefix = computed(() => {
   return "/tabs/home";
 });
 
-const isLoading = computed(() => identity.isPending.value || recordQuery.isPending.value);
-const isError = computed(() => identity.isError.value || recordQuery.isError.value);
+const isLoading = computed(() => recordQuery.isPending.value);
+const isError = computed(() => recordQuery.isError.value);
 const errorMessage = computed(() => {
-  const err = identity.error.value ?? recordQuery.error.value;
+  const err = recordQuery.error.value;
   return err instanceof Error ? err.message : "An unexpected error occurred.";
 });
 

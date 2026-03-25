@@ -61,8 +61,6 @@ func Migrate(db *sql.DB, url string) error {
 		return fmt.Errorf("create schema_migrations table: %w", err)
 	}
 
-	// For databases that were created before migration tracking was added,
-	// backfill schema_migrations by introspecting which tables/columns exist.
 	if err := backfillMigrationHistory(db); err != nil {
 		return fmt.Errorf("backfill migration history: %w", err)
 	}
@@ -115,7 +113,6 @@ func backfillMigrationHistory(db *sql.DB) error {
 		return nil
 	}
 
-	// If the documents table does not exist yet this is a fresh database — nothing to backfill.
 	if !sqliteTableExists(db, "documents") {
 		return nil
 	}
@@ -127,20 +124,16 @@ func backfillMigrationHistory(db *sql.DB) error {
 		)
 	}
 
-	// 001 — documents table is present.
 	mark("001_initial.sql")
 
-	// 002 — identity_handles table.
 	if sqliteTableExists(db, "identity_handles") {
 		mark("002_identity_handles.sql")
 	}
 
-	// 003 — documents_fts virtual table.
 	if sqliteTableExists(db, "documents_fts") {
 		mark("003_documents_fts.sql")
 	}
 
-	// 004 — web_url column on documents.
 	if sqliteColumnExists(db, "documents", "web_url") {
 		mark("004_web_url.sql")
 	}

@@ -1,16 +1,6 @@
 /**
- * TanStack Query hooks for Tangled data.
- * These are the only entry points Vue components should use — no direct
- * imports of @atcute/* or service/endpoint functions in components.
- *
- * Cache strategy:
- *  Repo metadata  stale: 5m  gc: 30m
- *  File tree      stale: 2m  gc: 10m
- *  File content   stale: 5m  gc: 30m
- *  Commit log     stale: 2m  gc: 10m
- *  Branches       stale: 2m  gc: 10m
- *  Profile        stale: 10m gc: 60m
- *  README         stale: 5m  gc: 30m
+ * TanStack Query hooks for Tangled data via Twister API.
+ * Components should only use these hooks rather than endpoint wrappers directly.
  */
 
 import { useQuery } from "@tanstack/vue-query";
@@ -19,6 +9,13 @@ import type { MaybeRef } from "vue";
 import type { FollowedUserSummary } from "@/domain/models/follow.js";
 import type { StringSummary } from "@/domain/models/string.js";
 import {
+  fetchActor,
+  fetchActorRepos,
+  fetchActorRepo,
+  fetchActorFollowing,
+  fetchActorStrings,
+  fetchActorIssues,
+  fetchActorPulls,
   fetchRepoTree,
   fetchRepoBlob,
   fetchDefaultBranch,
@@ -28,23 +25,12 @@ import {
   fetchRepoTags,
   fetchRepoDiff,
   fetchRepoCompare,
-  fetchActorProfile,
-  fetchBlueskyProfile,
-  fetchRepoRecordByName,
-  fetchIssueRecord,
-  fetchPullRecord,
-  listRepoRecords,
-  listIssueRecords,
-  listIssueCommentRecords,
-  listIssueStateRecords,
-  listPullRecords,
-  listPullCommentRecords,
-  listPullStatusRecords,
-  listFollowRecords,
-  listStringRecords,
-  resolveHandle,
-  resolveDidIdentity,
-  resolvePds,
+  fetchRepoIssues,
+  fetchRepoPulls,
+  fetchIssueDetail,
+  fetchIssueComments,
+  fetchPullDetail,
+  fetchPullComments,
 } from "./endpoints.js";
 import {
   normalizeTree,
@@ -79,36 +65,18 @@ function isEnabled(required: boolean, enabled?: MaybeRef<boolean>): boolean {
   return required && (enabled === undefined || !!toValue(enabled));
 }
 
-async function resolveBlueskyProfile(
-  record: Awaited<ReturnType<typeof fetchActorProfile>>["value"],
-  did: string,
-): Promise<{ displayName?: string; avatar?: string }> {
-  if (!record.bluesky) return {};
-
-  try {
-    const profile = await fetchBlueskyProfile(did);
-    return { displayName: profile.displayName, avatar: profile.avatar };
-  } catch {
-    return {};
-  }
-}
-
 /** Resolved identity: DID + PDS hostname for an AT Protocol handle. */
 export type Identity = { did: string; pds: string };
 
-/**
- * Resolve an AT Protocol handle to its DID and PDS hostname.
- * Result is cached for 10 minutes (handles rarely change).
- */
+/** Resolve a handle through Twister actor endpoint. */
 export function useIdentity(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
   const normalizedHandle = computed(() => toValue(handle).trim());
 
   return useQuery({
     queryKey: computed(() => ["identity", normalizedHandle.value]),
     queryFn: async (): Promise<Identity> => {
-      const did = await resolveHandle(normalizedHandle.value);
-      const pds = await resolvePds(did);
-      return { did, pds };
+      const actor = await fetchActor(normalizedHandle.value);
+      return { did: actor.did, pds: new URL(actor.pds).hostname };
     },
     enabled: computed(() => isEnabled(hasText(normalizedHandle), options.enabled)),
     staleTime: 10 * MIN,
@@ -118,21 +86,22 @@ export function useIdentity(handle: MaybeRef<string>, options: { enabled?: Maybe
 
 /** File tree for a path within a repo. */
 export function useRepoTree(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   ref: MaybeRef<string>,
   path: MaybeRef<string | undefined> = undefined,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["tree", toValue(knotHost), toValue(repo), toValue(ref), toValue(path)]),
+    queryKey: computed(() => ["tree", h.value, r.value, toValue(ref), toValue(path)]),
     queryFn: () =>
-      fetchRepoTree(toValue(knotHost), {
-        repo: toValue(repo),
-        ref: toValue(ref),
-        path: toValue(path),
-      }).then((out) => normalizeTree(out, toValue(path) ?? "")),
-    enabled: options.enabled,
+      fetchRepoTree(h.value, r.value, { repo: `${h.value}/${r.value}`, ref: toValue(ref), path: toValue(path) }).then(
+        (out) => normalizeTree(out, toValue(path) ?? ""),
+      ),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r) && hasText(ref), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
@@ -140,21 +109,22 @@ export function useRepoTree(
 
 /** Raw file content (blob) for a specific path and ref. */
 export function useRepoBlob(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   ref: MaybeRef<string>,
   path: MaybeRef<string>,
   options: { readme?: boolean; enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["blob", toValue(knotHost), toValue(repo), toValue(ref), toValue(path)]),
+    queryKey: computed(() => ["blob", h.value, r.value, toValue(ref), toValue(path)]),
     queryFn: () =>
-      fetchRepoBlob(toValue(knotHost), {
-        repo: toValue(repo),
-        ref: toValue(ref),
-        path: toValue(path),
-      }).then(normalizeBlob),
-    enabled: options.enabled,
+      fetchRepoBlob(h.value, r.value, { repo: `${h.value}/${r.value}`, ref: toValue(ref), path: toValue(path) }).then(
+        normalizeBlob,
+      ),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r) && hasText(ref) && hasText(path), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
@@ -162,15 +132,17 @@ export function useRepoBlob(
 
 /** Default branch name + latest commit for a repo. */
 export function useDefaultBranch(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["defaultBranch", toValue(knotHost), toValue(repo)]),
-    queryFn: () =>
-      fetchDefaultBranch(toValue(knotHost), { repo: toValue(repo) }).then(normalizeDefaultBranch),
-    enabled: options.enabled,
+    queryKey: computed(() => ["defaultBranch", h.value, r.value]),
+    queryFn: () => fetchDefaultBranch(h.value, r.value).then(normalizeDefaultBranch),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
@@ -178,16 +150,18 @@ export function useDefaultBranch(
 
 /** Language breakdown for a repo (percentages). */
 export function useRepoLanguages(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   ref?: MaybeRef<string | undefined>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["languages", toValue(knotHost), toValue(repo), toValue(ref)]),
-    queryFn: () =>
-      fetchLanguages(toValue(knotHost), { repo: toValue(repo), ref: toValue(ref) }).then(normalizeLanguages),
-    enabled: options.enabled,
+    queryKey: computed(() => ["languages", h.value, r.value, toValue(ref)]),
+    queryFn: () => fetchLanguages(h.value, r.value, toValue(ref)).then(normalizeLanguages),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
@@ -195,7 +169,7 @@ export function useRepoLanguages(
 
 /** Paginated commit log for a repo/ref. */
 export function useRepoLog(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   ref: MaybeRef<string>,
   options: {
@@ -205,24 +179,19 @@ export function useRepoLog(
     enabled?: MaybeRef<boolean>;
   } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => [
-      "log",
-      toValue(knotHost),
-      toValue(repo),
-      toValue(ref),
-      toValue(options.path),
-      toValue(options.cursor),
-    ]),
+    queryKey: computed(() => ["log", h.value, r.value, toValue(ref), toValue(options.path), toValue(options.cursor)]),
     queryFn: () =>
-      fetchRepoLog(toValue(knotHost), {
-        repo: toValue(repo),
+      fetchRepoLog(h.value, r.value, {
         ref: toValue(ref),
         path: toValue(options.path),
         limit: options.limit,
         cursor: toValue(options.cursor),
       }).then(normalizeLogText),
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r) && hasText(ref), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
@@ -230,106 +199,82 @@ export function useRepoLog(
 
 /** Branch list for a repo. */
 export function useRepoBranches(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   defaultBranch?: MaybeRef<string | undefined>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["branches", toValue(knotHost), toValue(repo)]),
+    queryKey: computed(() => ["branches", h.value, r.value]),
     queryFn: () =>
-      fetchRepoBranches(toValue(knotHost), { repo: toValue(repo) }).then((raw) =>
-        normalizeBranchesText(raw, toValue(defaultBranch)),
-      ),
-    enabled: options.enabled,
+      fetchRepoBranches(h.value, r.value).then((raw) => normalizeBranchesText(raw, toValue(defaultBranch))),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
-/**
- * Fetch a repo's PDS record (metadata: description, topics, knot, etc.).
- * `pds` is the PDS hostname, e.g. "bsky.social".
- */
+/** Fetch a repo record (metadata: description, topics, knot, etc.). */
 export function useRepoRecord(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repoName: MaybeRef<string>,
-  handle: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
-  const normalizedPds = computed(() => toValue(pds).trim());
-  const normalizedDid = computed(() => toValue(did).trim());
-  const normalizedRepoName = computed(() => toValue(repoName).trim());
+  const h = computed(() => toValue(handle).trim());
+  const repo = computed(() => toValue(repoName).trim());
 
   return useQuery({
-    queryKey: computed(() => ["repoRecord", normalizedPds.value, normalizedDid.value, normalizedRepoName.value]),
+    queryKey: computed(() => ["repoRecord", h.value, repo.value]),
     queryFn: async () => {
-      const { value: record, uri } = await fetchRepoRecordByName(
-        normalizedPds.value,
-        normalizedDid.value,
-        normalizedRepoName.value,
-      ).then((r) => ({
-        value: r.value,
-        uri: r.uri,
-      }));
-      return normalizeRepoRecord(record, toValue(did), toValue(handle), uri);
+      const response = await fetchActorRepo(h.value, repo.value);
+      return normalizeRepoRecord(response.record.value, response.did, response.handle, response.record.uri);
     },
-    enabled: computed(() =>
-      isEnabled(hasText(normalizedPds) && hasText(normalizedDid) && hasText(normalizedRepoName), options.enabled),
-    ),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(repo), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
 }
 
-/** List all repos for a user from their PDS. */
-export function useUserRepos(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
-  handle: MaybeRef<string>,
-  options: { enabled?: MaybeRef<boolean> } = {},
-) {
-  const normalizedPds = computed(() => toValue(pds).trim());
-  const normalizedDid = computed(() => toValue(did).trim());
+/** List all repos for a user. */
+export function useUserRepos(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
+  const h = computed(() => toValue(handle).trim());
 
   return useQuery({
-    queryKey: computed(() => ["userRepos", normalizedPds.value, normalizedDid.value]),
+    queryKey: computed(() => ["userRepos", h.value]),
     queryFn: async () => {
-      const { records } = await listRepoRecords(normalizedPds.value, normalizedDid.value);
-      return records.map((r) => normalizeRepoRecord(r.value, toValue(did), toValue(handle), r.uri));
+      const response = await fetchActorRepos(h.value);
+      return response.records.map((r) => normalizeRepoRecord(r.value, response.did, response.handle, r.uri));
     },
-    enabled: computed(() => isEnabled(hasText(normalizedPds) && hasText(normalizedDid), options.enabled)),
+    enabled: computed(() => isEnabled(hasText(h), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
 }
 
-/** Fetch a user's Tangled actor profile from their PDS. */
+/** Fetch a user's Tangled actor profile. */
 export function useActorProfile(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
   handle: MaybeRef<string>,
   displayName?: MaybeRef<string | undefined>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
-  const normalizedPds = computed(() => toValue(pds).trim());
-  const normalizedDid = computed(() => toValue(did).trim());
+  const h = computed(() => toValue(handle).trim());
 
   return useQuery({
-    queryKey: computed(() => ["actorProfile", normalizedPds.value, normalizedDid.value]),
+    queryKey: computed(() => ["actorProfile", h.value]),
     queryFn: async () => {
-      const { value } = await fetchActorProfile(normalizedPds.value, normalizedDid.value);
-      const bluesky = await resolveBlueskyProfile(value, normalizedDid.value);
+      const response = await fetchActor(h.value);
       return normalizeActorProfile(
-        value,
-        toValue(did),
-        toValue(handle),
-        bluesky.displayName ?? toValue(displayName),
-        bluesky.avatar,
+        response.profile.value,
+        response.did,
+        response.handle,
+        response.bsky?.displayName ?? toValue(displayName),
+        response.bsky?.avatar,
       );
     },
-    enabled: computed(() => isEnabled(hasText(normalizedPds) && hasText(normalizedDid), options.enabled)),
+    enabled: computed(() => isEnabled(hasText(h), options.enabled)),
     staleTime: 10 * MIN,
     gcTime: 60 * MIN,
   });
@@ -337,15 +282,17 @@ export function useActorProfile(
 
 /** Tag list for a repo. Wire format is a raw blob; parsed as lines. */
 export function useRepoTags(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["tags", toValue(knotHost), toValue(repo)]),
-    queryFn: () =>
-      fetchRepoTags(toValue(knotHost), { repo: toValue(repo) }).then((raw) => raw.trim().split("\n").filter(Boolean)),
-    enabled: options.enabled,
+    queryKey: computed(() => ["tags", h.value, r.value]),
+    queryFn: () => fetchRepoTags(h.value, r.value).then((raw) => raw.trim().split("\n").filter(Boolean)),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
@@ -353,15 +300,18 @@ export function useRepoTags(
 
 /** Unified diff for a ref (patch text). */
 export function useRepoDiff(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   ref: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["diff", toValue(knotHost), toValue(repo), toValue(ref)]),
-    queryFn: () => fetchRepoDiff(toValue(knotHost), { repo: toValue(repo), ref: toValue(ref) }),
-    enabled: options.enabled,
+    queryKey: computed(() => ["diff", h.value, r.value, toValue(ref)]),
+    queryFn: () => fetchRepoDiff(h.value, r.value, { repo: `${h.value}/${r.value}`, ref: toValue(ref) }),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r) && hasText(ref), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
@@ -369,152 +319,118 @@ export function useRepoDiff(
 
 /** Comparison diff between two revisions (patch text). */
 export function useRepoCompare(
-  knotHost: MaybeRef<string>,
+  handle: MaybeRef<string>,
   repo: MaybeRef<string>,
   rev1: MaybeRef<string>,
   rev2: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["compare", toValue(knotHost), toValue(repo), toValue(rev1), toValue(rev2)]),
+    queryKey: computed(() => ["compare", h.value, r.value, toValue(rev1), toValue(rev2)]),
     queryFn: () =>
-      fetchRepoCompare(toValue(knotHost), {
-        repo: toValue(repo),
-        rev1: toValue(rev1),
-        rev2: toValue(rev2),
-      }),
-    enabled: options.enabled,
+      fetchRepoCompare(h.value, r.value, { repo: `${h.value}/${r.value}`, rev1: toValue(rev1), rev2: toValue(rev2) }),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r) && hasText(rev1) && hasText(rev2), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
 }
 
-/**
- * Issues for a repo. Lists sh.tangled.repo.issue records from the owner's PDS,
- * filtered by repo AT URI, joined with state from sh.tangled.repo.issue.state.
- */
+/** Issues for a repo, returned with current state by the backend. */
 export function useRepoIssues(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
   handle: MaybeRef<string>,
-  repoAtUri: MaybeRef<string>,
+  repo: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["issues", toValue(pds), toValue(did), toValue(repoAtUri)]),
+    queryKey: computed(() => ["issues", h.value, r.value]),
     queryFn: async () => {
-      const [issuesRes, statesRes] = await Promise.all([
-        listIssueRecords(toValue(pds), toValue(did)),
-        listIssueStateRecords(toValue(pds), toValue(did)),
-      ]);
-
-      const stateMap = new Map<string, "open" | "closed">();
-      for (const s of statesRes.records) {
-        const closed = s.value.state === "sh.tangled.repo.issue.state.closed";
-        stateMap.set(s.value.issue, closed ? "closed" : "open");
-      }
-
-      const targetRepo = toValue(repoAtUri);
-      return issuesRes.records
-        .filter((r) => !targetRepo || r.value.repo === targetRepo)
-        .map((r) => normalizeIssueRecord(r.value, r.uri, toValue(did), toValue(handle), stateMap.get(r.uri) ?? "open"));
+      const response = await fetchRepoIssues(h.value, r.value);
+      return response.records.map((entry) =>
+        normalizeIssueRecord(entry.value, entry.uri, response.did, response.handle, entry.state),
+      );
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
-/**
- * Pull requests for a repo. Lists sh.tangled.repo.pull records from the owner's
- * PDS filtered by target repo AT URI, joined with status records.
- */
+/** Pull requests for a repo, returned with current status by the backend. */
 export function useRepoPRs(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
   handle: MaybeRef<string>,
-  repoAtUri: MaybeRef<string>,
+  repo: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
   return useQuery({
-    queryKey: computed(() => ["prs", toValue(pds), toValue(did), toValue(repoAtUri)]),
+    queryKey: computed(() => ["prs", h.value, r.value]),
     queryFn: async () => {
-      const [pullsRes, statusesRes] = await Promise.all([
-        listPullRecords(toValue(pds), toValue(did)),
-        listPullStatusRecords(toValue(pds), toValue(did)),
-      ]);
-
-      const statusMap = new Map<string, "open" | "merged" | "closed">();
-      for (const s of statusesRes.records) {
-        const raw = s.value.status ?? "sh.tangled.repo.pull.status.open";
-        const status =
-          raw === "sh.tangled.repo.pull.status.merged"
-            ? "merged"
-            : raw === "sh.tangled.repo.pull.status.closed"
-              ? "closed"
-              : "open";
-        statusMap.set(s.value.pull, status);
-      }
-
-      const targetRepo = toValue(repoAtUri);
-      return pullsRes.records
-        .filter((r) => !targetRepo || r.value.target.repo === targetRepo)
-        .map((r) => normalizePullRecord(r.value, r.uri, toValue(did), toValue(handle), statusMap.get(r.uri) ?? "open"));
+      const response = await fetchRepoPulls(h.value, r.value);
+      return response.records.map((entry) =>
+        normalizePullRecord(entry.value, entry.uri, response.did, response.handle, entry.status),
+      );
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
-export function useUserStrings(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
-  options: { enabled?: MaybeRef<boolean> } = {},
-) {
+export function useUserStrings(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
+  const h = computed(() => toValue(handle).trim());
+
   return useQuery({
-    queryKey: computed(() => ["userStrings", toValue(pds), toValue(did)]),
+    queryKey: computed(() => ["userStrings", h.value]),
     queryFn: async (): Promise<StringSummary[]> => {
-      const { records } = await listStringRecords(toValue(pds), toValue(did));
-      return records
+      const response = await fetchActorStrings(h.value);
+      return response.records
         .map((record) => normalizeStringRecord(record.value, record.uri))
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
-export function useUserFollowing(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
-  options: { enabled?: MaybeRef<boolean> } = {},
-) {
+export function useUserFollowing(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
+  const h = computed(() => toValue(handle).trim());
+
   return useQuery({
-    queryKey: computed(() => ["userFollowing", toValue(pds), toValue(did)]),
+    queryKey: computed(() => ["userFollowing", h.value]),
     queryFn: async (): Promise<FollowedUserSummary[]> => {
-      const { records } = await listFollowRecords(toValue(pds), toValue(did));
-      const follows = records
+      const response = await fetchActorFollowing(h.value);
+      const follows = response.records
         .map((record) => normalizeFollowRecord(record.value, record.uri))
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
       return Promise.all(
         follows.map(async (follow) => {
-          const subject = await resolveDidIdentity(follow.subjectDid);
-
           try {
-            const { value } = await fetchActorProfile(subject.pds, subject.did);
-            const bluesky = await resolveBlueskyProfile(value, subject.did);
+            const subject = await fetchActor(follow.subjectDid);
             return {
-              ...normalizeActorProfile(value, subject.did, subject.handle, bluesky.displayName, bluesky.avatar),
+              ...normalizeActorProfile(
+                subject.profile.value,
+                subject.did,
+                subject.handle,
+                subject.bsky?.displayName,
+                subject.bsky?.avatar,
+              ),
               followAtUri: follow.atUri,
               followedAt: follow.createdAt,
             };
           } catch {
             return {
-              did: subject.did,
-              handle: subject.handle,
+              did: follow.subjectDid,
+              handle: follow.subjectDid,
               followAtUri: follow.atUri,
               followedAt: follow.createdAt,
             };
@@ -522,238 +438,173 @@ export function useUserFollowing(
         }),
       );
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h), options.enabled)),
     staleTime: 5 * MIN,
     gcTime: 30 * MIN,
   });
 }
 
-export function useUserIssues(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
-  handle: MaybeRef<string>,
-  options: { enabled?: MaybeRef<boolean> } = {},
-) {
+export function useUserIssues(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
+  const h = computed(() => toValue(handle).trim());
+
   return useQuery({
-    queryKey: computed(() => ["userIssues", toValue(pds), toValue(did)]),
+    queryKey: computed(() => ["userIssues", h.value]),
     queryFn: async () => {
-      const [issuesRes, statesRes] = await Promise.all([
-        listIssueRecords(toValue(pds), toValue(did)),
-        listIssueStateRecords(toValue(pds), toValue(did)),
-      ]);
-
-      const stateMap = new Map<string, "open" | "closed">();
-      for (const stateRecord of statesRes.records) {
-        const closed = stateRecord.value.state === "sh.tangled.repo.issue.state.closed";
-        stateMap.set(stateRecord.value.issue, closed ? "closed" : "open");
-      }
-
-      return issuesRes.records
-        .map((record) =>
-          normalizeIssueRecord(
-            record.value,
-            record.uri,
-            toValue(did),
-            toValue(handle),
-            stateMap.get(record.uri) ?? "open",
-          ),
-        )
+      const response = await fetchActorIssues(h.value);
+      return response.records
+        .map((entry) => normalizeIssueRecord(entry.value, entry.uri, response.did, response.handle, entry.state))
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
-export function useUserPullRequests(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
-  handle: MaybeRef<string>,
-  options: { enabled?: MaybeRef<boolean> } = {},
-) {
+export function useUserPullRequests(handle: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
+  const h = computed(() => toValue(handle).trim());
+
   return useQuery({
-    queryKey: computed(() => ["userPullRequests", toValue(pds), toValue(did)]),
+    queryKey: computed(() => ["userPullRequests", h.value]),
     queryFn: async () => {
-      const [pullsRes, statusesRes] = await Promise.all([
-        listPullRecords(toValue(pds), toValue(did)),
-        listPullStatusRecords(toValue(pds), toValue(did)),
-      ]);
-
-      const statusMap = new Map<string, "open" | "merged" | "closed">();
-      for (const statusRecord of statusesRes.records) {
-        const raw = statusRecord.value.status ?? "sh.tangled.repo.pull.status.open";
-        const status =
-          raw === "sh.tangled.repo.pull.status.merged"
-            ? "merged"
-            : raw === "sh.tangled.repo.pull.status.closed"
-              ? "closed"
-              : "open";
-        statusMap.set(statusRecord.value.pull, status);
-      }
-
-      return pullsRes.records
-        .map((record) =>
-          normalizePullRecord(
-            record.value,
-            record.uri,
-            toValue(did),
-            toValue(handle),
-            statusMap.get(record.uri) ?? "open",
-          ),
-        )
+      const response = await fetchActorPulls(h.value);
+      return response.records
+        .map((entry) => normalizePullRecord(entry.value, entry.uri, response.did, response.handle, entry.status))
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
 export function useIssueDetail(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
   handle: MaybeRef<string>,
   issueRkey: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const rkey = computed(() => toValue(issueRkey).trim());
+
   return useQuery({
-    queryKey: computed(() => ["issueDetail", toValue(pds), toValue(did), toValue(issueRkey)]),
+    queryKey: computed(() => ["issueDetail", h.value, rkey.value]),
     queryFn: async () => {
-      const [issueRes, statesRes, commentsRes] = await Promise.all([
-        fetchIssueRecord(toValue(pds), toValue(did), toValue(issueRkey)),
-        listIssueStateRecords(toValue(pds), toValue(did)),
-        listIssueCommentRecords(toValue(pds), toValue(did)),
+      const [issueRes, commentsRes, actor] = await Promise.all([
+        fetchIssueDetail(h.value, rkey.value),
+        fetchIssueComments(h.value, rkey.value),
+        fetchActor(h.value),
       ]);
-
-      const currentState = statesRes.records.reduce<"open" | "closed">((state, record) => {
-        if (record.value.issue !== issueRes.uri) return state;
-        return record.value.state === "sh.tangled.repo.issue.state.closed" ? "closed" : "open";
-      }, "open");
-
-      const commentCount = commentsRes.records.filter((record) => record.value.issue === issueRes.uri).length;
 
       return normalizeIssueDetail(
         issueRes.value,
         issueRes.uri,
-        toValue(did),
-        toValue(handle),
-        currentState,
-        commentCount,
+        actor.did,
+        actor.handle,
+        issueRes.state,
+        commentsRes.records.length,
       );
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h) && hasText(rkey), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
 export function useIssueComments(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
   handle: MaybeRef<string>,
-  issueAtUri: MaybeRef<string>,
+  issueRkey: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const rkey = computed(() => toValue(issueRkey).trim());
+
   return useQuery({
-    queryKey: computed(() => ["issueComments", toValue(pds), toValue(did), toValue(issueAtUri)]),
+    queryKey: computed(() => ["issueComments", h.value, rkey.value]),
     queryFn: async () => {
-      const response = await listIssueCommentRecords(toValue(pds), toValue(did));
-      const comments = response.records
-        .filter((record) => record.value.issue === toValue(issueAtUri))
-        .map((record) => normalizeIssueComment(record.value, record.uri, toValue(did), toValue(handle)));
+      const [response, actor] = await Promise.all([fetchIssueComments(h.value, rkey.value), fetchActor(h.value)]);
+      const comments = response.records.map((record) =>
+        normalizeIssueComment(record.value, record.uri, actor.did, actor.handle),
+      );
 
       return buildIssueCommentThread(comments);
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h) && hasText(rkey), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
 export function usePullRequestDetail(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
   handle: MaybeRef<string>,
   pullRkey: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const rkey = computed(() => toValue(pullRkey).trim());
+
   return useQuery({
-    queryKey: computed(() => ["pullDetail", toValue(pds), toValue(did), toValue(pullRkey)]),
+    queryKey: computed(() => ["pullDetail", h.value, rkey.value]),
     queryFn: async () => {
-      const [pullRes, statusesRes, commentsRes] = await Promise.all([
-        fetchPullRecord(toValue(pds), toValue(did), toValue(pullRkey)),
-        listPullStatusRecords(toValue(pds), toValue(did)),
-        listPullCommentRecords(toValue(pds), toValue(did)),
+      const [pullRes, commentsRes, actor] = await Promise.all([
+        fetchPullDetail(h.value, rkey.value),
+        fetchPullComments(h.value, rkey.value),
+        fetchActor(h.value),
       ]);
 
-      const currentStatus = statusesRes.records.reduce<"open" | "merged" | "closed">((status, record) => {
-        if (record.value.pull !== pullRes.uri) return status;
-        if (record.value.status === "sh.tangled.repo.pull.status.merged") return "merged";
-        if (record.value.status === "sh.tangled.repo.pull.status.closed") return "closed";
-        return "open";
-      }, "open");
-
-      const roundCount = commentsRes.records.filter((record) => record.value.pull === pullRes.uri).length;
-
-      return normalizePullDetail(pullRes.value, pullRes.uri, toValue(did), toValue(handle), currentStatus, roundCount);
+      return normalizePullDetail(
+        pullRes.value,
+        pullRes.uri,
+        actor.did,
+        actor.handle,
+        pullRes.status,
+        commentsRes.records.length,
+      );
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h) && hasText(rkey), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
 export function usePullRequestComments(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
   handle: MaybeRef<string>,
-  pullAtUri: MaybeRef<string>,
+  pullRkey: MaybeRef<string>,
   options: { enabled?: MaybeRef<boolean> } = {},
 ) {
+  const h = computed(() => toValue(handle).trim());
+  const rkey = computed(() => toValue(pullRkey).trim());
+
   return useQuery({
-    queryKey: computed(() => ["pullComments", toValue(pds), toValue(did), toValue(pullAtUri)]),
+    queryKey: computed(() => ["pullComments", h.value, rkey.value]),
     queryFn: async () => {
-      const response = await listPullCommentRecords(toValue(pds), toValue(did));
+      const [response, actor] = await Promise.all([fetchPullComments(h.value, rkey.value), fetchActor(h.value)]);
       return response.records
-        .filter((record) => record.value.pull === toValue(pullAtUri))
-        .map((record) => normalizePullComment(record.value, record.uri, toValue(did), toValue(handle)))
+        .map((record) => normalizePullComment(record.value, record.uri, actor.did, actor.handle))
         .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
     },
-    enabled: options.enabled,
+    enabled: computed(() => isEnabled(hasText(h) && hasText(rkey), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
   });
 }
 
-/**
- * Composite hook: fetch repo PDS record + default branch + languages in
- * parallel, returning a merged RepoDetail.
- */
-export function useRepoDetail(
-  pds: MaybeRef<string>,
-  did: MaybeRef<string>,
-  repoName: MaybeRef<string>,
-  knotHost: MaybeRef<string>,
-  handle: MaybeRef<string>,
-) {
-  const knotRepo = computed(() => `${toValue(did)}/${toValue(repoName)}`);
-
-  const record = useRepoRecord(pds, did, repoName, handle);
-  const branch = useDefaultBranch(knotHost, knotRepo);
-  const languages = useRepoLanguages(knotHost, knotRepo);
+/** Composite hook: repo record + default branch + languages in parallel. */
+export function useRepoDetail(handle: MaybeRef<string>, repoName: MaybeRef<string>) {
+  const record = useRepoRecord(handle, repoName);
+  const branch = useDefaultBranch(handle, repoName);
+  const languages = useRepoLanguages(handle, repoName);
 
   const data = computed(() => {
     if (!record.data.value) return undefined;
     return normalizeRepoRecordToDetail(
       {
         name: toValue(repoName),
-        knot: toValue(knotHost),
+        knot: record.data.value.knot,
         createdAt: record.data.value.updatedAt ?? "",
         $type: "sh.tangled.repo",
       },
-      toValue(did),
-      toValue(handle),
+      record.data.value.ownerDid,
+      record.data.value.ownerHandle,
       record.data.value.atUri,
       { defaultBranch: branch.data.value?.name, languages: languages.data.value },
     );

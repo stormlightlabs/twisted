@@ -1,21 +1,9 @@
 /**
- * Typed wrappers around XRPC queries to Tangled knots and the AT Protocol PDS.
+ * Typed wrappers around Twister API endpoints.
  *
- * Knot endpoints use raw fetch so we can control query serialization for the
- * `repo=did:.../repoName` parameter. PDS endpoints also use raw fetch because
- * some `com.atproto.repo.*` calls are not typed in the installed packages.
- *
- * --- API Validation Notes (to verify against live endpoints) ---
- * Knot XRPC base: https://<knot>/xrpc/<nsid>  (e.g. us-west.tangled.sh)
- * PDS XRPC base:  https://bsky.social/xrpc/<nsid>  (or user's own PDS)
- *
- * CORS: knot endpoints need to be confirmed CORS-safe from a browser context.
- * Appview (tangled.org) serves HTML/HTMX — not a JSON API. Profile & repo
- * metadata must come from PDS records via com.atproto.repo.getRecord.
- *
- * Data routing:
- *  - Git data (tree, blob, log, branches, languages) → knot XRPC
- *  - Repo metadata & profile → PDS com.atproto.repo.getRecord/listRecords
+ * The app calls Twister for everything — no direct XRPC calls to PDSes or
+ * knots. Twister resolves handles, routes to the right knot/PDS, and returns
+ * the raw Lexicon records so the existing normalizers can still apply.
  */
 
 import {
@@ -23,429 +11,295 @@ import {
   ShTangledRepoBlob,
   ShTangledRepoGetDefaultBranch,
   ShTangledRepoLanguages,
-  ShTangledRepoTags,
   ShTangledRepoDiff,
   ShTangledRepoCompare,
   ShTangledRepo,
   ShTangledActorProfile,
   ShTangledRepoIssue,
   ShTangledRepoIssueComment,
-  ShTangledRepoIssueState,
   ShTangledRepoPull,
   ShTangledRepoPullComment,
-  ShTangledRepoPullStatus,
   ShTangledGraphFollow,
   ShTangledString,
 } from "@atcute/tangled";
 import { throwOnXrpcError } from "@/services/atproto/client.js";
-import { MalformedResponseError, NotFoundError } from "@/core/errors/tangled.js";
+import { getTwisterApiUrl } from "@/core/config/project.js";
 
-type KnotParams = Record<string, string | number | boolean | undefined | Array<string | number | boolean>>;
-type BlueskyProfileResponse = { did: string; handle: string; displayName?: string; avatar?: string };
+export type RecordEntry<T> = { uri: string; cid: string; value: T };
+export type IssueEntry = RecordEntry<ShTangledRepoIssue.Main> & { state: "open" | "closed" };
+export type PullEntry = RecordEntry<ShTangledRepoPull.Main> & { status: "open" | "merged" | "closed" };
 
-function encodeKnotQueryParam(key: string, value: string | number | boolean): string {
-  const encodedValue = encodeURIComponent(String(value));
-  return `${encodeURIComponent(key)}=${key === "repo" ? encodedValue.replaceAll("%2F", "/") : encodedValue}`;
-}
+export type ActorResponse = {
+  did: string;
+  handle: string;
+  pds: string;
+  profile: RecordEntry<ShTangledActorProfile.Main>;
+  bsky?: { displayName?: string; avatar?: string } | null;
+};
 
-function buildKnotQuery(params: KnotParams): string {
-  const pairs: string[] = [];
+export type ActorReposResponse = { did: string; handle: string; records: RecordEntry<ShTangledRepo.Main>[] };
 
-  for (const [key, rawValue] of Object.entries(params)) {
-    if (rawValue === undefined) continue;
+export type ActorRepoResponse = {
+  did: string;
+  handle: string;
+  knot_host: string;
+  record: RecordEntry<ShTangledRepo.Main>;
+};
 
-    if (Array.isArray(rawValue)) {
-      for (const value of rawValue) {
-        pairs.push(encodeKnotQueryParam(key, value));
-      }
-      continue;
+export type ActorIssuesResponse = { did: string; handle: string; records: IssueEntry[] };
+
+export type ActorPullsResponse = { did: string; handle: string; records: PullEntry[] };
+
+export type ActorFollowingResponse = { did: string; handle: string; records: RecordEntry<ShTangledGraphFollow.Main>[] };
+
+export type ActorStringsResponse = { did: string; handle: string; records: RecordEntry<ShTangledString.Main>[] };
+
+export type IssueDetailResponse = IssueEntry;
+
+export type IssueCommentsResponse = {
+  did: string;
+  handle: string;
+  issueUri: string;
+  records: RecordEntry<ShTangledRepoIssueComment.Main>[];
+};
+
+export type PullDetailResponse = PullEntry;
+
+export type PullCommentsResponse = {
+  did: string;
+  handle: string;
+  pullUri: string;
+  records: RecordEntry<ShTangledRepoPullComment.Main>[];
+};
+
+async function get<T>(path: string, params?: Record<string, string | undefined>): Promise<T> {
+  const url = new URL(getTwisterApiUrl(path));
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) url.searchParams.set(key, value);
     }
-
-    pairs.push(encodeKnotQueryParam(key, rawValue));
   }
-
-  return pairs.length > 0 ? `?${pairs.join("&")}` : "";
-}
-
-export function buildKnotUrl(knotHost: string, nsid: string, params: KnotParams): string {
-  return `https://${knotHost}/xrpc/${nsid}${buildKnotQuery(params)}`;
-}
-
-async function readKnotError(res: Response): Promise<never> {
-  const contentType = res.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/json")) {
+  const res = await fetch(url.toString());
+  if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
     throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
   }
-
-  const text = await res.text().catch(() => "");
-  throwOnXrpcError(res.status, "Unknown", text || undefined);
-}
-
-async function fetchKnotJson<T>(knotHost: string, nsid: string, params: KnotParams): Promise<T> {
-  const res = await fetch(buildKnotUrl(knotHost, nsid, params));
-  if (!res.ok) return readKnotError(res);
   return res.json() as Promise<T>;
 }
 
-async function fetchKnotBytes(knotHost: string, nsid: string, params: KnotParams): Promise<Uint8Array> {
-  const res = await fetch(buildKnotUrl(knotHost, nsid, params));
-  if (!res.ok) return readKnotError(res);
+async function getProxy<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  const normalized: Record<string, string | undefined> = {};
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      normalized[key] = value === undefined ? undefined : String(value);
+    }
+  }
+  return get<T>(path, normalized);
+}
+
+async function getBytes(path: string, params?: Record<string, string | undefined>): Promise<Uint8Array> {
+  const url = new URL(getTwisterApiUrl(path));
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) url.searchParams.set(key, value);
+    }
+  }
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
+  }
   return new Uint8Array(await res.arrayBuffer());
 }
 
-export async function fetchRepoTree(
-  knotHost: string,
-  params: ShTangledRepoTree.$params,
-): Promise<ShTangledRepoTree.$output> {
-  return fetchKnotJson<ShTangledRepoTree.$output>(knotHost, "sh.tangled.repo.tree", params);
+export async function fetchActor(handle: string): Promise<ActorResponse> {
+  return get<ActorResponse>(`/actors/${encodeURIComponent(handle)}`);
 }
 
-export async function fetchRepoBlob(
-  knotHost: string,
-  params: ShTangledRepoBlob.$params,
-): Promise<ShTangledRepoBlob.$output> {
-  return fetchKnotJson<ShTangledRepoBlob.$output>(knotHost, "sh.tangled.repo.blob", params);
+export async function fetchActorRepos(handle: string): Promise<ActorReposResponse> {
+  return get<ActorReposResponse>(`/actors/${encodeURIComponent(handle)}/repos`);
 }
 
-export async function fetchDefaultBranch(
-  knotHost: string,
-  params: ShTangledRepoGetDefaultBranch.$params,
-): Promise<ShTangledRepoGetDefaultBranch.$output> {
-  return fetchKnotJson<ShTangledRepoGetDefaultBranch.$output>(knotHost, "sh.tangled.repo.getDefaultBranch", params);
+export async function fetchActorRepo(handle: string, repo: string): Promise<ActorRepoResponse> {
+  return get<ActorRepoResponse>(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}`);
 }
 
-export async function fetchLanguages(
-  knotHost: string,
-  params: ShTangledRepoLanguages.$params,
-): Promise<ShTangledRepoLanguages.$output> {
-  return fetchKnotJson<ShTangledRepoLanguages.$output>(knotHost, "sh.tangled.repo.languages", params);
+export async function fetchActorFollowing(handle: string): Promise<ActorFollowingResponse> {
+  return get<ActorFollowingResponse>(`/actors/${encodeURIComponent(handle)}/following`);
 }
 
-/**
- * Fetch commit log. The wire format is a raw blob; the decoded text is returned
- * as-is so the normalizer can handle it once the format is confirmed against
- * the live API. Expected: newline-delimited JSON or git log text.
- */
-export async function fetchRepoLog(
-  knotHost: string,
-  params: { repo: string; ref: string; path?: string; limit?: number; cursor?: string },
-): Promise<string> {
-  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.log", params));
+export async function fetchActorStrings(handle: string): Promise<ActorStringsResponse> {
+  return get<ActorStringsResponse>(`/actors/${encodeURIComponent(handle)}/strings`);
 }
 
-/**
- * Fetch branch list. The wire format is a raw blob; decoded text is returned
- * for the normalizer to parse once the live format is confirmed.
- */
-export async function fetchRepoBranches(
-  knotHost: string,
-  params: { repo: string; limit?: number; cursor?: string },
-): Promise<string> {
-  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.branches", params));
+export async function fetchActorIssues(handle: string): Promise<ActorIssuesResponse> {
+  return get<ActorIssuesResponse>(`/actors/${encodeURIComponent(handle)}/issues`);
 }
 
-/** Tag list. Wire format is a raw blob — decoded text returned for normalizer. */
-export async function fetchRepoTags(knotHost: string, params: ShTangledRepoTags.$params): Promise<string> {
-  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.tags", params));
+export async function fetchActorPulls(handle: string): Promise<ActorPullsResponse> {
+  return get<ActorPullsResponse>(`/actors/${encodeURIComponent(handle)}/pulls`);
 }
 
-/** Diff for a ref. Wire format is a raw blob — patch text. */
-export async function fetchRepoDiff(knotHost: string, params: ShTangledRepoDiff.$params): Promise<string> {
-  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.diff", params));
-}
+type ResolveHandleResponse = { did: string };
 
-/** Comparison between two revisions. Wire format is a raw blob — patch text. */
-export async function fetchRepoCompare(knotHost: string, params: ShTangledRepoCompare.$params): Promise<string> {
-  return new TextDecoder().decode(await fetchKnotBytes(knotHost, "sh.tangled.repo.compare", params));
-}
+type DidDocument = {
+  service?: Array<{ id?: string; type?: string; serviceEndpoint?: string }>;
+  alsoKnownAs?: string[];
+};
 
-type GetRecordResponse<T> = { uri: string; cid: string; value: T };
-
-/**
- * Fetch a single record from the AT Protocol PDS.
- * Uses raw fetch against /xrpc/com.atproto.repo.getRecord since this NSID
- * is not currently typed in the installed @atcute packages.
- */
-async function getRecord<T>(
-  pds: string,
-  repo: string,
-  collection: string,
-  rkey: string,
-): Promise<GetRecordResponse<T>> {
-  const url = new URL(`https://${pds}/xrpc/com.atproto.repo.getRecord`);
-  url.searchParams.set("repo", repo);
-  url.searchParams.set("collection", collection);
-  url.searchParams.set("rkey", rkey);
-
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
-  }
-  return res.json() as Promise<GetRecordResponse<T>>;
-}
-
-export async function fetchActorProfile(
-  pds: string,
-  did: string,
-): Promise<GetRecordResponse<ShTangledActorProfile.Main>> {
-  return getRecord<ShTangledActorProfile.Main>(pds, did, "sh.tangled.actor.profile", "self");
-}
-
-export async function fetchBlueskyProfile(actor: string): Promise<BlueskyProfileResponse> {
-  const url = new URL("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile");
-  url.searchParams.set("actor", actor);
-
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
-  }
-
-  return res.json() as Promise<BlueskyProfileResponse>;
-}
-
-/**
- * Fetch a repo record by its PDS record key.
- * This is distinct from the repo's `name`, which is the identifier used by
- * knot endpoints in the `did:.../repoName` format.
- */
-export async function fetchRepoRecord(
-  pds: string,
-  did: string,
-  rkey: string,
-): Promise<GetRecordResponse<ShTangledRepo.Main>> {
-  return getRecord<ShTangledRepo.Main>(pds, did, "sh.tangled.repo", rkey);
-}
-
-/**
- * Fetch a repo record by matching on the record's `name` field.
- * Use this when the UI route or knot API identifies a repo by repo name rather
- * than by the underlying AT Protocol record key.
- */
-export async function fetchRepoRecordByName(
-  pds: string,
-  did: string,
-  repoName: string,
-): Promise<GetRecordResponse<ShTangledRepo.Main>> {
-  let cursor: string | undefined;
-
-  for (;;) {
-    const response = await listRepoRecords(pds, did, 100, cursor);
-    const record = response.records.find((entry) => entry.value.name === repoName);
-    if (record) return record;
-    if (!response.cursor) break;
-    cursor = response.cursor;
-  }
-
-  throw new NotFoundError(`Repository ${repoName}`);
-}
-
-export async function fetchIssueRecord(
-  pds: string,
-  did: string,
-  rkey: string,
-): Promise<GetRecordResponse<ShTangledRepoIssue.Main>> {
-  return getRecord<ShTangledRepoIssue.Main>(pds, did, "sh.tangled.repo.issue", rkey);
-}
-
-export async function fetchPullRecord(
-  pds: string,
-  did: string,
-  rkey: string,
-): Promise<GetRecordResponse<ShTangledRepoPull.Main>> {
-  return getRecord<ShTangledRepoPull.Main>(pds, did, "sh.tangled.repo.pull", rkey);
-}
-
-/**
- * Resolve an AT Protocol handle to a DID via bsky.social.
- * Returns the DID string (e.g. "did:plc:xxx").
- */
 export async function resolveHandle(handle: string): Promise<string> {
-  const url = new URL("https://bsky.social/xrpc/com.atproto.identity.resolveHandle");
-  url.searchParams.set("handle", handle);
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
-  }
-  const data = (await res.json()) as { did: string };
+  const data = await getProxy<ResolveHandleResponse>("/identity/resolve", { handle });
   return data.did;
 }
 
-type DidDocument = { alsoKnownAs?: string[]; service?: Array<{ id: string; type: string; serviceEndpoint: string }> };
-
-async function fetchDidDocument(did: string): Promise<DidDocument> {
-  let docUrl: string;
-  if (did.startsWith("did:plc:")) {
-    docUrl = `https://plc.directory/${did}`;
-  } else if (did.startsWith("did:web:")) {
-    const host = did.slice("did:web:".length);
-    docUrl = `https://${host}/.well-known/did.json`;
-  } else {
-    throw new MalformedResponseError("resolveHandle", `Unsupported DID method: ${did}`);
-  }
-
-  const res = await fetch(docUrl);
-  if (!res.ok) throwOnXrpcError(res.status, "ResolveFailed", `Could not fetch DID document: ${did}`);
-  return (await res.json()) as DidDocument;
+export async function fetchDidDocument(did: string): Promise<DidDocument> {
+  return get<DidDocument>(`/identity/did/${encodeURIComponent(did)}`);
 }
 
-/**
- * Fetch the DID document for a DID and extract the PDS service endpoint hostname.
- * Supports did:plc (via plc.directory) and did:web.
- */
 export async function resolvePds(did: string): Promise<string> {
   const doc = await fetchDidDocument(did);
-  const svc = doc.service?.find((s) => s.id === "#atproto_pds");
-  if (!svc?.serviceEndpoint) {
-    throw new MalformedResponseError("resolvePds", `No PDS endpoint in DID document: ${did}`);
+  const endpoint = doc.service?.find((entry) => entry.id === "#atproto_pds")?.serviceEndpoint;
+  if (!endpoint) {
+    throw new Error(`No PDS endpoint found in DID document for ${did}`);
   }
-  return new URL(svc.serviceEndpoint).hostname;
-}
-
-export async function resolveHandleFromDid(did: string): Promise<string> {
-  if (did.startsWith("did:web:")) return did.slice("did:web:".length);
-
-  const doc = await fetchDidDocument(did);
-  const alias = doc.alsoKnownAs?.find((entry) => entry.startsWith("at://"));
-  if (!alias) {
-    throw new MalformedResponseError("resolveHandleFromDid", `No handle alias in DID document: ${did}`);
-  }
-
-  return alias.slice("at://".length);
+  return new URL(endpoint).hostname;
 }
 
 export async function resolveDidIdentity(did: string): Promise<{ did: string; handle: string; pds: string }> {
-  const [handle, pds] = await Promise.all([resolveHandleFromDid(did), resolvePds(did)]);
-  return { did, handle, pds };
+  const actor = await fetchActor(did);
+  return { did: actor.did, handle: actor.handle, pds: new URL(actor.pds).hostname };
 }
 
-type ListRecordsResponse<T> = { records: Array<{ uri: string; cid: string; value: T }>; cursor?: string };
-
-async function listRecords<T>(
-  pds: string,
-  did: string,
-  collection: string,
-  limit = 50,
-  cursor?: string,
-): Promise<ListRecordsResponse<T>> {
-  const url = new URL(`https://${pds}/xrpc/com.atproto.repo.listRecords`);
-  url.searchParams.set("repo", did);
-  url.searchParams.set("collection", collection);
-  url.searchParams.set("limit", String(limit));
-  if (cursor) url.searchParams.set("cursor", cursor);
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
-  }
-  return res.json() as Promise<ListRecordsResponse<T>>;
+export async function fetchBskyXrpc<T>(nsid: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  return getProxy<T>(`/xrpc/bsky/${encodeURIComponent(nsid)}`, params);
 }
 
-/** List sh.tangled.repo.issue records from a user's PDS. */
-export async function listIssueRecords(
-  pds: string,
-  did: string,
-  limit = 50,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledRepoIssue.Main>> {
-  return listRecords<ShTangledRepoIssue.Main>(pds, did, "sh.tangled.repo.issue", limit, cursor);
+export async function fetchPdsXrpc<T>(
+  pdsHost: string,
+  nsid: string,
+  params?: Record<string, string | number | undefined>,
+): Promise<T> {
+  return getProxy<T>(`/xrpc/pds/${encodeURIComponent(pdsHost)}/${encodeURIComponent(nsid)}`, params);
 }
 
-/** List sh.tangled.repo.issue.state records from a user's PDS. */
-export async function listIssueStateRecords(
-  pds: string,
-  did: string,
-  limit = 100,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledRepoIssueState.Main>> {
-  return listRecords<ShTangledRepoIssueState.Main>(pds, did, "sh.tangled.repo.issue.state", limit, cursor);
+export async function fetchKnotXrpc<T>(
+  knotHost: string,
+  nsid: string,
+  params?: Record<string, string | number | undefined>,
+): Promise<T> {
+  return getProxy<T>(`/xrpc/knot/${encodeURIComponent(knotHost)}/${encodeURIComponent(nsid)}`, params);
 }
 
-/** List sh.tangled.repo.issue.comment records from a user's PDS. */
-export async function listIssueCommentRecords(
-  pds: string,
-  did: string,
-  limit = 100,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledRepoIssueComment.Main>> {
-  return listRecords<ShTangledRepoIssueComment.Main>(pds, did, "sh.tangled.repo.issue.comment", limit, cursor);
+export async function fetchRepoTree(
+  handle: string,
+  repo: string,
+  params: ShTangledRepoTree.$params,
+): Promise<ShTangledRepoTree.$output> {
+  return get<ShTangledRepoTree.$output>(
+    `/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/tree`,
+    { ref: params.ref, path: params.path },
+  );
 }
 
-/** List sh.tangled.repo.pull records from a user's PDS. */
-export async function listPullRecords(
-  pds: string,
-  did: string,
-  limit = 50,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledRepoPull.Main>> {
-  return listRecords<ShTangledRepoPull.Main>(pds, did, "sh.tangled.repo.pull", limit, cursor);
+export async function fetchRepoBlob(
+  handle: string,
+  repo: string,
+  params: ShTangledRepoBlob.$params,
+): Promise<ShTangledRepoBlob.$output> {
+  return get<ShTangledRepoBlob.$output>(
+    `/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/blob`,
+    { ref: params.ref, path: params.path },
+  );
 }
 
-/** List sh.tangled.repo.pull.status records from a user's PDS. */
-export async function listPullStatusRecords(
-  pds: string,
-  did: string,
-  limit = 100,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledRepoPullStatus.Main>> {
-  return listRecords<ShTangledRepoPullStatus.Main>(pds, did, "sh.tangled.repo.pull.status", limit, cursor);
+export async function fetchDefaultBranch(handle: string, repo: string): Promise<ShTangledRepoGetDefaultBranch.$output> {
+  return get<ShTangledRepoGetDefaultBranch.$output>(
+    `/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/default-branch`,
+  );
 }
 
-/** List sh.tangled.repo.pull.comment records from a user's PDS. */
-export async function listPullCommentRecords(
-  pds: string,
-  did: string,
-  limit = 100,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledRepoPullComment.Main>> {
-  return listRecords<ShTangledRepoPullComment.Main>(pds, did, "sh.tangled.repo.pull.comment", limit, cursor);
+export async function fetchLanguages(
+  handle: string,
+  repo: string,
+  ref?: string,
+): Promise<ShTangledRepoLanguages.$output> {
+  return get<ShTangledRepoLanguages.$output>(
+    `/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/languages`,
+    ref ? { ref } : undefined,
+  );
 }
 
-export async function listFollowRecords(
-  pds: string,
-  did: string,
-  limit = 100,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledGraphFollow.Main>> {
-  return listRecords<ShTangledGraphFollow.Main>(pds, did, "sh.tangled.graph.follow", limit, cursor);
+export async function fetchRepoLog(
+  handle: string,
+  repo: string,
+  params: { ref: string; path?: string; limit?: number; cursor?: string },
+): Promise<string> {
+  const p: Record<string, string | undefined> = { ref: params.ref, path: params.path };
+  if (params.limit !== undefined) p.limit = String(params.limit);
+  if (params.cursor !== undefined) p.cursor = params.cursor;
+  return new TextDecoder().decode(
+    await getBytes(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/log`, p),
+  );
 }
 
-export async function listStringRecords(
-  pds: string,
-  did: string,
-  limit = 100,
-  cursor?: string,
-): Promise<ListRecordsResponse<ShTangledString.Main>> {
-  return listRecords<ShTangledString.Main>(pds, did, "sh.tangled.string", limit, cursor);
+export async function fetchRepoBranches(
+  handle: string,
+  repo: string,
+  params?: { limit?: number; cursor?: string },
+): Promise<string> {
+  const p: Record<string, string | undefined> = {};
+  if (params?.limit !== undefined) p.limit = String(params.limit);
+  if (params?.cursor !== undefined) p.cursor = params.cursor;
+  return new TextDecoder().decode(
+    await getBytes(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/branches`, p),
+  );
 }
 
-/**
- * List all sh.tangled.repo records from a user's PDS.
- * Uses com.atproto.repo.listRecords since it's not in the installed lexicons.
- */
-export async function listRepoRecords(
-  pds: string,
-  did: string,
-  limit = 50,
-  cursor?: string,
-): Promise<{ records: Array<{ uri: string; cid: string; value: ShTangledRepo.Main }>; cursor?: string }> {
-  const url = new URL(`https://${pds}/xrpc/com.atproto.repo.listRecords`);
-  url.searchParams.set("repo", did);
-  url.searchParams.set("collection", "sh.tangled.repo");
-  url.searchParams.set("limit", String(limit));
-  if (cursor) url.searchParams.set("cursor", cursor);
+export async function fetchRepoTags(handle: string, repo: string): Promise<string> {
+  return new TextDecoder().decode(
+    await getBytes(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/tags`),
+  );
+}
 
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-    throwOnXrpcError(res.status, body.error ?? "Unknown", body.message);
-  }
-  return res.json() as Promise<{
-    records: Array<{ uri: string; cid: string; value: ShTangledRepo.Main }>;
-    cursor?: string;
-  }>;
+export async function fetchRepoDiff(handle: string, repo: string, params: ShTangledRepoDiff.$params): Promise<string> {
+  return new TextDecoder().decode(
+    await getBytes(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/diff`, { ref: params.ref }),
+  );
+}
+
+export async function fetchRepoCompare(
+  handle: string,
+  repo: string,
+  params: ShTangledRepoCompare.$params,
+): Promise<string> {
+  return new TextDecoder().decode(
+    await getBytes(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/compare`, {
+      from: params.rev1,
+      to: params.rev2,
+    }),
+  );
+}
+
+export async function fetchRepoIssues(handle: string, repo: string): Promise<ActorIssuesResponse> {
+  return get<ActorIssuesResponse>(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/issues`);
+}
+
+export async function fetchRepoPulls(handle: string, repo: string): Promise<ActorPullsResponse> {
+  return get<ActorPullsResponse>(`/actors/${encodeURIComponent(handle)}/repos/${encodeURIComponent(repo)}/pulls`);
+}
+
+export async function fetchIssueDetail(handle: string, rkey: string): Promise<IssueDetailResponse> {
+  return get<IssueDetailResponse>(`/issues/${encodeURIComponent(handle)}/${encodeURIComponent(rkey)}`);
+}
+
+export async function fetchIssueComments(handle: string, rkey: string): Promise<IssueCommentsResponse> {
+  return get<IssueCommentsResponse>(`/issues/${encodeURIComponent(handle)}/${encodeURIComponent(rkey)}/comments`);
+}
+
+export async function fetchPullDetail(handle: string, rkey: string): Promise<PullDetailResponse> {
+  return get<PullDetailResponse>(`/pulls/${encodeURIComponent(handle)}/${encodeURIComponent(rkey)}`);
+}
+
+export async function fetchPullComments(handle: string, rkey: string): Promise<PullCommentsResponse> {
+  return get<PullCommentsResponse>(`/pulls/${encodeURIComponent(handle)}/${encodeURIComponent(rkey)}/comments`);
 }

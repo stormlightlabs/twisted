@@ -68,7 +68,6 @@
           @click="handleItemClick(item)"
           @actor-click="handleActorClick(item)" />
       </div>
-
     </ion-content>
   </ion-page>
 </template>
@@ -97,7 +96,7 @@
   import EmptyState from "@/components/common/EmptyState.vue";
   import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
   import { JetstreamClient } from "@/services/jetstream/client.js";
-  import { resolveHandleFromDid } from "@/services/tangled/endpoints.js";
+  import { fetchActor } from "@/services/tangled/endpoints.js";
   import type { ActivityItem } from "@/domain/models/activity.js";
 
   type ConnectionStatus = "connecting" | "connected" | "disconnected";
@@ -154,17 +153,15 @@
 
   function resolveHandle(did: string): void {
     if (handleCache.value.has(did)) return;
-    // Optimistically mark as in-progress by setting to DID to avoid re-entrancy
     handleCache.value.set(did, did);
 
-    resolveHandleFromDid(did)
-      .then((handle) => {
+    fetchActor(did)
+      .then((actor) => {
         const next = new Map(handleCache.value);
-        next.set(did, handle);
+        next.set(did, actor.handle);
         handleCache.value = next;
       })
       .catch(() => {
-        // Leave the placeholder handle from the item
         handleCache.value.delete(did);
       });
   }
@@ -230,29 +227,24 @@
     if (handle && handle !== item.actorDid) {
       router.push(`/tabs/activity/user/${handle}`);
     } else {
-      // Resolve then navigate
-      resolveHandleFromDid(item.actorDid)
-        .then((h) => {
+      fetchActor(item.actorDid)
+        .then((actor) => {
+          const h = actor.handle;
           const next = new Map(handleCache.value);
           next.set(item.actorDid, h);
           handleCache.value = next;
           router.push(`/tabs/activity/user/${h}`);
         })
-        .catch(() => {
-          // Cannot navigate without a handle
-        });
+        .catch(console.warn);
     }
   }
 
   function handleItemClick(item: ActivityItem) {
-    // Navigate to repo if we can determine owner handle and repo name
     if (item.targetName && item.targetOwnerDid) {
       const ownerHandle = handleCache.value.get(item.targetOwnerDid);
       if (ownerHandle && ownerHandle !== item.targetOwnerDid) {
         router.push(`/tabs/activity/repo/${ownerHandle}/${item.targetName}`);
-      }
-      // If handle not yet resolved, resolve it in background for future clicks
-      else {
+      } else {
         resolveHandle(item.targetOwnerDid);
       }
     }

@@ -195,7 +195,6 @@ const section = ref<"repos" | "strings" | "issues" | "prs" | "following">("repos
 
 const identity = useIdentity(handle);
 const did = computed(() => identity.data.value?.did ?? "");
-const pds = computed(() => identity.data.value?.pds ?? "");
 const hasIdentity = computed(() => !!identity.data.value);
 const tabPrefix = computed(() => {
   if (route.path.startsWith("/tabs/explore")) return "/tabs/explore";
@@ -203,12 +202,12 @@ const tabPrefix = computed(() => {
   return "/tabs/home";
 });
 
-const profileQuery = useActorProfile(pds, did, handle, undefined, { enabled: hasIdentity });
-const reposQuery = useUserRepos(pds, did, handle, { enabled: hasIdentity });
-const stringsQuery = useUserStrings(pds, did, { enabled: hasIdentity });
-const issuesQuery = useUserIssues(pds, did, handle, { enabled: hasIdentity });
-const pullRequestsQuery = useUserPullRequests(pds, did, handle, { enabled: hasIdentity });
-const followingQuery = useUserFollowing(pds, did, { enabled: hasIdentity });
+const profileQuery = useActorProfile(handle, undefined, { enabled: hasIdentity });
+const reposQuery = useUserRepos(handle, { enabled: hasIdentity });
+const stringsQuery = useUserStrings(handle, { enabled: hasIdentity });
+const issuesQuery = useUserIssues(handle, { enabled: hasIdentity });
+const pullRequestsQuery = useUserPullRequests(handle, { enabled: hasIdentity });
+const followingQuery = useUserFollowing(handle, { enabled: hasIdentity });
 const indexedProfileSummaryQuery = useIndexedProfileSummary(did, { enabled: hasIdentity });
 
 const profile = computed(() => profileQuery.data.value);

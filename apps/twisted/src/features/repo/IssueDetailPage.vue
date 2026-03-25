@@ -92,7 +92,7 @@ import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import MarkdownRenderer from "@/components/repo/MarkdownRenderer.vue";
 import CommentThread from "@/components/repo/CommentThread.vue";
-import { useIdentity, useRepoRecord, useIssueDetail, useIssueComments, useDefaultBranch } from "@/services/tangled/queries.js";
+import { useRepoRecord, useIssueDetail, useIssueComments, useDefaultBranch } from "@/services/tangled/queries.js";
 import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
 
 const route = useRoute();
@@ -100,33 +100,23 @@ const owner = computed(() => String(route.params.owner ?? ""));
 const repoName = computed(() => String(route.params.repo ?? ""));
 const issueId = computed(() => String(route.params.issueId ?? ""));
 
-const identity = useIdentity(owner, { enabled: computed(() => !!owner.value) });
-const did = computed(() => identity.data.value?.did ?? "");
-const pds = computed(() => identity.data.value?.pds ?? "");
-const hasIdentity = computed(() => !!identity.data.value);
-
-const repoQuery = useRepoRecord(pds, did, repoName, owner, { enabled: hasIdentity });
-const knotHost = computed(() => repoQuery.data.value?.knot ?? "");
-const knotRepo = computed(() => (did.value && repoName.value ? `${did.value}/${repoName.value}` : ""));
-const branchQuery = useDefaultBranch(knotHost, knotRepo, {
-  enabled: computed(() => !!knotHost.value && !!knotRepo.value),
+const repoQuery = useRepoRecord(owner, repoName, { enabled: computed(() => !!owner.value && !!repoName.value) });
+const branchQuery = useDefaultBranch(owner, repoName, {
+  enabled: computed(() => !!owner.value && !!repoName.value),
 });
 const repoAtUri = computed(() => repoQuery.data.value?.atUri ?? "");
 const markdownContext = computed<RepoAssetContext | undefined>(() => {
-  if (!knotHost.value || !knotRepo.value || !branchQuery.data.value?.name) return undefined;
+  if (!owner.value || !repoName.value || !branchQuery.data.value?.name) return undefined;
 
   return {
     owner: owner.value,
     repo: repoName.value,
     branch: branchQuery.data.value.name,
-    knotHost: knotHost.value,
-    knotRepo: knotRepo.value,
   };
 });
 
-const issueQuery = useIssueDetail(pds, did, owner, issueId, { enabled: hasIdentity });
-const issueAtUri = computed(() => issueQuery.data.value?.atUri ?? "");
-const commentsQuery = useIssueComments(pds, did, owner, issueAtUri, { enabled: computed(() => !!issueAtUri.value) });
+const issueQuery = useIssueDetail(owner, issueId, { enabled: computed(() => !!owner.value && !!issueId.value) });
+const commentsQuery = useIssueComments(owner, issueId, { enabled: computed(() => !!owner.value && !!issueId.value) });
 
 const issue = computed(() => {
   const value = issueQuery.data.value;
@@ -137,17 +127,13 @@ const issue = computed(() => {
 
 const comments = computed(() => commentsQuery.data.value ?? []);
 const isLoading = computed(
-  () =>
-    identity.isPending.value ||
-    repoQuery.isPending.value ||
-    issueQuery.isPending.value ||
-    commentsQuery.isPending.value,
+  () => repoQuery.isPending.value || issueQuery.isPending.value || commentsQuery.isPending.value,
 );
 const isError = computed(
-  () => identity.isError.value || repoQuery.isError.value || issueQuery.isError.value || commentsQuery.isError.value,
+  () => repoQuery.isError.value || issueQuery.isError.value || commentsQuery.isError.value,
 );
 const errorMessage = computed(() => {
-  const error = identity.error.value ?? repoQuery.error.value ?? issueQuery.error.value ?? commentsQuery.error.value;
+  const error = repoQuery.error.value ?? issueQuery.error.value ?? commentsQuery.error.value;
   return error instanceof Error ? error.message : "An unexpected error occurred.";
 });
 

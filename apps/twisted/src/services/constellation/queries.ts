@@ -1,37 +1,25 @@
 /**
- * TanStack Query hooks for the Constellation backlink API.
- * https://constellation.microcosm.blue
- *
- * Constellation is a public AT Protocol backlink index. It answers
- * "how many records link to this subject?" — star counts, follower
- * counts, reaction counts — without requiring authentication.
- *
- * Calling it directly from the app avoids adding per-resource endpoints
- * to the Twister API for every social signal we need.
+ * TanStack Query hooks for Constellation backlink counts, proxied through the Twister API.
  */
 import { useQuery } from "@tanstack/vue-query";
 import { computed, toValue } from "vue";
 import type { MaybeRef } from "vue";
+import { getTwisterApiUrl } from "@/core/config/project.js";
 
-const CONSTELLATION_BASE = "https://constellation.microcosm.blue";
-
-// AT Protocol collection + field paths used as Constellation "sources".
-const SOURCE_STAR = "sh.tangled.feed.star:subject.uri";
-const SOURCE_FOLLOW = "sh.tangled.graph.follow:subject";
+const SOURCE_STAR = "sh.tangled.feed.star:.subject";
+const SOURCE_FOLLOW = "sh.tangled.graph.follow:.subject";
 
 const MIN = 60_000;
 
 async function fetchBacklinksCount(subject: string, source: string): Promise<number> {
-  const url = new URL(`${CONSTELLATION_BASE}/xrpc/blue.microcosm.links.getBacklinksCount`);
+  const url = new URL(getTwisterApiUrl("/backlinks/count"));
   url.searchParams.set("subject", subject);
   url.searchParams.set("source", source);
 
-  const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-  });
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
 
   if (!res.ok) {
-    throw new Error(`Constellation request failed: ${res.status}`);
+    throw new Error(`Backlinks request failed: ${res.status}`);
   }
 
   const data = (await res.json()) as { count: number };

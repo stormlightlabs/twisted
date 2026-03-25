@@ -106,7 +106,13 @@ func newAPICmd(local *bool) *cobra.Command {
 			)
 			log.Info("constellation client configured", slog.String("url", cfg.ConstellationURL))
 
-			srv := api.New(searchRepo, st, cfg, log, constellationClient)
+			xrpcClient := xrpc.NewClient(
+				xrpc.WithPLCDirectory(cfg.PLCDirectoryURL),
+				xrpc.WithIdentityService(cfg.IdentityServiceURL),
+				xrpc.WithTimeout(cfg.XRPCTimeout),
+			)
+
+			srv := api.New(searchRepo, st, cfg, log, constellationClient, xrpcClient)
 
 			ctx, cancel := baseContext()
 			defer cancel()
