@@ -83,227 +83,219 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import { useRoute } from "vue-router";
-import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonButtons,
-  IonBackButton,
-  IonBadge,
-  IonIcon,
-} from "@ionic/vue";
-import { alertCircleOutline, chatbubbleOutline, documentTextOutline } from "ionicons/icons";
-import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
-import EmptyState from "@/components/common/EmptyState.vue";
-import MarkdownRenderer from "@/components/repo/MarkdownRenderer.vue";
-import CommentThread from "@/components/repo/CommentThread.vue";
-import {
-  useRepoRecord,
-  useDefaultBranch,
-  usePullRequestDetail,
-  usePullRequestComments,
-} from "@/services/tangled/queries.js";
-import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
+  import { computed } from "vue";
+  import { useRoute } from "vue-router";
+  import {
+    IonPage,
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonContent,
+    IonButtons,
+    IonBackButton,
+    IonBadge,
+    IonIcon,
+  } from "@ionic/vue";
+  import { alertCircleOutline, chatbubbleOutline, documentTextOutline } from "ionicons/icons";
+  import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
+  import EmptyState from "@/components/common/EmptyState.vue";
+  import MarkdownRenderer from "@/components/repo/MarkdownRenderer.vue";
+  import CommentThread from "@/components/repo/CommentThread.vue";
+  import {
+    useRepoRecord,
+    useDefaultBranch,
+    usePullRequestDetail,
+    usePullRequestComments,
+  } from "@/services/tangled/queries.js";
+  import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
 
-const route = useRoute();
-const owner = computed(() => String(route.params.owner ?? ""));
-const repoName = computed(() => String(route.params.repo ?? ""));
-const pullId = computed(() => String(route.params.pullId ?? ""));
+  const route = useRoute();
+  const owner = computed(() => String(route.params.owner ?? ""));
+  const repoName = computed(() => String(route.params.repo ?? ""));
+  const pullId = computed(() => String(route.params.pullId ?? ""));
 
-const repoQuery = useRepoRecord(owner, repoName, { enabled: computed(() => !!owner.value && !!repoName.value) });
-const branchQuery = useDefaultBranch(owner, repoName, {
-  enabled: computed(() => !!owner.value && !!repoName.value),
-});
-const repoAtUri = computed(() => repoQuery.data.value?.atUri ?? "");
-const markdownContext = computed<RepoAssetContext | undefined>(() => {
-  if (!owner.value || !repoName.value || !branchQuery.data.value?.name) return undefined;
+  const repoQuery = useRepoRecord(owner, repoName, { enabled: computed(() => !!owner.value && !!repoName.value) });
+  const branchQuery = useDefaultBranch(owner, repoName, { enabled: computed(() => !!owner.value && !!repoName.value) });
+  const repoAtUri = computed(() => repoQuery.data.value?.atUri ?? "");
+  const markdownContext = computed<RepoAssetContext | undefined>(() => {
+    if (!owner.value || !repoName.value || !branchQuery.data.value?.name) return undefined;
 
-  return {
-    owner: owner.value,
-    repo: repoName.value,
-    branch: branchQuery.data.value.name,
-  };
-});
+    return { owner: owner.value, repo: repoName.value, branch: branchQuery.data.value.name };
+  });
 
-const pullQuery = usePullRequestDetail(owner, pullId, { enabled: computed(() => !!owner.value && !!pullId.value) });
-const commentsQuery = usePullRequestComments(owner, pullId, {
-  enabled: computed(() => !!owner.value && !!pullId.value),
-});
+  const pullQuery = usePullRequestDetail(owner, pullId, { enabled: computed(() => !!owner.value && !!pullId.value) });
+  const commentsQuery = usePullRequestComments(owner, pullId, {
+    enabled: computed(() => !!owner.value && !!pullId.value),
+  });
 
-const pullRequest = computed(() => {
-  const value = pullQuery.data.value;
-  if (!value) return undefined;
-  if (repoAtUri.value && value.targetRepoAtUri !== repoAtUri.value) return undefined;
-  return value;
-});
+  const pullRequest = computed(() => {
+    const value = pullQuery.data.value;
+    if (!value) return undefined;
+    if (repoAtUri.value && value.targetRepoAtUri !== repoAtUri.value) return undefined;
+    return value;
+  });
 
-const comments = computed(() => commentsQuery.data.value ?? []);
-const isLoading = computed(
-  () => repoQuery.isPending.value || pullQuery.isPending.value || commentsQuery.isPending.value,
-);
-const isError = computed(
-  () => repoQuery.isError.value || pullQuery.isError.value || commentsQuery.isError.value,
-);
-const errorMessage = computed(() => {
-  const error = repoQuery.error.value ?? pullQuery.error.value ?? commentsQuery.error.value;
-  return error instanceof Error ? error.message : "An unexpected error occurred.";
-});
+  const comments = computed(() => commentsQuery.data.value ?? []);
+  const isLoading = computed(
+    () => repoQuery.isPending.value || pullQuery.isPending.value || commentsQuery.isPending.value,
+  );
+  const isError = computed(() => repoQuery.isError.value || pullQuery.isError.value || commentsQuery.isError.value);
+  const errorMessage = computed(() => {
+    const error = repoQuery.error.value ?? pullQuery.error.value ?? commentsQuery.error.value;
+    return error instanceof Error ? error.message : "An unexpected error occurred.";
+  });
 
-const tabPrefix = computed(() => {
-  if (route.path.startsWith("/tabs/explore")) return "/tabs/explore";
-  if (route.path.startsWith("/tabs/activity")) return "/tabs/activity";
-  return "/tabs/home";
-});
+  const tabPrefix = computed(() => {
+    if (route.path.startsWith("/tabs/explore")) return "/tabs/explore";
+    if (route.path.startsWith("/tabs/activity")) return "/tabs/activity";
+    return "/tabs/home";
+  });
 
-const backHref = computed(() => `${tabPrefix.value}/repo/${owner.value}/${repoName.value}?tab=prs`);
+  const backHref = computed(() => `${tabPrefix.value}/repo/${owner.value}/${repoName.value}?tab=prs`);
 
-function relativeTime(iso: string): string {
-  const timestamp = Date.parse(iso);
-  if (Number.isNaN(timestamp)) return iso;
+  function relativeTime(iso: string): string {
+    const timestamp = Date.parse(iso);
+    if (Number.isNaN(timestamp)) return iso;
 
-  const diff = Date.now() - timestamp;
-  const minutes = Math.floor(diff / 60_000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60_000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
 
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return "just now";
-}
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return "just now";
+  }
 </script>
 
 <style scoped>
-.detail-title {
-  font-family: var(--t-mono);
-  font-size: 14px;
-}
+  .detail-title {
+    font-family: var(--t-mono);
+    font-size: 14px;
+  }
 
-.detail-shell {
-  padding: 18px 16px 32px;
-}
+  .detail-shell {
+    padding: 18px 16px 32px;
+  }
 
-.hero {
-  margin-bottom: 24px;
-}
+  .hero {
+    margin-bottom: 24px;
+  }
 
-.hero-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
+  .hero-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
 
-.pr-key,
-.mono {
-  font-family: var(--t-mono);
-}
+  .pr-key,
+  .mono {
+    font-family: var(--t-mono);
+  }
 
-.pr-key {
-  font-size: 11px;
-  color: var(--t-text-muted);
-}
+  .pr-key {
+    font-size: 11px;
+    color: var(--t-text-muted);
+  }
 
-.hero-title {
-  margin: 0 0 8px;
-  font-size: 22px;
-  line-height: 1.2;
-  color: var(--t-text-primary);
-}
+  .hero-title {
+    margin: 0 0 8px;
+    font-size: 22px;
+    line-height: 1.2;
+    color: var(--t-text-primary);
+  }
 
-.hero-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 13px;
-  color: var(--t-text-muted);
-  margin-bottom: 10px;
-}
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--t-text-muted);
+    margin-bottom: 10px;
+  }
 
-.meta-accent {
-  color: var(--t-accent);
-  font-size: 12px;
-}
+  .meta-accent {
+    color: var(--t-accent);
+    font-size: 12px;
+  }
 
-.sep {
-  color: var(--t-border-strong);
-}
+  .sep {
+    color: var(--t-border-strong);
+  }
 
-.meta-icon {
-  font-size: 12px;
-}
+  .meta-icon {
+    font-size: 12px;
+  }
 
-.branch-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--t-surface-raised);
-  border: 1px solid var(--t-border);
-}
+  .branch-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--t-surface-raised);
+    border: 1px solid var(--t-border);
+  }
 
-.branch {
-  font-size: 11px;
-  color: var(--t-text-secondary);
-}
+  .branch {
+    font-size: 11px;
+    color: var(--t-text-secondary);
+  }
 
-.branch-arrow {
-  color: var(--t-border-strong);
-}
+  .branch-arrow {
+    color: var(--t-border-strong);
+  }
 
-.section {
-  margin-top: 20px;
-}
+  .section {
+    margin-top: 20px;
+  }
 
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
 
-.section-head h2 {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--t-text-muted);
-  margin: 0;
-}
+  .section-head h2 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--t-text-muted);
+    margin: 0;
+  }
 
-.section-count {
-  font-size: 12px;
-  color: var(--t-text-muted);
-}
+  .section-count {
+    font-size: 12px;
+    color: var(--t-text-muted);
+  }
 
-.status-badge {
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: 3px 8px;
-  text-transform: capitalize;
-}
+  .status-badge {
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 3px 8px;
+    text-transform: capitalize;
+  }
 
-.status-badge.open {
-  --background: var(--t-accent-dim);
-  --color: var(--t-accent);
-}
+  .status-badge.open {
+    --background: var(--t-accent-dim);
+    --color: var(--t-accent);
+  }
 
-.status-badge.merged {
-  --background: rgba(167, 139, 250, 0.1);
-  --color: var(--t-purple);
-}
+  .status-badge.merged {
+    --background: rgba(167, 139, 250, 0.1);
+    --color: var(--t-purple);
+  }
 
-.status-badge.closed {
-  --background: transparent;
-  --color: var(--t-text-muted);
-  border: 1px solid var(--t-border-strong);
-}
+  .status-badge.closed {
+    --background: transparent;
+    --color: var(--t-text-muted);
+    border: 1px solid var(--t-border-strong);
+  }
 </style>

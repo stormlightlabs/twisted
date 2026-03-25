@@ -1,4 +1,4 @@
-const rawTwisterApiBaseUrl = import.meta.env.VITE_TWISTER_API_BASE_URL?.trim() ?? "http://localhost:8080/";
+const rawTwisterApiBaseUrl = import.meta.env.VITE_TWISTER_API_BASE_URL?.trim() ?? "http://127.0.0.1:8080";
 
 export const twisterApiBaseUrl = rawTwisterApiBaseUrl.replace(/\/+$/, "");
 export const hasTwisterApi = twisterApiBaseUrl.length > 0;

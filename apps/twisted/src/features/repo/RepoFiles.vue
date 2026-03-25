@@ -36,10 +36,7 @@
               {{ formatSize(blobQuery.data.value.size) }}
             </span>
           </div>
-          <div
-            v-if="highlightedHtml"
-            class="file-content shiki-wrap"
-            v-html="highlightedHtml" />
+          <div v-if="highlightedHtml" class="file-content shiki-wrap" v-html="highlightedHtml" />
           <pre v-else class="file-content"><code>{{ blobQuery.data.value.content }}</code></pre>
         </div>
       </template>
@@ -67,229 +64,229 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from "vue";
-import { IonList, IonButton, IonIcon } from "@ionic/vue";
-import { folderOpenOutline, alertCircleOutline, arrowBackOutline, documentOutline } from "ionicons/icons";
-import FileTreeItem from "@/components/repo/FileTreeItem.vue";
-import EmptyState from "@/components/common/EmptyState.vue";
-import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
-import { useRepoBlob, useRepoTree } from "@/services/tangled/queries.js";
-import type { RepoFile } from "@/domain/models/repo.js";
-import { highlightCode } from "@/lib/syntax.js";
-import { createObjectUrlFromBlobContent } from "@/services/tangled/repo-assets.js";
+  import { ref, computed, watch, onBeforeUnmount } from "vue";
+  import { IonList, IonButton, IonIcon } from "@ionic/vue";
+  import { folderOpenOutline, alertCircleOutline, arrowBackOutline, documentOutline } from "ionicons/icons";
+  import FileTreeItem from "@/components/repo/FileTreeItem.vue";
+  import EmptyState from "@/components/common/EmptyState.vue";
+  import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
+  import { useRepoBlob, useRepoTree } from "@/services/tangled/queries.js";
+  import type { RepoFile } from "@/domain/models/repo.js";
+  import { highlightCode } from "@/lib/syntax.js";
+  import { createObjectUrlFromBlobContent } from "@/services/tangled/repo-assets.js";
 
-const props = defineProps<{ owner: string; repo: string; branch: string }>();
+  const props = defineProps<{ owner: string; repo: string; branch: string }>();
 
-const selectedFile = ref<RepoFile | null>(null);
-const currentPath = ref("");
+  const selectedFile = ref<RepoFile | null>(null);
+  const currentPath = ref("");
 
-const treeQuery = useRepoTree(
-  computed(() => props.owner),
-  computed(() => props.repo),
-  computed(() => props.branch),
-  currentPath,
-  { enabled: computed(() => !!props.owner && !!props.repo && !!props.branch) },
-);
+  const treeQuery = useRepoTree(
+    computed(() => props.owner),
+    computed(() => props.repo),
+    computed(() => props.branch),
+    currentPath,
+    { enabled: computed(() => !!props.owner && !!props.repo && !!props.branch) },
+  );
 
-const sortedFiles = computed(() => {
-  const files = treeQuery.data.value ?? [];
-  return [...files].sort((a, b) => {
-    if (a.type === b.type) return a.name.localeCompare(b.name);
-    if (a.type === "dir") return -1;
-    if (b.type === "dir") return 1;
-    if (a.type === "submodule") return -1;
-    if (b.type === "submodule") return 1;
-    return 0;
+  const sortedFiles = computed(() => {
+    const files = treeQuery.data.value ?? [];
+    return [...files].sort((a, b) => {
+      if (a.type === b.type) return a.name.localeCompare(b.name);
+      if (a.type === "dir") return -1;
+      if (b.type === "dir") return 1;
+      if (a.type === "submodule") return -1;
+      if (b.type === "submodule") return 1;
+      return 0;
+    });
   });
-});
 
-const filePath = computed(() => selectedFile.value?.path ?? "");
-const isFileSelected = computed(() => !!selectedFile.value && selectedFile.value.type === "file");
+  const filePath = computed(() => selectedFile.value?.path ?? "");
+  const isFileSelected = computed(() => !!selectedFile.value && selectedFile.value.type === "file");
 
-const blobQuery = useRepoBlob(
-  computed(() => props.owner),
-  computed(() => props.repo),
-  computed(() => props.branch),
-  filePath,
-  { enabled: isFileSelected },
-);
+  const blobQuery = useRepoBlob(
+    computed(() => props.owner),
+    computed(() => props.repo),
+    computed(() => props.branch),
+    filePath,
+    { enabled: isFileSelected },
+  );
 
-function handleFileClick(file: RepoFile) {
-  if (file.type === "dir") {
-    currentPath.value = file.path;
-    selectedFile.value = null;
-    return;
-  }
-
-  if (file.type === "submodule") return;
-
-  selectedFile.value = file;
-}
-
-function goBack() {
-  if (selectedFile.value) {
-    selectedFile.value = null;
-    return;
-  }
-
-  if (!currentPath.value) return;
-  const segments = currentPath.value.split("/").filter(Boolean);
-  segments.pop();
-  currentPath.value = segments.join("/");
-}
-
-const highlightedHtml = ref<string | null>(null);
-const binaryPreviewUrl = ref<string | null>(null);
-
-watch(
-  () => [blobQuery.data.value?.content, selectedFile.value?.name] as const,
-  async ([content, name]) => {
-    highlightedHtml.value = null;
-    if (!content || !name) return;
-    highlightedHtml.value = await highlightCode(content, name);
-  },
-  { immediate: true },
-);
-
-watch(
-  () => blobQuery.data.value,
-  (blob) => {
-    if (binaryPreviewUrl.value) {
-      URL.revokeObjectURL(binaryPreviewUrl.value);
-      binaryPreviewUrl.value = null;
+  function handleFileClick(file: RepoFile) {
+    if (file.type === "dir") {
+      currentPath.value = file.path;
+      selectedFile.value = null;
+      return;
     }
 
-    if (!blob) return;
-    binaryPreviewUrl.value = createObjectUrlFromBlobContent(blob);
-  },
-  { immediate: true },
-);
+    if (file.type === "submodule") return;
 
-onBeforeUnmount(() => {
-  if (binaryPreviewUrl.value) {
-    URL.revokeObjectURL(binaryPreviewUrl.value);
+    selectedFile.value = file;
   }
-});
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+  function goBack() {
+    if (selectedFile.value) {
+      selectedFile.value = null;
+      return;
+    }
+
+    if (!currentPath.value) return;
+    const segments = currentPath.value.split("/").filter(Boolean);
+    segments.pop();
+    currentPath.value = segments.join("/");
+  }
+
+  const highlightedHtml = ref<string | null>(null);
+  const binaryPreviewUrl = ref<string | null>(null);
+
+  watch(
+    () => [blobQuery.data.value?.content, selectedFile.value?.name] as const,
+    async ([content, name]) => {
+      highlightedHtml.value = null;
+      if (!content || !name) return;
+      highlightedHtml.value = await highlightCode(content, name);
+    },
+    { immediate: true },
+  );
+
+  watch(
+    () => blobQuery.data.value,
+    (blob) => {
+      if (binaryPreviewUrl.value) {
+        URL.revokeObjectURL(binaryPreviewUrl.value);
+        binaryPreviewUrl.value = null;
+      }
+
+      if (!blob) return;
+      binaryPreviewUrl.value = createObjectUrlFromBlobContent(blob);
+    },
+    { immediate: true },
+  );
+
+  onBeforeUnmount(() => {
+    if (binaryPreviewUrl.value) {
+      URL.revokeObjectURL(binaryPreviewUrl.value);
+    }
+  });
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 </script>
 
 <style scoped>
-.files-view {
-  padding-bottom: 32px;
-}
-
-.file-list {
-  background: transparent;
-  padding: 8px 0;
-}
-
-.viewer-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 8px 4px;
-  border-bottom: 1px solid var(--t-border);
-}
-
-.back-btn {
-  --color: var(--t-accent);
-  flex-shrink: 0;
-}
-
-.file-path {
-  font-family: var(--t-mono);
-  font-size: 12px;
-  color: var(--t-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-content-wrap {
-  overflow: auto;
-}
-
-.image-preview-wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-.image-preview {
-  display: block;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  background: var(--t-surface-raised);
-}
-
-.file-meta {
-  padding: 6px 16px;
-  border-bottom: 1px solid var(--t-border);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.file-size {
-  font-size: 11px;
-  color: var(--t-text-muted);
-  font-family: var(--t-mono);
-}
-
-.file-content {
-  margin: 0;
-  padding: 16px;
-  font-family: var(--t-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--t-text-secondary);
-  white-space: pre;
-  overflow-x: auto;
-  tab-size: 2;
-}
-
-.binary-notice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 24px 16px;
-  font-size: 14px;
-  color: var(--t-text-muted);
-}
-
-.binary-icon {
-  font-size: 20px;
-}
-
-.shiki-wrap :deep(.shiki) {
-  margin: 0;
-  padding: 16px;
-  font-family: var(--t-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  tab-size: 2;
-  overflow-x: auto;
-  background: transparent !important;
-}
-
-.shiki-wrap :deep(.shiki code) {
-  font-family: inherit;
-  font-size: inherit;
-  background: transparent !important;
-}
-
-/* Dual-theme: light tokens visible by default, dark tokens on dark scheme */
-.shiki-wrap :deep(.shiki span) {
-  color: var(--shiki-light);
-}
-
-@media (prefers-color-scheme: dark) {
-  .shiki-wrap :deep(.shiki span) {
-    color: var(--shiki-dark);
+  .files-view {
+    padding-bottom: 32px;
   }
-}
+
+  .file-list {
+    background: transparent;
+    padding: 8px 0;
+  }
+
+  .viewer-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 8px 4px;
+    border-bottom: 1px solid var(--t-border);
+  }
+
+  .back-btn {
+    --color: var(--t-accent);
+    flex-shrink: 0;
+  }
+
+  .file-path {
+    font-family: var(--t-mono);
+    font-size: 12px;
+    color: var(--t-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-content-wrap {
+    overflow: auto;
+  }
+
+  .image-preview-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .image-preview {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    background: var(--t-surface-raised);
+  }
+
+  .file-meta {
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--t-border);
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .file-size {
+    font-size: 11px;
+    color: var(--t-text-muted);
+    font-family: var(--t-mono);
+  }
+
+  .file-content {
+    margin: 0;
+    padding: 16px;
+    font-family: var(--t-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--t-text-secondary);
+    white-space: pre;
+    overflow-x: auto;
+    tab-size: 2;
+  }
+
+  .binary-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 16px;
+    font-size: 14px;
+    color: var(--t-text-muted);
+  }
+
+  .binary-icon {
+    font-size: 20px;
+  }
+
+  .shiki-wrap :deep(.shiki) {
+    margin: 0;
+    padding: 16px;
+    font-family: var(--t-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    tab-size: 2;
+    overflow-x: auto;
+    background: transparent !important;
+  }
+
+  .shiki-wrap :deep(.shiki code) {
+    font-family: inherit;
+    font-size: inherit;
+    background: transparent !important;
+  }
+
+  /* Dual-theme: light tokens visible by default, dark tokens on dark scheme */
+  .shiki-wrap :deep(.shiki span) {
+    color: var(--shiki-light);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .shiki-wrap :deep(.shiki span) {
+      color: var(--shiki-dark);
+    }
+  }
 </style>

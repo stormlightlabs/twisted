@@ -1,9 +1,6 @@
 import DOMPurify from "dompurify";
 
-const SANITIZE_CONFIG = {
-  USE_PROFILES: { html: true },
-  ADD_ATTR: ["class", "style"],
-};
+const SANITIZE_CONFIG = { USE_PROFILES: { html: true }, ADD_ATTR: ["class", "style"] };
 
 export function sanitizeRichHtml(html: string): string {
   return stripHtmlComments(DOMPurify.sanitize(html, SANITIZE_CONFIG));

@@ -68,7 +68,10 @@ export type ProjectSearchResults = {
 function stripHighlight(html?: string): string | undefined {
   if (!html) return undefined;
 
-  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return text || undefined;
 }
 
@@ -157,13 +160,7 @@ export function useProjectSearch(
       const repos = response.results.filter((result) => result.record_type === "repo").map(toRepoSummary);
       const profiles = response.results.filter((result) => result.record_type === "profile").map(toUserSummary);
 
-      return {
-        query: response.query,
-        mode: response.mode,
-        total: response.total,
-        repos,
-        profiles,
-      };
+      return { query: response.query, mode: response.mode, total: response.total, repos, profiles };
     },
     enabled,
     staleTime: 2 * MIN,
@@ -171,16 +168,11 @@ export function useProjectSearch(
   });
 }
 
-export function useIndexedProfileSummary(
-  did: MaybeRef<string>,
-  options: { enabled?: MaybeRef<boolean> } = {},
-) {
+export function useIndexedProfileSummary(did: MaybeRef<string>, options: { enabled?: MaybeRef<boolean> } = {}) {
   const normalizedDid = computed(() => toValue(did).trim());
   const enabled = computed(
     () =>
-      hasTwisterApi &&
-      normalizedDid.value.length > 0 &&
-      (options.enabled === undefined || !!toValue(options.enabled)),
+      hasTwisterApi && normalizedDid.value.length > 0 && (options.enabled === undefined || !!toValue(options.enabled)),
   );
 
   return useQuery({

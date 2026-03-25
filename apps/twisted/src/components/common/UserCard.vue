@@ -29,128 +29,128 @@
 </template>
 
 <script setup lang="ts">
-import { IonCard, IonCardContent, IonAvatar } from "@ionic/vue";
-import type { UserSummary } from "@/domain/models/user";
+  import { IonCard, IonCardContent, IonAvatar } from "@ionic/vue";
+  import type { UserSummary } from "@/domain/models/user";
 
-defineProps<{ user: UserSummary }>();
-const emit = defineEmits<{ click: [] }>();
+  defineProps<{ user: UserSummary }>();
+  const emit = defineEmits<{ click: [] }>();
 
-const PALETTE = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f87171", "#fb923c", "#60a5fa"];
+  const PALETTE = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#f87171", "#fb923c", "#60a5fa"];
 
-function avatarColor(handle: string): string {
-  let hash = 0;
-  for (const ch of handle) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffffffff;
-  return PALETTE[Math.abs(hash) % PALETTE.length];
-}
+  function avatarColor(handle: string): string {
+    let hash = 0;
+    for (const ch of handle) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffffffff;
+    return PALETTE[Math.abs(hash) % PALETTE.length];
+  }
 
-function initials(handle: string): string {
-  const base = handle.split(".")[0];
-  return base.slice(0, 2).toUpperCase();
-}
+  function initials(handle: string): string {
+    const base = handle.split(".")[0];
+    return base.slice(0, 2).toUpperCase();
+  }
 
-function formatCount(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-}
+  function formatCount(n: number): string {
+    return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+  }
 </script>
 
 <style scoped>
-.user-card {
-  --background: var(--t-surface);
-  margin: 6px 16px;
-  border-radius: var(--t-radius-md);
-  border: 1px solid var(--t-border);
-  box-shadow: none;
-}
+  .user-card {
+    --background: var(--t-surface);
+    margin: 6px 16px;
+    border-radius: var(--t-radius-md);
+    border: 1px solid var(--t-border);
+    box-shadow: none;
+  }
 
-.card-body {
-  padding: 14px 16px;
-}
+  .card-body {
+    padding: 14px 16px;
+  }
 
-.user-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
+  .user-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
 
-.avatar {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: var(--t-radius-sm);
-  overflow: hidden;
-}
+  .avatar {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: var(--t-radius-sm);
+    overflow: hidden;
+  }
 
-.avatar-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+  .avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
 
-.avatar-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--t-mono);
-  font-size: 13px;
-  font-weight: 700;
-  color: #0d1117;
-  border-radius: var(--t-radius-sm);
-}
+  .avatar-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--t-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: #0d1117;
+    border-radius: var(--t-radius-sm);
+  }
 
-.user-info {
-  flex: 1;
-  min-width: 0;
-}
+  .user-info {
+    flex: 1;
+    min-width: 0;
+  }
 
-.user-handle {
-  font-family: var(--t-mono);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--t-accent);
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  .user-handle {
+    font-family: var(--t-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--t-accent);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-.user-display-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--t-text-primary);
-  margin-top: 1px;
-  line-height: 1.3;
-}
+  .user-display-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--t-text-primary);
+    margin-top: 1px;
+    line-height: 1.3;
+  }
 
-.user-bio {
-  font-size: 12px;
-  color: var(--t-text-secondary);
-  margin: 4px 0 0;
-  line-height: 1.4;
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+  .user-bio {
+    font-size: 12px;
+    color: var(--t-text-secondary);
+    margin: 4px 0 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
-.user-stats {
-  display: flex;
-  gap: 14px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--t-border);
-}
+  .user-stats {
+    display: flex;
+    gap: 14px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--t-border);
+  }
 
-.stat {
-  font-size: 12px;
-  color: var(--t-text-muted);
-}
+  .stat {
+    font-size: 12px;
+    color: var(--t-text-muted);
+  }
 
-.stat strong {
-  font-weight: 600;
-  color: var(--t-text-secondary);
-}
+  .stat strong {
+    font-weight: 600;
+    color: var(--t-text-secondary);
+  }
 </style>

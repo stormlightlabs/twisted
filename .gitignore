@@ -33,3 +33,4 @@ plugins
 www
 
 *.db
+.env

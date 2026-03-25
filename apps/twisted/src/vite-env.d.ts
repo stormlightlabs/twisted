@@ -16,11 +16,7 @@ declare module "markdown-it" {
     use(plugin: (...args: any[]) => unknown, ...params: any[]): MarkdownIt;
   };
 
-  type MarkdownItOptions = {
-    html?: boolean;
-    linkify?: boolean;
-    typographer?: boolean;
-  };
+  type MarkdownItOptions = { html?: boolean; linkify?: boolean; typographer?: boolean };
 
   const markdownit: (options?: MarkdownItOptions) => MarkdownIt;
   export default markdownit;
