@@ -41,11 +41,39 @@ type RecordState struct {
 	UpdatedAt  string
 }
 
+// IndexingJob stores queued read-through indexing work fetched through the API.
+type IndexingJob struct {
+	DocumentID  string
+	DID         string
+	Collection  string
+	RKey        string
+	CID         string
+	RecordJSON  string
+	Attempts    int
+	Status      string
+	LastError   string
+	ScheduledAt string
+	UpdatedAt   string
+}
+
+// IndexingJobInput is the payload used to enqueue or refresh an indexing job.
+type IndexingJobInput struct {
+	DocumentID string
+	DID        string
+	Collection string
+	RKey       string
+	CID        string
+	RecordJSON string
+}
+
 // DocumentFilter scopes a ListDocuments query to a subset of documents.
 type DocumentFilter struct {
-	Collection string // filter by collection NSID
-	DID        string // filter by author DID
-	DocumentID string // filter to a single document by stable ID
+	// filter by collection NSID
+	Collection string
+	// filter by author DID
+	DID string
+	// filter to a single document by stable ID
+	DocumentID string
 }
 
 // Store is the persistence interface for Twister.
@@ -61,6 +89,10 @@ type Store interface {
 	UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error
 	GetIdentityHandle(ctx context.Context, did string) (string, error)
 	EnqueueEmbeddingJob(ctx context.Context, documentID string) error
+	EnqueueIndexingJob(ctx context.Context, input IndexingJobInput) error
+	ClaimIndexingJob(ctx context.Context) (*IndexingJob, error)
+	CompleteIndexingJob(ctx context.Context, documentID string) error
+	RetryIndexingJob(ctx context.Context, documentID string, nextScheduledAt string, lastError string) error
 	GetFollowSubjects(ctx context.Context, did string) ([]string, error)
 	GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error)
 	CountDocuments(ctx context.Context) (int64, error)

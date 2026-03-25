@@ -5,11 +5,27 @@ ldflags := "-s -w -X main.version=" + version + " -X main.commit=" + commit
 build:
     CGO_ENABLED=0 go build -ldflags "{{ldflags}}" -o twister ./main.go
 
-run-api:
-    go run -ldflags "{{ldflags}}" ./main.go api
+# Run the API server. Usage: just run-api [mode], mode: local|remote (default local)
+run-api mode="local":
+    if [ "{{mode}}" = "local" ]; then \
+        go run -ldflags "{{ldflags}}" ./main.go api --local; \
+    elif [ "{{mode}}" = "remote" ]; then \
+        go run -ldflags "{{ldflags}}" ./main.go api; \
+    else \
+        echo "invalid mode '{{mode}}' (expected local or remote)" >&2; \
+        exit 1; \
+    fi
 
-run-indexer:
-    go run -ldflags "{{ldflags}}" ./main.go indexer
+# Run the indexer. Usage: just run-indexer [mode], mode: local|remote (default local)
+run-indexer mode="local":
+    if [ "{{mode}}" = "local" ]; then \
+        go run -ldflags "{{ldflags}}" ./main.go indexer --local; \
+    elif [ "{{mode}}" = "remote" ]; then \
+        go run -ldflags "{{ldflags}}" ./main.go indexer; \
+    else \
+        echo "invalid mode '{{mode}}' (expected local or remote)" >&2; \
+        exit 1; \
+    fi
 
 test:
     go test ./...

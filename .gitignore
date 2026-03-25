@@ -33,5 +33,10 @@ platforms
 plugins
 www
 
+# SQLite
 *.db
+*.db-shm
+*.db-wal
+
 .env
+__pycache__/

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"time"
 
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
 	_ "modernc.org/sqlite"
@@ -31,11 +32,37 @@ func Open(url, token string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
+	if strings.HasPrefix(url, "file:") {
+		if err := configureLocalSQLite(db); err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 	return db, nil
+}
+
+func configureLocalSQLite(db *sql.DB) error {
+	// Busy timeout gives the writer a window to wait instead of failing fast with "database is locked".
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		return fmt.Errorf("configure sqlite busy_timeout: %w", err)
+	}
+	// WAL mode allows concurrent readers with a writer and is the default for multi-process local dev.
+	if _, err := db.Exec(`PRAGMA journal_mode = WAL`); err != nil {
+		return fmt.Errorf("configure sqlite wal mode: %w", err)
+	}
+	if _, err := db.Exec(`PRAGMA synchronous = NORMAL`); err != nil {
+		return fmt.Errorf("configure sqlite synchronous mode: %w", err)
+	}
+
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	return nil
 }
 
 // driverAndDSN returns the sql driver name and DSN for the given URL.

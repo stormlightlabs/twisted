@@ -41,11 +41,13 @@ app-cap-android:
 api-build:
     just --justfile packages/api/justfile build
 
-api-dev:
-    just --justfile packages/api/justfile run-api
+# Run API. Usage: just api-dev [mode], mode: local|remote (default local)
+api-dev mode="local":
+    just --justfile packages/api/justfile run-api {{mode}}
 
-api-run-indexer:
-    just --justfile packages/api/justfile run-indexer
+# Run indexer. Usage: just api-run-indexer [mode], mode: local|remote (default local)
+api-run-indexer mode="local":
+    just --justfile packages/api/justfile run-indexer {{mode}}
 
 api-test:
     just --justfile packages/api/justfile test

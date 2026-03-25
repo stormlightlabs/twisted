@@ -315,4 +315,68 @@ func TestIntegration(t *testing.T) {
 			t.Fatalf("collaborators: got %#v", collaborators)
 		}
 	})
+
+	t.Run("indexing jobs enqueue claim retry complete", func(t *testing.T) {
+		job := store.IndexingJobInput{
+			DocumentID: "did:plc:owner|sh.tangled.repo|repo1",
+			DID:        "did:plc:owner",
+			Collection: "sh.tangled.repo",
+			RKey:       "repo1",
+			CID:        "cid-repo1",
+			RecordJSON: `{"name":"repo1"}`,
+		}
+		if err := st.EnqueueIndexingJob(ctx, job); err != nil {
+			t.Fatalf("enqueue indexing job: %v", err)
+		}
+		if err := st.EnqueueIndexingJob(ctx, job); err != nil {
+			t.Fatalf("enqueue indexing job second call: %v", err)
+		}
+
+		claimed, err := st.ClaimIndexingJob(ctx)
+		if err != nil {
+			t.Fatalf("claim indexing job: %v", err)
+		}
+		if claimed == nil {
+			t.Fatal("expected claimed indexing job")
+		}
+		if claimed.DocumentID != job.DocumentID {
+			t.Fatalf("claimed document id: got %q want %q", claimed.DocumentID, job.DocumentID)
+		}
+
+		if err := st.RetryIndexingJob(ctx, job.DocumentID, "9999-12-31T23:59:59Z", "boom"); err != nil {
+			t.Fatalf("retry indexing job: %v", err)
+		}
+
+		none, err := st.ClaimIndexingJob(ctx)
+		if err != nil {
+			t.Fatalf("claim delayed indexing job: %v", err)
+		}
+		if none != nil {
+			t.Fatalf("expected no claim before schedule time, got %#v", none)
+		}
+
+		if err := st.RetryIndexingJob(ctx, job.DocumentID, "1970-01-01T00:00:00Z", "retry-now"); err != nil {
+			t.Fatalf("retry indexing job now: %v", err)
+		}
+
+		claimed, err = st.ClaimIndexingJob(ctx)
+		if err != nil {
+			t.Fatalf("claim retried indexing job: %v", err)
+		}
+		if claimed == nil {
+			t.Fatal("expected claimed retried indexing job")
+		}
+
+		if err := st.CompleteIndexingJob(ctx, job.DocumentID); err != nil {
+			t.Fatalf("complete indexing job: %v", err)
+		}
+
+		claimed, err = st.ClaimIndexingJob(ctx)
+		if err != nil {
+			t.Fatalf("claim after complete: %v", err)
+		}
+		if claimed != nil {
+			t.Fatalf("expected no job after complete, got %#v", claimed)
+		}
+	})
 }

@@ -41,37 +41,42 @@ pnpm install
 Start the Ionic/Vite app:
 
 ```bash
-pnpm dev
-# or: just dev
+pnpm dev # or: just dev
 ```
 
 That serves the client from `apps/twisted` with Vite.
 
-To run the Go API locally, make sure `packages/api/.env` has at least:
+To run the Go API locally for routine experimentation, no Turso credentials are required.
 
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
-
-Then start the API:
+Start the API in local file mode:
 
 ```bash
-pnpm api:run:api
-# or: just api-dev
+pnpm api:run:api # or: just api-dev
 ```
 
-This serves the API and search site on `http://localhost:8080`.
+This serves the API and search site on `http://localhost:8080` using
+`packages/api/twister-dev.db`.
 
-To run the indexer as well, `packages/api/.env` also needs:
+To run the API against remote Turso instead:
+
+```bash
+just api-dev remote
+```
+
+To run the indexer in local file mode as well:
+
+```bash
+pnpm api:run:indexer # or: just api-run-indexer
+```
+
+To run the indexer against remote Turso, `packages/api/.env` needs:
 
 - `TAP_URL`
 - `TAP_AUTH_PASSWORD`
 - `INDEXED_COLLECTIONS`
 
-Then start the indexer in a separate terminal:
-
 ```bash
-pnpm api:run:indexer
-# or: just api-run-indexer
+just api-run-indexer remote
 ```
 
 Typical local setup is three terminals:

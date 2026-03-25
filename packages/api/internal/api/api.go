@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +15,7 @@ import (
 
 	"tangled.org/desertthunder.dev/twister/internal/config"
 	"tangled.org/desertthunder.dev/twister/internal/constellation"
+	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/reindex"
 	"tangled.org/desertthunder.dev/twister/internal/search"
 	"tangled.org/desertthunder.dev/twister/internal/store"
@@ -28,6 +31,7 @@ type Server struct {
 	log           *slog.Logger
 	constellation *constellation.Client
 	xrpc          *xrpc.Client
+	registry      *normalize.Registry
 }
 
 // New creates a new API server.
@@ -39,6 +43,7 @@ func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log 
 		log:           log,
 		constellation: constellation,
 		xrpc:          xrpcClient,
+		registry:      normalize.NewRegistry(),
 	}
 }
 
@@ -114,6 +119,8 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	errCh := make(chan error, 1)
+	go s.runReadThroughIndexer(ctx)
+
 	go func() {
 		s.log.Info("listening", slog.String("addr", s.cfg.HTTPBindAddr))
 		errCh <- srv.ListenAndServe()
@@ -169,6 +176,20 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := rw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("response writer does not support hijacking")
+	}
+	return h.Hijack()
+}
+
+func (rw *responseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {

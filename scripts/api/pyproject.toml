@@ -1,0 +1,20 @@
+[project]
+name = "twister-api-smoke"
+version = "0.1.0"
+description = "Smoke checks for Twister API endpoints"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+twister-api-smoke = "twister_api_smoke.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 100

@@ -18,6 +18,24 @@ go run . api --local
 
 The server listens on `:8080` by default. Logs are printed as text when `--local` is set.
 
+## API Smoke Tests
+
+Smoke checks for the API surface live in a uv-managed Python project at
+`scripts/api/`.
+
+From the repo root:
+
+```sh
+uv run --project scripts/api twister-api-smoke
+```
+
+Optional base URL override:
+
+```sh
+TWISTER_API_BASE_URL=http://localhost:8080 \
+	uv run --project scripts/api twister-api-smoke
+```
+
 ## Experimental Local DB Operations
 
 The experimental local database lives at `packages/api/twister-dev.db` when you run Twister from `packages/api` with `--local`.

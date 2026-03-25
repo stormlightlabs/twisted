@@ -13,7 +13,7 @@
     "app:cap:run:android": "pnpm --dir apps/twisted exec cap run android",
     "api:build": "just --justfile packages/api/justfile build",
     "api:test": "just --justfile packages/api/justfile test",
-    "api:run:api": "just --justfile packages/api/justfile run-api",
-    "api:run:indexer": "just --justfile packages/api/justfile run-indexer"
+    "api:run:api": "just api-dev",
+    "api:run:indexer": "just api-run-indexer"
   }
 }

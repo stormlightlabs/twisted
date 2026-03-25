@@ -98,7 +98,7 @@ func (s *SQLStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]
 	for rows.Next() {
 		doc := &Document{}
 		var (
-			title, body, summary, repoDID, repoName, authorHandle sql.NullString
+			title, body, summary, repoDID, repoName, authorHandle       sql.NullString
 			tagsJSON, language, createdAt, updatedAt, webURL, deletedAt sql.NullString
 		)
 		if err := rows.Scan(
@@ -271,6 +271,122 @@ func (s *SQLStore) EnqueueEmbeddingJob(ctx context.Context, documentID string) e
 	return nil
 }
 
+func (s *SQLStore) EnqueueIndexingJob(ctx context.Context, input IndexingJobInput) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO indexing_jobs (
+			document_id, did, collection, rkey, cid, record_json,
+			status, attempts, last_error, scheduled_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, NULL, ?, ?)
+		ON CONFLICT(document_id) DO UPDATE SET
+			did = excluded.did,
+			collection = excluded.collection,
+			rkey = excluded.rkey,
+			cid = excluded.cid,
+			record_json = excluded.record_json,
+			status = 'pending',
+			last_error = NULL,
+			scheduled_at = excluded.scheduled_at,
+			updated_at = excluded.updated_at`,
+		input.DocumentID, input.DID, input.Collection, input.RKey, input.CID, input.RecordJSON, now, now,
+	)
+	if err != nil {
+		return fmt.Errorf("enqueue indexing job: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) ClaimIndexingJob(ctx context.Context) (*IndexingJob, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	staleCutoff := time.Now().UTC().Add(-5 * time.Minute).Format(time.RFC3339)
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin claim indexing job tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var job IndexingJob
+	row := tx.QueryRowContext(ctx, `
+		SELECT document_id, did, collection, rkey, cid, record_json,
+		       attempts, status, COALESCE(last_error, ''), scheduled_at, updated_at
+		FROM indexing_jobs
+		WHERE (status = 'pending' AND scheduled_at <= ?)
+		   OR (status = 'processing' AND updated_at <= ?)
+		ORDER BY scheduled_at ASC, updated_at ASC
+		LIMIT 1`, now, staleCutoff)
+
+	err = row.Scan(
+		&job.DocumentID,
+		&job.DID,
+		&job.Collection,
+		&job.RKey,
+		&job.CID,
+		&job.RecordJSON,
+		&job.Attempts,
+		&job.Status,
+		&job.LastError,
+		&job.ScheduledAt,
+		&job.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("select indexing job: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE indexing_jobs
+		SET status = 'processing', updated_at = ?
+		WHERE document_id = ?`,
+		now, job.DocumentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("mark indexing job processing: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("rows affected claim indexing job: %w", err)
+	}
+	if affected == 0 {
+		return nil, nil
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit claim indexing job tx: %w", err)
+	}
+	job.Status = "processing"
+	job.UpdatedAt = now
+	return &job, nil
+}
+
+func (s *SQLStore) CompleteIndexingJob(ctx context.Context, documentID string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM indexing_jobs WHERE document_id = ?`, documentID)
+	if err != nil {
+		return fmt.Errorf("complete indexing job: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLStore) RetryIndexingJob(ctx context.Context, documentID string, nextScheduledAt string, lastError string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE indexing_jobs
+		SET status = 'pending',
+			attempts = attempts + 1,
+			last_error = ?,
+			scheduled_at = ?,
+			updated_at = ?
+		WHERE document_id = ?`,
+		lastError, nextScheduledAt, now, documentID,
+	)
+	if err != nil {
+		return fmt.Errorf("retry indexing job: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLStore) GetFollowSubjects(ctx context.Context, did string) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT repo_did
@@ -351,7 +467,7 @@ func (s *SQLStore) Ping(ctx context.Context) error {
 func scanDocument(row *sql.Row) (*Document, error) {
 	doc := &Document{}
 	var (
-		title, body, summary, repoDID, repoName, authorHandle sql.NullString
+		title, body, summary, repoDID, repoName, authorHandle       sql.NullString
 		tagsJSON, language, createdAt, updatedAt, webURL, deletedAt sql.NullString
 	)
 	err := row.Scan(

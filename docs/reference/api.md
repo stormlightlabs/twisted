@@ -133,22 +133,22 @@ The backfill command discovers users from a seed file and registers them with Ta
 
 All configuration is via environment variables (with `.env` file support):
 
-| Variable                   | Default                 | Purpose                                        |
-| -------------------------- | ----------------------- | ---------------------------------------------- |
-| `TURSO_DATABASE_URL`       | —                       | Database connection (required)                 |
-| `TURSO_AUTH_TOKEN`         | —                       | Auth token (required for remote)               |
-| `TAP_URL`                  | —                       | Tap WebSocket URL                              |
-| `TAP_AUTH_PASSWORD`        | —                       | Tap admin password                             |
-| `INDEXED_COLLECTIONS`      | all                     | Collection allowlist (CSV, supports wildcards) |
-| `HTTP_BIND_ADDR`           | `:8080`                 | API server bind address                        |
-| `INDEXER_HEALTH_ADDR`      | `:9090`                 | Indexer health probe address                   |
-| `LOG_LEVEL`                | info                    | debug/info/warn/error                          |
-| `LOG_FORMAT`               | json                    | json or text                                   |
-| `ENABLE_ADMIN_ENDPOINTS`   | false                   | Enable admin routes                            |
-| `ADMIN_AUTH_TOKEN`         | —                       | Bearer token for admin                         |
-| `ENABLE_INGEST_ENRICHMENT` | true                    | XRPC enrichment at ingest time                 |
-| `PLC_DIRECTORY_URL`        | `https://plc.directory` | PLC Directory                                  |
-| `XRPC_TIMEOUT`             | 15s                     | XRPC HTTP timeout                              |
+| Variable                   | Default                 | Purpose                                         |
+| -------------------------- | ----------------------- | ----------------------------------------------- |
+| `TURSO_DATABASE_URL`       | —                       | Database connection (required unless `--local`) |
+| `TURSO_AUTH_TOKEN`         | —                       | Auth token (required for remote)                |
+| `TAP_URL`                  | —                       | Tap WebSocket URL                               |
+| `TAP_AUTH_PASSWORD`        | —                       | Tap admin password                              |
+| `INDEXED_COLLECTIONS`      | all                     | Collection allowlist (CSV, supports wildcards)  |
+| `HTTP_BIND_ADDR`           | `:8080`                 | API server bind address                         |
+| `INDEXER_HEALTH_ADDR`      | `:9090`                 | Indexer health probe address                    |
+| `LOG_LEVEL`                | info                    | debug/info/warn/error                           |
+| `LOG_FORMAT`               | json                    | json or text                                    |
+| `ENABLE_ADMIN_ENDPOINTS`   | false                   | Enable admin routes                             |
+| `ADMIN_AUTH_TOKEN`         | —                       | Bearer token for admin                          |
+| `ENABLE_INGEST_ENRICHMENT` | true                    | XRPC enrichment at ingest time                  |
+| `PLC_DIRECTORY_URL`        | `https://plc.directory` | PLC Directory                                   |
+| `XRPC_TIMEOUT`             | 15s                     | XRPC HTTP timeout                               |
 
 ## Deployment
 

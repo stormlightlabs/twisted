@@ -103,6 +103,22 @@ func (f *fakeStore) EnqueueEmbeddingJob(_ context.Context, documentID string) er
 	return nil
 }
 
+func (f *fakeStore) EnqueueIndexingJob(_ context.Context, _ store.IndexingJobInput) error {
+	return nil
+}
+
+func (f *fakeStore) ClaimIndexingJob(_ context.Context) (*store.IndexingJob, error) {
+	return nil, nil
+}
+
+func (f *fakeStore) CompleteIndexingJob(_ context.Context, _ string) error {
+	return nil
+}
+
+func (f *fakeStore) RetryIndexingJob(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
 func (f *fakeStore) GetFollowSubjects(_ context.Context, _ string) ([]string, error) {
 	return nil, nil
 }
