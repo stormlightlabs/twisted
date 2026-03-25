@@ -50,8 +50,23 @@ func driverAndDSN(url, token string) (driver, dsn string) {
 	return "libsql", url + "?authToken=" + token
 }
 
-// Migrate runs all embedded SQL migration files in order.
+// Migrate runs all embedded SQL migration files in order, skipping any that
+// have already been applied. Applied filenames are recorded in the
+// schema_migrations table so re-runs are idempotent.
 func Migrate(db *sql.DB, url string) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		filename   TEXT PRIMARY KEY,
+		applied_at TEXT NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("create schema_migrations table: %w", err)
+	}
+
+	// For databases that were created before migration tracking was added,
+	// backfill schema_migrations by introspecting which tables/columns exist.
+	if err := backfillMigrationHistory(db); err != nil {
+		return fmt.Errorf("backfill migration history: %w", err)
+	}
+
 	mode := migrationMode{
 		allowTursoExtensionSkip: strings.HasPrefix(url, "file:"),
 		targetDescription:       migrationTargetDescription(url),
@@ -67,6 +82,12 @@ func Migrate(db *sql.DB, url string) error {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
+		var already int
+		_ = db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE filename = ?`, entry.Name()).Scan(&already)
+		if already > 0 {
+			slog.Debug("migration already applied, skipping", "file", entry.Name())
+			continue
+		}
 		data, err := migrationsFS.ReadFile("migrations/" + entry.Name())
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
@@ -74,9 +95,73 @@ func Migrate(db *sql.DB, url string) error {
 		if err := execMigration(db, entry.Name(), string(data), mode); err != nil {
 			return err
 		}
+		if _, err := db.Exec(
+			`INSERT INTO schema_migrations (filename, applied_at) VALUES (?, datetime('now'))`,
+			entry.Name(),
+		); err != nil {
+			return fmt.Errorf("record migration %s: %w", entry.Name(), err)
+		}
 		slog.Info("migration applied", "file", entry.Name())
 	}
 	return nil
+}
+
+// backfillMigrationHistory records already-applied migrations for databases
+// that pre-date the schema_migrations tracking table. It is a no-op if the
+// table already has any entries (i.e. tracking was already in place).
+func backfillMigrationHistory(db *sql.DB) error {
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil || count > 0 {
+		return nil
+	}
+
+	// If the documents table does not exist yet this is a fresh database — nothing to backfill.
+	if !sqliteTableExists(db, "documents") {
+		return nil
+	}
+
+	mark := func(filename string) {
+		_, _ = db.Exec(
+			`INSERT OR IGNORE INTO schema_migrations (filename, applied_at) VALUES (?, datetime('now'))`,
+			filename,
+		)
+	}
+
+	// 001 — documents table is present.
+	mark("001_initial.sql")
+
+	// 002 — identity_handles table.
+	if sqliteTableExists(db, "identity_handles") {
+		mark("002_identity_handles.sql")
+	}
+
+	// 003 — documents_fts virtual table.
+	if sqliteTableExists(db, "documents_fts") {
+		mark("003_documents_fts.sql")
+	}
+
+	// 004 — web_url column on documents.
+	if sqliteColumnExists(db, "documents", "web_url") {
+		mark("004_web_url.sql")
+	}
+
+	return nil
+}
+
+func sqliteTableExists(db *sql.DB, table string) bool {
+	var n int
+	_ = db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table','view') AND name = ?`, table,
+	).Scan(&n)
+	return n > 0
+}
+
+func sqliteColumnExists(db *sql.DB, table, column string) bool {
+	var n int
+	_ = db.QueryRow(
+		`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`, table, column,
+	).Scan(&n)
+	return n > 0
 }
 
 func execMigration(db *sql.DB, name, content string, mode migrationMode) error {

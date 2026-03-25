@@ -13,17 +13,7 @@
         </ion-toolbar>
       </ion-header>
 
-      <section class="hero">
-        <p class="eyebrow">Indexed Search</p>
-        <h1 class="hero-title">Search the Tangled network through the project index.</h1>
-        <p class="hero-copy">
-          Explore uses the Twister index for global search. Open any result to continue browsing through Tangled's
-          public repo and profile APIs.
-        </p>
-      </section>
-
       <section class="search-card">
-        <label class="field-label" for="search-input">Search query</label>
         <ion-input
           id="search-input"
           v-model="draftQuery"
@@ -32,7 +22,7 @@
           autocapitalize="off"
           :spellcheck="false"
           clear-input
-          placeholder="Search repos, profiles, issues, and strings"
+          placeholder="Search repos and people…"
           @keydown.enter="runSearch" />
 
         <ion-segment v-model="resultType" class="search-segment">
@@ -41,19 +31,28 @@
           <ion-segment-button value="profile">People</ion-segment-button>
         </ion-segment>
 
-        <div class="action-row">
-          <ion-button class="primary-action" expand="block" @click="runSearch" :disabled="!canSearch">
-            Search
-          </ion-button>
-          <ion-button fill="outline" expand="block" @click="clearSearch" :disabled="!hasAnyQuery">Clear</ion-button>
-        </div>
+        <p v-if="!hasTwisterApi" class="hint-copy">
+          Set <code>VITE_TWISTER_API_BASE_URL</code> to enable global search.
+        </p>
+      </section>
 
-        <p v-if="hasTwisterApi" class="hint-copy">
-          Search results and follower counts come from the project index when available.
-        </p>
-        <p v-else class="hint-copy">
-          Set <code>VITE_TWISTER_API_BASE_URL</code> to enable global search and index-backed graph summaries.
-        </p>
+      <!-- Recent search history (shown when no active search) -->
+      <section v-if="showHistory" class="history-section">
+        <div class="history-header">
+          <span class="section-label">Recent</span>
+          <button class="clear-btn" type="button" @click="clearHistory">Clear all</button>
+        </div>
+        <div class="history-list">
+          <div v-for="entry in searchHistory" :key="entry.query" class="history-chip">
+            <button class="chip-label" type="button" @click="applyHistoryEntry(entry.query)">
+              <ion-icon :icon="timeOutline" class="chip-icon" />
+              {{ entry.query }}
+            </button>
+            <button class="chip-remove" type="button" @click="removeHistoryEntry(entry.query)" aria-label="Remove">
+              <ion-icon :icon="closeOutline" />
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="results-section">
@@ -61,13 +60,13 @@
           v-if="!hasTwisterApi"
           :icon="searchOutline"
           title="Index API not configured"
-          message="Explore can search globally once the Twister API base URL is configured for this app." />
+          message="Explore can search globally once the Twister API base URL is configured." />
 
         <EmptyState
           v-else-if="!hasAttemptedSearch"
           :icon="searchOutline"
           title="Search repos and people"
-          message="Run a query against the project index, then open any result to continue browsing with Tangled's public APIs." />
+          message="Start typing to search the project index. Results are filtered by type using the segments above." />
 
         <template v-else-if="isLoading">
           <SkeletonLoader v-for="n in 3" :key="`repo-${n}`" variant="card" />
@@ -85,7 +84,7 @@
         <template v-else-if="hasResults">
           <div class="results-header">
             <div>
-              <p class="results-label">Indexed results</p>
+              <p class="results-label">Results for</p>
               <h2 class="results-title">{{ submittedQuery }}</h2>
             </div>
             <p class="results-meta">{{ totalLabel }}</p>
@@ -114,206 +113,287 @@
         <EmptyState
           v-else
           :icon="searchOutline"
-          title="No indexed matches"
-          message="Try a different query, or use Home to jump directly to a known handle." />
+          title="No results"
+          message="Try a different query. Use Home to jump directly to a known handle." />
       </section>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
-import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonInput,
-  IonButton,
-  IonSegment,
-  IonSegmentButton,
-} from "@ionic/vue";
-import { alertCircleOutline, searchOutline } from "ionicons/icons";
-import EmptyState from "@/components/common/EmptyState.vue";
-import RepoCard from "@/components/common/RepoCard.vue";
-import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
-import UserCard from "@/components/common/UserCard.vue";
-import { hasTwisterApi } from "@/core/config/project.js";
-import type { RepoSummary } from "@/domain/models/repo.js";
-import { useProjectSearch } from "@/services/project-api/queries.js";
+  import { computed, ref, watch, onUnmounted } from "vue";
+  import { useRouter } from "vue-router";
+  import {
+    IonPage,
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonContent,
+    IonInput,
+    IonSegment,
+    IonSegmentButton,
+    IonIcon,
+  } from "@ionic/vue";
+  import { alertCircleOutline, searchOutline, timeOutline, closeOutline } from "ionicons/icons";
+  import EmptyState from "@/components/common/EmptyState.vue";
+  import RepoCard from "@/components/common/RepoCard.vue";
+  import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
+  import UserCard from "@/components/common/UserCard.vue";
+  import { hasTwisterApi } from "@/core/config/project.js";
+  import {
+    getSearchHistory,
+    addToSearchHistory,
+    removeFromSearchHistory,
+    clearSearchHistory,
+  } from "@/core/search-history/index.js";
+  import { trackRepoVisit, trackProfileVisit } from "@/core/browse-history/index.js";
+  import type { SearchHistoryEntry } from "@/core/search-history/index.js";
+  import type { RepoSummary } from "@/domain/models/repo.js";
+  import { useProjectSearch } from "@/services/project-api/queries.js";
 
-const router = useRouter();
+  const router = useRouter();
 
-const draftQuery = ref("");
-const submittedQuery = ref("");
-const hasAttemptedSearch = ref(false);
-const resultType = ref<"all" | "repo" | "profile">("all");
+  const draftQuery = ref("");
+  const submittedQuery = ref("");
+  const hasAttemptedSearch = ref(false);
+  const resultType = ref<"all" | "repo" | "profile">("all");
+  const searchHistory = ref<SearchHistoryEntry[]>(getSearchHistory());
 
-const hasAnyQuery = computed(() => draftQuery.value.trim().length > 0 || submittedQuery.value.length > 0);
-const canSearch = computed(() => hasTwisterApi && draftQuery.value.trim().length > 0);
+  const showHistory = computed(
+    () => searchHistory.value.length > 0 && !draftQuery.value.trim() && !hasAttemptedSearch.value,
+  );
 
-const searchQuery = useProjectSearch(submittedQuery, {
-  type: resultType,
-  enabled: computed(() => hasTwisterApi && hasAttemptedSearch.value && submittedQuery.value.length > 0),
-});
+  const searchQuery = useProjectSearch(submittedQuery, {
+    type: resultType,
+    enabled: computed(() => hasTwisterApi && hasAttemptedSearch.value && submittedQuery.value.length > 0),
+  });
 
-const repos = computed(() => searchQuery.data.value?.repos ?? []);
-const profiles = computed(() => searchQuery.data.value?.profiles ?? []);
-const hasResults = computed(() => repos.value.length > 0 || profiles.value.length > 0);
-const isLoading = computed(() => searchQuery.isPending.value);
-const isError = computed(() => searchQuery.isError.value);
-const errorMessage = computed(() => {
-  const err = searchQuery.error.value;
-  return err instanceof Error ? err.message : "An unexpected error occurred while searching the project index.";
-});
-const totalLabel = computed(() => {
-  const total = searchQuery.data.value?.total ?? repos.value.length + profiles.value.length;
-  return `${total} indexed result${total === 1 ? "" : "s"}`;
-});
+  const repos = computed(() => searchQuery.data.value?.repos ?? []);
+  const profiles = computed(() => searchQuery.data.value?.profiles ?? []);
+  const hasResults = computed(() => repos.value.length > 0 || profiles.value.length > 0);
+  const isLoading = computed(() => searchQuery.isPending.value);
+  const isError = computed(() => searchQuery.isError.value);
+  const errorMessage = computed(() => {
+    const err = searchQuery.error.value;
+    return err instanceof Error ? err.message : "An unexpected error occurred while searching the project index.";
+  });
+  const totalLabel = computed(() => {
+    const total = searchQuery.data.value?.total ?? repos.value.length + profiles.value.length;
+    return `${total} result${total === 1 ? "" : "s"}`;
+  });
 
-function runSearch() {
-  if (!canSearch.value) return;
-  submittedQuery.value = draftQuery.value.trim();
-  hasAttemptedSearch.value = true;
-}
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-function clearSearch() {
-  draftQuery.value = "";
-  submittedQuery.value = "";
-  hasAttemptedSearch.value = false;
-}
+  watch(draftQuery, (val) => {
+    if (debounceTimer) clearTimeout(debounceTimer);
 
-function navigateToRepo(repo: RepoSummary) {
-  router.push(`/tabs/explore/repo/${repo.ownerHandle}/${repo.name}`);
-}
+    const trimmed = val.trim();
+    if (!trimmed) {
+      return;
+    }
 
-function navigateToUser(handle: string) {
-  router.push(`/tabs/explore/user/${handle}`);
-}
+    if (!hasTwisterApi) return;
+
+    debounceTimer = setTimeout(() => {
+      submittedQuery.value = trimmed;
+      hasAttemptedSearch.value = true;
+      addToSearchHistory(trimmed);
+      searchHistory.value = getSearchHistory();
+    }, 400);
+  });
+
+  onUnmounted(() => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+  });
+
+  function runSearch() {
+    if (!hasTwisterApi) return;
+    const trimmed = draftQuery.value.trim();
+    if (!trimmed) return;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    submittedQuery.value = trimmed;
+    hasAttemptedSearch.value = true;
+    addToSearchHistory(trimmed);
+    searchHistory.value = getSearchHistory();
+  }
+
+  function applyHistoryEntry(query: string) {
+    draftQuery.value = query;
+    submittedQuery.value = query;
+    hasAttemptedSearch.value = true;
+  }
+
+  function removeHistoryEntry(query: string) {
+    removeFromSearchHistory(query);
+    searchHistory.value = getSearchHistory();
+  }
+
+  function clearHistory() {
+    clearSearchHistory();
+    searchHistory.value = [];
+  }
+
+  function navigateToRepo(repo: RepoSummary) {
+    trackRepoVisit({
+      ownerHandle: repo.ownerHandle,
+      name: repo.name,
+      description: repo.description,
+      primaryLanguage: repo.primaryLanguage,
+      stars: repo.stars,
+    });
+    router.push(`/tabs/explore/repo/${repo.ownerHandle}/${repo.name}`);
+  }
+
+  function navigateToUser(handle: string) {
+    trackProfileVisit({ handle });
+    router.push(`/tabs/explore/user/${handle}`);
+  }
 </script>
 
 <style scoped>
-.hero {
-  padding: 24px 20px 12px;
-}
+  .search-card {
+    margin: 16px 16px 0;
+    padding: 14px 14px 12px;
+    border: 1px solid var(--t-border);
+    border-radius: var(--t-radius-lg);
+    background: linear-gradient(180deg, var(--t-surface-raised), var(--t-surface));
+  }
 
-.eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t-accent);
-}
+  .search-input {
+    --background: rgba(255, 255, 255, 0.04);
+    --border-radius: var(--t-radius-md);
+    --color: var(--t-text-primary);
+    --padding-start: 14px;
+    --padding-end: 14px;
+    margin-bottom: 10px;
+    border: 1px solid var(--t-border);
+    border-radius: var(--t-radius-md);
+    font-family: var(--t-mono);
+  }
 
-.hero-title {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.15;
-  color: var(--t-text-primary);
-}
+  .search-segment {
+    margin-bottom: 4px;
+  }
 
-.hero-copy {
-  margin: 12px 0 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--t-text-secondary);
-  max-width: 34rem;
-}
+  .hint-copy {
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--t-text-muted);
+  }
 
-.search-card {
-  margin: 0 16px;
-  padding: 18px 16px 16px;
-  border: 1px solid var(--t-border);
-  border-radius: var(--t-radius-lg);
-  background: linear-gradient(180deg, var(--t-surface-raised), var(--t-surface));
-}
+  .history-section {
+    padding: 14px 16px 4px;
+  }
 
-.field-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--t-text-primary);
-}
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
 
-.search-input {
-  --background: rgba(255, 255, 255, 0.04);
-  --border-radius: var(--t-radius-md);
-  --color: var(--t-text-primary);
-  --padding-start: 14px;
-  --padding-end: 14px;
-  margin-bottom: 12px;
-  border: 1px solid var(--t-border);
-  border-radius: var(--t-radius-md);
-  font-family: var(--t-mono);
-}
+  .clear-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--t-text-muted);
+  }
 
-.search-segment {
-  margin-bottom: 12px;
-}
+  .history-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 
-.action-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
+  .history-chip {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid var(--t-border);
+    border-radius: 999px;
+    background: var(--t-surface);
+    overflow: hidden;
+  }
 
-.primary-action {
-  --background: var(--t-accent);
-  --background-activated: var(--t-accent);
-  --color: #0d1117;
-}
+  .chip-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 5px 10px 5px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--t-text-primary);
+    font-family: var(--t-mono);
+  }
 
-.hint-copy {
-  margin: 12px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--t-text-muted);
-}
+  .chip-icon {
+    font-size: 13px;
+    color: var(--t-text-muted);
+    flex-shrink: 0;
+  }
 
-.results-section {
-  padding: 18px 0 24px;
-}
+  .chip-remove {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid var(--t-border);
+    padding: 5px 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--t-text-muted);
+    display: flex;
+    align-items: center;
+  }
 
-.results-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 16px 12px;
-}
+  .results-section {
+    padding: 14px 0 24px;
+  }
 
-.results-label {
-  margin: 0 0 4px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t-accent);
-}
+  .results-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 16px 12px;
+  }
 
-.results-title {
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
-  color: var(--t-text-primary);
-}
+  .results-label {
+    margin: 0 0 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--t-accent);
+  }
 
-.results-meta {
-  margin: 0;
-  font-size: 12px;
-  color: var(--t-text-muted);
-}
+  .results-title {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.2;
+    color: var(--t-text-primary);
+  }
 
-.section-label {
-  margin: 0 16px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t-text-muted);
-}
+  .results-meta {
+    margin: 0;
+    font-size: 12px;
+    color: var(--t-text-muted);
+    white-space: nowrap;
+  }
+
+  .section-label {
+    display: block;
+    margin: 0 16px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--t-text-muted);
+  }
 </style>

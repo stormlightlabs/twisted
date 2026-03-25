@@ -94,6 +94,7 @@ import {
   useRepoIssues,
   useRepoPRs,
 } from "@/services/tangled/queries.js";
+import { useRepoStarCount } from "@/services/constellation/queries.js";
 import type { RepoDetail } from "@/domain/models/repo.js";
 import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
 
@@ -163,6 +164,7 @@ const repo = computed((): RepoDetail | undefined => {
   if (!rec) return undefined;
   return {
     ...rec,
+    stars: starCountQuery.data.value ?? rec.stars,
     defaultBranch: defaultBranch.value || undefined,
     languages: languagesQuery.data.value,
     readme: readmeQuery.data.value?.isBinary ? undefined : readmeQuery.data.value?.content,
@@ -171,6 +173,8 @@ const repo = computed((): RepoDetail | undefined => {
 
 const repoAtUri = computed(() => recordQuery.data.value?.atUri ?? "");
 const hasAtUri = computed(() => !!repoAtUri.value);
+
+const starCountQuery = useRepoStarCount(repoAtUri, { enabled: hasAtUri });
 
 const issuesQuery = useRepoIssues(pds, did, owner, repoAtUri, { enabled: hasAtUri });
 const prsQuery = useRepoPRs(pds, did, owner, repoAtUri, { enabled: hasAtUri });

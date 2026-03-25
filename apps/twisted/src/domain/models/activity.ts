@@ -1,4 +1,4 @@
-type ItemKind =
+type ActivityItemKind =
   | "repo_created"
   | "repo_starred"
   | "user_followed"
@@ -9,10 +9,11 @@ type ItemKind =
 
 export type ActivityItem = {
   id: string;
-  kind: ItemKind;
+  kind: ActivityItemKind;
   actorDid: string;
   actorHandle: string;
   targetUri?: string;
   targetName?: string;
+  targetOwnerDid?: string;
   createdAt: string;
 };

@@ -52,14 +52,14 @@ Wire the Explore tab to the search API and add activity feed.
 
 **Depends on:** API: Constellation Integration
 
-- [ ] Search service pointing at Twister API
-- [ ] Constellation service for star/follower counts
-- [ ] Debounced search on Explore tab with segmented results
-- [ ] Recent search history (local)
-- [ ] Graceful fallback when search API unavailable
-- [ ] Activity feed data source investigation (Jetstream vs polling)
-- [ ] Activity tab with filters, infinite scroll, pull-to-refresh
-- [ ] Home tab: surface recently viewed repos/profiles
+- [x] Search service pointing at Twister API
+- [x] Constellation service for star/follower counts
+- [x] Debounced search on Explore tab with segmented results
+- [x] Recent search history (local)
+- [x] Graceful fallback when search API unavailable
+- [x] Activity feed data source investigation (Jetstream vs polling)
+- [x] Activity tab with filters, infinite scroll, pull-to-refresh
+- [x] Home tab: surface recently viewed repos/profiles
 
 ## App: Authentication & Social
 
