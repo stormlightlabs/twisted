@@ -83,7 +83,7 @@
   import {
     useRepoRecord,
     useDefaultBranch,
-    useRepoBlob,
+    useRepoReadme,
     useRepoLanguages,
     useRepoLog,
     useRepoIssues,
@@ -130,14 +130,19 @@
   const branchQuery = useDefaultBranch(owner, repoName, { enabled: hasRecord });
   const defaultBranch = computed(() => branchQuery.data.value?.name ?? "");
   const hasBranch = computed(() => !!branchQuery.data.value?.name);
+  const readmeQuery = useRepoReadme(owner, repoName, defaultBranch, { enabled: hasBranch });
   const markdownContext = computed<RepoAssetContext | undefined>(() => {
-    if (!owner.value || !repoName.value || !defaultBranch.value) return undefined;
+    if (!owner.value || !repoName.value || !defaultBranch.value || !readmeQuery.data.value?.path) return undefined;
 
-    return { owner: owner.value, repo: repoName.value, branch: defaultBranch.value, sourcePath: "README.md" };
+    return {
+      owner: owner.value,
+      repo: repoName.value,
+      branch: defaultBranch.value,
+      sourcePath: readmeQuery.data.value.path,
+    };
   });
 
   const languagesQuery = useRepoLanguages(owner, repoName, undefined, { enabled: hasBranch });
-  const readmeQuery = useRepoBlob(owner, repoName, defaultBranch, "README.md", { readme: true, enabled: hasBranch });
   const logQuery = useRepoLog(owner, repoName, defaultBranch, { limit: 20, enabled: hasBranch });
 
   const repo = computed((): RepoDetail | undefined => {
@@ -148,7 +153,7 @@
       stars: starCountQuery.data.value ?? rec.stars,
       defaultBranch: defaultBranch.value || undefined,
       languages: languagesQuery.data.value,
-      readme: readmeQuery.data.value?.isBinary ? undefined : readmeQuery.data.value?.content,
+      readme: readmeQuery.data.value?.content,
     };
   });
 

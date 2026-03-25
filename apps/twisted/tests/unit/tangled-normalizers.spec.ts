@@ -4,6 +4,7 @@ import {
   normalizeLogText,
   normalizeRepoRecord,
   normalizeTree,
+  normalizeTreeReadme,
 } from "@/services/tangled/normalizers.js";
 import { buildPublicRawUrl, resolveRepoRelativePath } from "@/services/tangled/repo-assets.js";
 import { getAtUriRkey, parseAtUri } from "@/services/tangled/uris.js";
@@ -84,6 +85,28 @@ describe("AT URI helpers", () => {
       ["README.md", "file"],
       ["vendor/lib", "submodule"],
     ]);
+  });
+
+  it("preserves the README filename discovered by the tree endpoint", () => {
+    const readme = normalizeTreeReadme({
+      files: [],
+      lastCommit: {
+        hash: "a",
+        message: "docs",
+        when: "2026-03-23T00:00:00Z",
+        author: { name: "Test", email: "test@example.com", when: "" },
+      },
+      readme: {
+        filename: "README",
+        contents: "plain text readme",
+      },
+      ref: "main",
+    });
+
+    expect(readme).toEqual({
+      path: "README",
+      content: "plain text readme",
+    });
   });
 
   it("parses wrapped commit arrays from repo log payloads", () => {

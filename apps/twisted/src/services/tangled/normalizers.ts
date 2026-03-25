@@ -48,6 +48,21 @@ export function normalizeTree(output: ShTangledRepoTree.$output, currentPath = "
   return output.files.map((entry) => normalizeTreeEntry(entry, currentPath));
 }
 
+export type RepoReadme = {
+  path: string;
+  content: string;
+};
+
+export function normalizeTreeReadme(output: ShTangledRepoTree.$output, currentPath = ""): RepoReadme | undefined {
+  const readme = output.readme;
+  if (!readme?.filename) return undefined;
+
+  return {
+    path: currentPath ? `${currentPath}/${readme.filename}` : readme.filename,
+    content: readme.contents ?? "",
+  };
+}
+
 export type BlobContent = {
   path: string;
   content: string;

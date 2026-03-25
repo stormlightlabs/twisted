@@ -34,6 +34,7 @@ import {
 } from "./endpoints.js";
 import {
   normalizeTree,
+  normalizeTreeReadme,
   normalizeBlob,
   normalizeDefaultBranch,
   normalizeLanguages,
@@ -53,7 +54,7 @@ import {
   normalizeStringRecord,
 } from "./normalizers.js";
 
-export type { CommitEntry, BranchEntry, BlobContent, DefaultBranchInfo } from "./normalizers.js";
+export type { CommitEntry, BranchEntry, BlobContent, DefaultBranchInfo, RepoReadme } from "./normalizers.js";
 
 const MIN = 60_000;
 
@@ -104,6 +105,26 @@ export function useRepoTree(
     enabled: computed(() => isEnabled(hasText(h) && hasText(r) && hasText(ref), options.enabled)),
     staleTime: 2 * MIN,
     gcTime: 10 * MIN,
+  });
+}
+
+/** README discovered by the repo tree endpoint for a ref root. */
+export function useRepoReadme(
+  handle: MaybeRef<string>,
+  repo: MaybeRef<string>,
+  ref: MaybeRef<string>,
+  options: { enabled?: MaybeRef<boolean> } = {},
+) {
+  const h = computed(() => toValue(handle).trim());
+  const r = computed(() => toValue(repo).trim());
+
+  return useQuery({
+    queryKey: computed(() => ["readme", h.value, r.value, toValue(ref)]),
+    queryFn: () =>
+      fetchRepoTree(h.value, r.value, { repo: `${h.value}/${r.value}`, ref: toValue(ref) }).then(normalizeTreeReadme),
+    enabled: computed(() => isEnabled(hasText(h) && hasText(r) && hasText(ref), options.enabled)),
+    staleTime: 5 * MIN,
+    gcTime: 30 * MIN,
   });
 }
 
