@@ -149,3 +149,18 @@ func truncateErr(err error) string {
 	}
 	return msg
 }
+
+func newWorkerID(prefix string) string {
+	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
+}
+
+func ageSeconds(ts string) int64 {
+	if ts == "" {
+		return 0
+	}
+	parsed, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		return 0
+	}
+	return int64(time.Since(parsed).Seconds())
+}

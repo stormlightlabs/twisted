@@ -427,7 +427,7 @@ func (s *Server) handleRepoIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issues, stateMap, err := s.fetchIssuesAndStates(r, repo.PDS, repo.DID)
+	issues, stateMap, _, err := s.fetchIssuesAndStates(r, repo.PDS, repo.DID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch issues"))
 		return
@@ -465,7 +465,7 @@ func (s *Server) handleRepoPulls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pulls, statusMap, err := s.fetchPullsAndStatuses(r, repo.PDS, repo.DID)
+	pulls, statusMap, _, err := s.fetchPullsAndStatuses(r, repo.PDS, repo.DID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch pulls"))
 		return
@@ -504,7 +504,7 @@ func (s *Server) handleActorIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issues, stateMap, err := s.fetchIssuesAndStates(r, actor.PDS, actor.DID)
+	issues, stateMap, _, err := s.fetchIssuesAndStates(r, actor.PDS, actor.DID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch issues"))
 		return
@@ -535,7 +535,7 @@ func (s *Server) handleActorPulls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pulls, statusMap, err := s.fetchPullsAndStatuses(r, actor.PDS, actor.DID)
+	pulls, statusMap, _, err := s.fetchPullsAndStatuses(r, actor.PDS, actor.DID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch pulls"))
 		return
@@ -632,10 +632,16 @@ func (s *Server) handleIssueDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	s.enqueueXRPCRecord(r.Context(), rec.URI, rec.CID, rec.Value)
 
-	_, stateMap, err := s.fetchIssuesAndStates(r, actor.PDS, actor.DID)
+	_, stateMap, states, err := s.fetchIssuesAndStates(r, actor.PDS, actor.DID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch issue states"))
 		return
+	}
+	for _, entry := range states {
+		if issue, _ := entry.Value["issue"].(string); issue == rec.URI {
+			s.syncStateEntry(r.Context(), entry)
+			break
+		}
 	}
 
 	writeJSON(w, http.StatusOK, issueEntry{
@@ -703,10 +709,16 @@ func (s *Server) handlePullDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	s.enqueueXRPCRecord(r.Context(), rec.URI, rec.CID, rec.Value)
 
-	_, statusMap, err := s.fetchPullsAndStatuses(r, actor.PDS, actor.DID)
+	_, statusMap, statuses, err := s.fetchPullsAndStatuses(r, actor.PDS, actor.DID)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch pull statuses"))
 		return
+	}
+	for _, entry := range statuses {
+		if pull, _ := entry.Value["pull"].(string); pull == rec.URI {
+			s.syncStateEntry(r.Context(), entry)
+			break
+		}
 	}
 
 	writeJSON(w, http.StatusOK, pullEntry{
@@ -755,7 +767,9 @@ func (s *Server) handlePullComments(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) fetchIssuesAndStates(r *http.Request, pds, did string) ([]xrpc.ListRecordEntry, map[string]string, error) {
+func (s *Server) fetchIssuesAndStates(
+	r *http.Request, pds, did string,
+) ([]xrpc.ListRecordEntry, map[string]string, []xrpc.ListRecordEntry, error) {
 	issueCh := make(chan []xrpc.ListRecordEntry, 1)
 	stateCh := make(chan []xrpc.ListRecordEntry, 1)
 	errCh := make(chan error, 2)
@@ -786,12 +800,11 @@ func (s *Server) fetchIssuesAndStates(r *http.Request, pds, did string) ([]xrpc.
 		case e := <-stateCh:
 			states = e
 		case err := <-errCh:
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 
 	stateMap := make(map[string]string, len(states))
-	s.enqueueXRPCList(r.Context(), states)
 	for _, e := range states {
 		issueURI, _ := e.Value["issue"].(string)
 		state, _ := e.Value["state"].(string)
@@ -800,10 +813,12 @@ func (s *Server) fetchIssuesAndStates(r *http.Request, pds, did string) ([]xrpc.
 		}
 	}
 
-	return issues, stateMap, nil
+	return issues, stateMap, states, nil
 }
 
-func (s *Server) fetchPullsAndStatuses(r *http.Request, pds, did string) ([]xrpc.ListRecordEntry, map[string]string, error) {
+func (s *Server) fetchPullsAndStatuses(
+	r *http.Request, pds, did string,
+) ([]xrpc.ListRecordEntry, map[string]string, []xrpc.ListRecordEntry, error) {
 	pullCh := make(chan []xrpc.ListRecordEntry, 1)
 	statusCh := make(chan []xrpc.ListRecordEntry, 1)
 	errCh := make(chan error, 2)
@@ -834,12 +849,11 @@ func (s *Server) fetchPullsAndStatuses(r *http.Request, pds, did string) ([]xrpc
 		case e := <-statusCh:
 			statuses = e
 		case err := <-errCh:
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 
 	statusMap := make(map[string]string, len(statuses))
-	s.enqueueXRPCList(r.Context(), statuses)
 	for _, e := range statuses {
 		pullURI, _ := e.Value["pull"].(string)
 		status, _ := e.Value["status"].(string)
@@ -848,7 +862,7 @@ func (s *Server) fetchPullsAndStatuses(r *http.Request, pds, did string) ([]xrpc
 		}
 	}
 
-	return pulls, statusMap, nil
+	return pulls, statusMap, statuses, nil
 }
 
 type bskyProfileResponse struct {

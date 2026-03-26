@@ -21,9 +21,9 @@ Twister's search index has three recovery paths. Choose based on what broke.
 when the `indexer` consumes events from Tap. Completeness depends on which DIDs
 Tap is tracking.
 
-**Read-through indexing** closes gaps on demand: when the API fetches a record
-not yet in the index, it enqueues a background job. This supplements Tap but is
-not a substitute for it.
+**Read-through indexing** now runs in `missing` mode by default: when the API
+fetches a record that is absent or stale, and the collection is allowed, it
+enqueues a background job. Bulk list reads no longer enqueue entire collections.
 
 **JetStream** feeds only the activity cache (`/activity`). It does not contribute
 to the search index.
@@ -110,10 +110,11 @@ but does not appear in `/search`, the document was never indexed.
    ```
 
 2. Once Tap is tracking the DID, the `indexer` will deliver historical events.
-   Monitor progress via `GET /admin/status` (requires `ENABLE_ADMIN_ENDPOINTS=true`).
+   Monitor progress via `GET /admin/status` and inspect backlog or failures with
+   `GET /admin/indexing/jobs` and `GET /admin/indexing/audit`.
 
-3. If you need the record indexed immediately, fetch it through the API — the
-   read-through indexer will enqueue it automatically.
+3. If you need the record indexed immediately, fetch the detail endpoint through
+   the API or enqueue it explicitly with `POST /admin/indexing/enqueue`.
 
 ### Enrichment gaps
 
@@ -178,8 +179,9 @@ curl -H "Authorization: Bearer $ADMIN_AUTH_TOKEN" \
 
 Response includes:
 
-- `tap.cursor` — last Tap event ID processed by the indexer
-- `tap.updated_at` — when the cursor was last advanced
-- `jetstream.cursor` — JetStream timestamp cursor (activity cache only)
-- `documents` — total searchable document count
-- `pending_jobs` — read-through indexing jobs not yet processed
+- `tap.cursor` and `tap.updated_at`
+- `jetstream.cursor` and `jetstream.updated_at`
+- `documents`
+- `read_through.pending`, `processing`, `completed`, `failed`, `dead_letter`
+- `read_through.oldest_pending_age_s` and `oldest_running_age_s`
+- `read_through.last_completed_at` and `last_processed_at`

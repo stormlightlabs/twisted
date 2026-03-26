@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	idx "tangled.org/desertthunder.dev/twister/internal/index"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/store"
 )
@@ -36,7 +37,9 @@ type fakeStore struct {
 	initialSync  *store.SyncState
 	recordStates map[string]string
 	handles      map[string]string
-	onSetSync func()
+	jobs         map[string]*store.IndexingJob
+	audits       []store.IndexingAuditInput
+	onSetSync    func()
 }
 
 func newFakeStore() *fakeStore {
@@ -44,7 +47,8 @@ func newFakeStore() *fakeStore {
 		docs:         make(map[string]*store.Document),
 		deleted:      make(map[string]bool),
 		recordStates: make(map[string]string),
-		handles: make(map[string]string),
+		handles:      make(map[string]string),
+		jobs:         make(map[string]*store.IndexingJob),
 	}
 }
 
@@ -100,7 +104,11 @@ func (f *fakeStore) EnqueueIndexingJob(_ context.Context, _ store.IndexingJobInp
 	return nil
 }
 
-func (f *fakeStore) ClaimIndexingJob(_ context.Context) (*store.IndexingJob, error) {
+func (f *fakeStore) GetIndexingJob(_ context.Context, documentID string) (*store.IndexingJob, error) {
+	return f.jobs[documentID], nil
+}
+
+func (f *fakeStore) ClaimIndexingJob(_ context.Context, _, _ string) (*store.IndexingJob, error) {
 	return nil, nil
 }
 
@@ -110,6 +118,27 @@ func (f *fakeStore) CompleteIndexingJob(_ context.Context, _ string) error {
 
 func (f *fakeStore) RetryIndexingJob(_ context.Context, _, _, _ string) error {
 	return nil
+}
+
+func (f *fakeStore) FailIndexingJob(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
+func (f *fakeStore) ListIndexingJobs(_ context.Context, _ store.IndexingJobFilter) ([]*store.IndexingJob, error) {
+	return nil, nil
+}
+
+func (f *fakeStore) GetIndexingJobStats(_ context.Context) (*store.IndexingJobStats, error) {
+	return &store.IndexingJobStats{}, nil
+}
+
+func (f *fakeStore) AppendIndexingAudit(_ context.Context, input store.IndexingAuditInput) error {
+	f.audits = append(f.audits, input)
+	return nil
+}
+
+func (f *fakeStore) ListIndexingAudit(_ context.Context, _ store.IndexingAuditFilter) ([]*store.IndexingAuditEntry, error) {
+	return nil, nil
 }
 
 func (f *fakeStore) GetFollowSubjects(_ context.Context, _ string) ([]string, error) {
@@ -302,14 +331,14 @@ func TestRunner_NormalizationFailureAdvancesCursor(t *testing.T) {
 }
 
 func TestAllowlistMatching(t *testing.T) {
-	a := parseAllowlist("sh.tangled.repo, sh.tangled.string sh.tangled.actor.*")
-	if !a.match("sh.tangled.repo") {
+	policy := idx.NewPolicy("sh.tangled.repo, sh.tangled.string sh.tangled.actor.*", "", idx.ReadThroughMissing)
+	if !policy.Allows(store.IndexSourceTap, "sh.tangled.repo") {
 		t.Fatal("expected exact match")
 	}
-	if !a.match("sh.tangled.actor.profile") {
+	if !policy.Allows(store.IndexSourceTap, "sh.tangled.actor.profile") {
 		t.Fatal("expected wildcard prefix match")
 	}
-	if a.match("app.bsky.feed.post") {
+	if policy.Allows(store.IndexSourceTap, "app.bsky.feed.post") {
 		t.Fatal("unexpected match")
 	}
 }
@@ -337,7 +366,7 @@ func TestRunner_InitializeCursorResume(t *testing.T) {
 	}
 }
 
-func TestRunner_AckBeforeCursorPersist(t *testing.T) {
+func TestRunner_PersistCursorBeforeAck(t *testing.T) {
 	st := newFakeStore()
 	tap := &fakeTapClient{}
 	r := newRunnerForTest(st, tap, "sh.tangled.*")
@@ -345,8 +374,8 @@ func TestRunner_AckBeforeCursorPersist(t *testing.T) {
 	acked := false
 	tap.onAck = func(_ int64) { acked = true }
 	st.onSetSync = func() {
-		if !acked {
-			t.Fatalf("cursor persisted before ack")
+		if acked {
+			t.Fatalf("ack happened before cursor persisted")
 		}
 	}
 

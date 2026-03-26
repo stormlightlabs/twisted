@@ -61,7 +61,27 @@ Response includes query metadata, total count, and an array of results each cont
 
 When `ENABLE_ADMIN_ENDPOINTS=true` with a configured `ADMIN_AUTH_TOKEN`:
 
+- **`GET /admin/status`** — Tap cursor, JetStream cursor, document count, and
+  read-through queue status
+- **`GET /admin/indexing/jobs`** — List queue rows, filtered by `status`,
+  `source`, or `document`
+- **`GET /admin/indexing/audit`** — List append-only audit rows, filtered by
+  `source`, `decision`, or `document`
+- **`POST /admin/indexing/enqueue`** — Queue a single record by explicit body
 - **`POST /admin/reindex`** — Trigger FTS re-sync
+
+### Smoke Checks
+
+Smoke checks for the API surface live in `packages/scripts/api/`.
+
+From the repo root:
+
+```sh
+uv run --project packages/scripts/api twister-api-smoke
+```
+
+If `ADMIN_AUTH_TOKEN` is present in the environment, the smoke script can also
+verify `GET /admin/status`.
 
 ### Static Content
 
@@ -81,6 +101,12 @@ Turso (libSQL) with the following tables:
 
 **record_state** — Issue and PR state cache (open/closed/merged). Keyed by subject AT-URI.
 
+**indexing_jobs** — Durable read-through/admin queue with status, lease owner,
+lease expiry, retry counters, and terminal states (`failed`, `dead_letter`).
+
+**indexing_audit** — Append-only record of enqueue decisions, retries, skips,
+completions, and dead letters.
+
 **document_embeddings** — Vector storage (768-dim F32_BLOB with DiskANN cosine index). Schema ready but not yet populated.
 
 **embedding_jobs** — Async embedding job queue. Schema ready but worker not yet active.
@@ -94,9 +120,15 @@ The indexer connects to Tap via WebSocket, consuming AT Protocol record events i
 3. Normalize into a document (extract title, body, summary, metadata)
 4. Optionally enrich via XRPC (resolve author handle, repo name, web URL)
 5. Upsert into the database (auto-syncs FTS)
-6. Advance cursor and acknowledge to Tap
+6. Persist the Tap cursor and then acknowledge the event
 
-The indexer resumes from its last cursor on restart (no duplicate processing). It logs status every 30 seconds and uses exponential backoff (1s–5s) for transient failures.
+The indexer resumes from its last cursor on restart and replays idempotently.
+It logs status every 30 seconds and uses exponential backoff (1s–5s) for
+transient failures.
+
+Read-through indexing is `missing` by default. Only allowed collections can be
+queued, detail reads queue single focal records, and bulk list handlers no
+longer enqueue whole collections.
 
 ## Record Normalizers
 
@@ -140,6 +172,9 @@ All configuration is via environment variables (with `.env` file support):
 | `TAP_URL`                  | —                       | Tap WebSocket URL                               |
 | `TAP_AUTH_PASSWORD`        | —                       | Tap admin password                              |
 | `INDEXED_COLLECTIONS`      | all                     | Collection allowlist (CSV, supports wildcards)  |
+| `READ_THROUGH_MODE`        | missing                 | `off`, `missing`, or `broad`                    |
+| `READ_THROUGH_COLLECTIONS` | `INDEXED_COLLECTIONS`   | Read-through allowlist                          |
+| `READ_THROUGH_MAX_ATTEMPTS`| 5                       | Retries before `dead_letter`                    |
 | `HTTP_BIND_ADDR`           | `:8080`                 | API server bind address                         |
 | `INDEXER_HEALTH_ADDR`      | `:9090`                 | Indexer health probe address                    |
 | `LOG_LEVEL`                | info                    | debug/info/warn/error                           |
@@ -159,3 +194,23 @@ Deployed on Railway with three services:
 - **tap** — Tap instance (external dependency)
 
 All services share the same Turso database. The API and indexer are separate deployments of the same binary with different subcommands.
+
+## Experimental Local DB
+
+The local development database lives at `packages/api/twister-dev.db` when the
+API runs with `--local`.
+
+Operational rules:
+
+1. Stop the API before backup or restore.
+2. Copy `twister-dev.db` and any matching `-wal` or `-shm` files together.
+3. Prefer restore-or-rebuild over repair if the file becomes suspect.
+4. Let the DB grow during active experiments, then compact or delete it later.
+
+Useful local inspection:
+
+```sh
+cd packages/api
+du -h twister-dev.db*
+ls -lh twister-dev.db*
+```

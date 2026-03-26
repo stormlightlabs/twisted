@@ -63,6 +63,15 @@ To run the API against remote Turso instead:
 just api-dev remote
 ```
 
+Run the API smoke checks from the repo root:
+
+```bash
+uv run --project packages/scripts/api twister-api-smoke
+```
+
+To verify admin endpoints as well, ensure `ADMIN_AUTH_TOKEN` is present in the
+environment before running the smoke script.
+
 To run the indexer in local file mode as well:
 
 ```bash
@@ -89,6 +98,26 @@ If you want the app to call the local API, set this in `apps/twisted/.env`:
 
 ```bash
 VITE_TWISTER_API_BASE_URL=http://localhost:8080
+```
+
+### Local API DB
+
+The experimental local API database lives at `packages/api/twister-dev.db`.
+Treat it as disposable unless you explicitly back it up.
+
+Operational rules:
+
+1. Stop the API before copying or restoring the file.
+2. Copy `twister-dev.db` and any matching `-wal` or `-shm` sidecars together.
+3. Prefer restore-or-rebuild over manual repair if the DB looks suspect.
+4. Let the file grow during experiments, then compact or delete it afterward.
+
+Useful local commands:
+
+```bash
+cd packages/api
+du -h twister-dev.db*
+ls -lh twister-dev.db*
 ```
 
 ## Infrastructure Setup
@@ -139,6 +168,11 @@ Set these API-specific variables:
 - `HTTP_BIND_ADDR`
 - `SEARCH_DEFAULT_LIMIT`
 - `SEARCH_MAX_LIMIT`
+- `ENABLE_ADMIN_ENDPOINTS`
+- `ADMIN_AUTH_TOKEN`
+- `READ_THROUGH_MODE`
+- `READ_THROUGH_COLLECTIONS`
+- `READ_THROUGH_MAX_ATTEMPTS`
 
 Set these indexer-specific variables:
 
@@ -157,7 +191,3 @@ For a brand-new environment:
 3. Verify API readiness and indexer health.
 4. Run `twister backfill` with your seed file.
 5. Treat the environment as search-ready only after historical backfill completes.
-
-## Docs
-
-- Index: [`docs/README.md`](docs/README.md)

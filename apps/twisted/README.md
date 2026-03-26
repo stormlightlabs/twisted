@@ -6,7 +6,7 @@ Ionic Vue client for Twisted — a Tangled browser and search app for Android & 
 
 - Node.js 20+
 - pnpm
-- The Twister API running locally (see `packages/api/README.md`)
+- The Twister API running locally
 
 ## Running locally
 

@@ -127,7 +127,8 @@ Operational rules:
 3. Prefer restore-or-rebuild over repair if the DB becomes suspect.
 4. Allow the file to grow during active experiments, then compact or delete it afterward.
 
-The concrete local backup, restore, and disk-growth procedures live in [packages/api/README.md](/Users/owais/Projects/Twisted/packages/api/README.md).
+The concrete local backup, restore, and disk-growth procedures live in
+[docs/reference/api.md](/Users/owais/Projects/Twisted/docs/reference/api.md).
 
 ## Migration Path To Production Turso
 

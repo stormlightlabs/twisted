@@ -1,3 +1,33 @@
+"""Twister API Smoke Checks.
+
+
+Python smoke checks for Twister API endpoints, managed with uv.
+
+Usage
+-----
+
+From the repo root:
+
+.. code:: sh
+
+   # Run all
+   uv run --project packages/scripts/api twister-api-smoke
+   # Run specific checks (healthz | readyz | search | documents | indexing | admin | activity)
+   uv run --project packages/scripts/api twister-api-smoke --check healthz
+
+Options
+-------
+
+-  ``--verbose`` for detailed output of API responses (JSON)
+-  ``--base-url`` (or env ``TWISTER_API_BASE_URL``, default ``http://localhost:8080``)
+-  ``--query`` for search check (default ``twisted``)
+-  ``--document-id`` for documents check
+-  ``--actor-handle`` for indexing check (default ``desertthunder.dev``)
+-  ``--repo-at-uri`` for repo fixture indexing/search checks
+-  ``--profile-at-uri`` for profile fixture indexing/search checks
+-  ``--admin-token`` (or env ``ADMIN_AUTH_TOKEN``) for admin smoke checks
+"""
+
 import argparse
 import enum
 import json
@@ -44,11 +74,20 @@ class Options:
     actor_handle: str
     repo_at_uri: str
     profile_at_uri: str
+    admin_token: str
     verbose: bool
 
 
-def http_get_status(url: str) -> int:
+def auth_headers(token: str) -> dict[str, str]:
+    if not token:
+        return {}
+    return {"Authorization": f"Bearer {token}"}
+
+
+def http_get_status(url: str, headers: dict[str, str] | None = None) -> int:
     req = Request(url, method="GET")
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
     try:
         with urlopen(req, timeout=10) as resp:
             return resp.status
@@ -58,13 +97,19 @@ def http_get_status(url: str) -> int:
         fail(f"request failed for {url}: {err}")
 
 
-def http_get_json(url: str, params: dict[str, str] | None = None) -> Any:
+def http_get_json(
+    url: str,
+    params: dict[str, str] | None = None,
+    headers: dict[str, str] | None = None,
+) -> Any:
     if params:
         query = urlencode(params)
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}{query}"
 
     req = Request(url, method="GET")
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
     try:
         with urlopen(req, timeout=15) as resp:
             payload = resp.read().decode("utf-8")
@@ -208,6 +253,22 @@ def check_documents(opts: Options) -> None:
     echo("documents ok")
 
 
+def resolve_repo_name(opts: Options) -> str:
+    payload = http_get_json(urljoin(opts.base_url, f"/actors/{opts.actor_handle}/repos"))
+    records = payload.get("records") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        fail("repo listing payload is missing records")
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        if record.get("uri") != opts.repo_at_uri:
+            continue
+        value = record.get("value")
+        if isinstance(value, dict) and isinstance(value.get("name"), str):
+            return value["name"]
+    fail(f"repo fixture uri not found in /actors/{opts.actor_handle}/repos: {opts.repo_at_uri}")
+
+
 def check_indexing(opts: Options) -> None:
     repo_id = at_uri_to_document_id(opts.repo_at_uri)
     profile_id = at_uri_to_document_id(opts.profile_at_uri)
@@ -220,8 +281,9 @@ def check_indexing(opts: Options) -> None:
     echo(f"triggering read-through fetch via /actors/{opts.actor_handle}")
     assert_status(urljoin(opts.base_url, f"/actors/{opts.actor_handle}"), 200)
 
-    echo(f"triggering read-through fetch via /actors/{opts.actor_handle}/repos")
-    assert_status(urljoin(opts.base_url, f"/actors/{opts.actor_handle}/repos"), 200)
+    repo_name = resolve_repo_name(opts)
+    echo(f"triggering read-through fetch via /actors/{opts.actor_handle}/repos/{repo_name}")
+    assert_status(urljoin(opts.base_url, f"/actors/{opts.actor_handle}/repos/{repo_name}"), 200)
 
     echo(f"waiting for queued indexing of profile fixture {profile_id}")
     for _ in range(30):
@@ -245,6 +307,20 @@ def check_indexing(opts: Options) -> None:
         time.sleep(1)
 
     fail(f"repo fixture did not become available at /documents/{repo_encoded} within 30s")
+
+
+def check_admin(opts: Options) -> None:
+    if not opts.admin_token:
+        fail("admin check requires --admin-token or ADMIN_AUTH_TOKEN")
+    echo("checking GET /admin/status")
+    payload = http_get_json(
+        urljoin(opts.base_url, "/admin/status"),
+        headers=auth_headers(opts.admin_token),
+    )
+    if not isinstance(payload, dict) or "read_through" not in payload:
+        fail("admin status response is missing read_through data")
+    maybe_log_json(opts, "admin-status", payload)
+    echo("admin ok")
 
 
 def check_activity(opts: Options) -> None:
@@ -285,6 +361,7 @@ CHECKS: dict[str, Any] = {
     "search": check_search,
     "documents": check_documents,
     "indexing": check_indexing,
+    "admin": check_admin,
     "activity": check_activity,
 }
 
@@ -322,6 +399,11 @@ def parse_args(argv: list[str]) -> Options:
         help="Profile AT URI expected to be fetched and indexed by smoke checks",
     )
     parser.add_argument(
+        "--admin-token",
+        default=os.environ.get("ADMIN_AUTH_TOKEN", ""),
+        help="Bearer token for admin smoke checks",
+    )
+    parser.add_argument(
         "--verbose", action="store_true", help="Print JSON payloads returned by smoke endpoints"
     )
 
@@ -335,6 +417,7 @@ def parse_args(argv: list[str]) -> Options:
         actor_handle=ns.actor_handle,
         repo_at_uri=ns.repo_at_uri,
         profile_at_uri=ns.profile_at_uri,
+        admin_token=ns.admin_token,
         verbose=ns.verbose,
     )
 
@@ -342,14 +425,10 @@ def parse_args(argv: list[str]) -> Options:
 def main(argv: list[str] | None = None) -> int:
     opts = parse_args(sys.argv[1:] if argv is None else argv)
     if opts.check == "all":
-        for name in (
-            "healthz",
-            "readyz",
-            "indexing",
-            "search",
-            "documents",
-            "activity",
-        ):
+        checks = ["healthz", "readyz", "indexing", "search", "documents", "activity"]
+        if opts.admin_token:
+            checks.append("admin")
+        for name in checks:
             CHECKS[name](opts)
         echo("all API smoke checks passed")
         return 0

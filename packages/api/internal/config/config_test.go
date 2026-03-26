@@ -57,3 +57,26 @@ func TestLoadLocalUsesCurrentWorkingDirectoryWhenUnset(t *testing.T) {
 		t.Fatalf("TursoURL: got %q, want %q", cfg.TursoURL, wantURL)
 	}
 }
+
+func TestLoadReadThroughDefaults(t *testing.T) {
+	t.Setenv("TURSO_DATABASE_URL", "file:test.db")
+	t.Setenv("TURSO_AUTH_TOKEN", "")
+	t.Setenv("INDEXED_COLLECTIONS", "sh.tangled.repo,sh.tangled.repo.issue")
+	t.Setenv("READ_THROUGH_MODE", "")
+	t.Setenv("READ_THROUGH_COLLECTIONS", "")
+	t.Setenv("READ_THROUGH_MAX_ATTEMPTS", "")
+
+	cfg, err := Load(LoadOptions{})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.ReadThroughMode != "missing" {
+		t.Fatalf("ReadThroughMode: got %q", cfg.ReadThroughMode)
+	}
+	if cfg.ReadThroughCollections != "sh.tangled.repo,sh.tangled.repo.issue" {
+		t.Fatalf("ReadThroughCollections: got %q", cfg.ReadThroughCollections)
+	}
+	if cfg.ReadThroughMaxAttempts != 5 {
+		t.Fatalf("ReadThroughMaxAttempts: got %d", cfg.ReadThroughMaxAttempts)
+	}
+}

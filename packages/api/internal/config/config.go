@@ -12,34 +12,37 @@ import (
 )
 
 type Config struct {
-	TursoURL               string
-	TursoToken             string
-	TapURL                 string
-	TapAuthPassword        string
-	IndexedCollections     string
-	SearchDefaultLimit     int
-	SearchMaxLimit         int
-	SearchDefaultMode      string
-	HTTPBindAddr           string
-	IndexerHealthAddr      string
-	LogLevel               string
-	LogFormat              string
-	EnableAdminEndpoints   bool
-	AdminAuthToken         string
-	EnableIngestEnrichment bool
-	PLCDirectoryURL        string
-	IdentityServiceURL     string
-	XRPCTimeout            time.Duration
-	ConstellationURL       string
-	ConstellationUserAgent string
-	ConstellationTimeout   time.Duration
-	ConstellationCacheTTL  time.Duration
-	OAuthClientID             string
-	OAuthRedirectURIs         []string
-	JetstreamURL              string
+	TursoURL                   string
+	TursoToken                 string
+	TapURL                     string
+	TapAuthPassword            string
+	IndexedCollections         string
+	ReadThroughMode            string
+	ReadThroughCollections     string
+	ReadThroughMaxAttempts     int
+	SearchDefaultLimit         int
+	SearchMaxLimit             int
+	SearchDefaultMode          string
+	HTTPBindAddr               string
+	IndexerHealthAddr          string
+	LogLevel                   string
+	LogFormat                  string
+	EnableAdminEndpoints       bool
+	AdminAuthToken             string
+	EnableIngestEnrichment     bool
+	PLCDirectoryURL            string
+	IdentityServiceURL         string
+	XRPCTimeout                time.Duration
+	ConstellationURL           string
+	ConstellationUserAgent     string
+	ConstellationTimeout       time.Duration
+	ConstellationCacheTTL      time.Duration
+	OAuthClientID              string
+	OAuthRedirectURIs          []string
+	JetstreamURL               string
 	JetstreamWantedCollections string
-	ActivityMaxEvents         int
-	ActivityRewindDuration    time.Duration
+	ActivityMaxEvents          int
+	ActivityRewindDuration     time.Duration
 }
 
 type LoadOptions struct {
@@ -51,28 +54,31 @@ func Load(opts LoadOptions) (*Config, error) {
 	loadDotEnv()
 
 	cfg := &Config{
-		TursoURL:               os.Getenv("TURSO_DATABASE_URL"),
-		TursoToken:             os.Getenv("TURSO_AUTH_TOKEN"),
-		TapURL:                 os.Getenv("TAP_URL"),
-		TapAuthPassword:        os.Getenv("TAP_AUTH_PASSWORD"),
-		IndexedCollections:     os.Getenv("INDEXED_COLLECTIONS"),
-		SearchDefaultMode:      envOrDefault("SEARCH_DEFAULT_MODE", "keyword"),
-		HTTPBindAddr:           envOrDefault("HTTP_BIND_ADDR", ":8080"),
-		IndexerHealthAddr:      envOrDefault("INDEXER_HEALTH_ADDR", ":9090"),
-		LogLevel:               envOrDefault("LOG_LEVEL", "info"),
-		LogFormat:              envOrDefault("LOG_FORMAT", "json"),
-		AdminAuthToken:         os.Getenv("ADMIN_AUTH_TOKEN"),
-		SearchDefaultLimit:     envInt("SEARCH_DEFAULT_LIMIT", 20),
-		SearchMaxLimit:         envInt("SEARCH_MAX_LIMIT", 100),
-		EnableAdminEndpoints:   envBool("ENABLE_ADMIN_ENDPOINTS", false),
-		EnableIngestEnrichment: envBool("ENABLE_INGEST_ENRICHMENT", true),
-		PLCDirectoryURL:        envOrDefault("PLC_DIRECTORY_URL", "https://plc.directory"),
-		IdentityServiceURL:     envOrDefault("IDENTITY_SERVICE_URL", "https://public.api.bsky.app"),
-		XRPCTimeout:            envDuration("XRPC_TIMEOUT", 15*time.Second),
-		ConstellationURL:       envOrDefault("CONSTELLATION_URL", "https://constellation.microcosm.blue"),
-		ConstellationUserAgent: envOrDefault("CONSTELLATION_USER_AGENT", "twister/1.0 (https://tangled.org/desertthunder.dev/twisted; Owais <desertthunder.dev@gmail.com>)"),
-		ConstellationTimeout:   envDuration("CONSTELLATION_TIMEOUT", 10*time.Second),
-		ConstellationCacheTTL:  envDuration("CONSTELLATION_CACHE_TTL", 5*time.Minute),
+		TursoURL:                   os.Getenv("TURSO_DATABASE_URL"),
+		TursoToken:                 os.Getenv("TURSO_AUTH_TOKEN"),
+		TapURL:                     os.Getenv("TAP_URL"),
+		TapAuthPassword:            os.Getenv("TAP_AUTH_PASSWORD"),
+		IndexedCollections:         os.Getenv("INDEXED_COLLECTIONS"),
+		ReadThroughMode:            envOrDefault("READ_THROUGH_MODE", "missing"),
+		ReadThroughCollections:     envOrDefault("READ_THROUGH_COLLECTIONS", os.Getenv("INDEXED_COLLECTIONS")),
+		ReadThroughMaxAttempts:     envInt("READ_THROUGH_MAX_ATTEMPTS", 5),
+		SearchDefaultMode:          envOrDefault("SEARCH_DEFAULT_MODE", "keyword"),
+		HTTPBindAddr:               envOrDefault("HTTP_BIND_ADDR", ":8080"),
+		IndexerHealthAddr:          envOrDefault("INDEXER_HEALTH_ADDR", ":9090"),
+		LogLevel:                   envOrDefault("LOG_LEVEL", "info"),
+		LogFormat:                  envOrDefault("LOG_FORMAT", "json"),
+		AdminAuthToken:             os.Getenv("ADMIN_AUTH_TOKEN"),
+		SearchDefaultLimit:         envInt("SEARCH_DEFAULT_LIMIT", 20),
+		SearchMaxLimit:             envInt("SEARCH_MAX_LIMIT", 100),
+		EnableAdminEndpoints:       envBool("ENABLE_ADMIN_ENDPOINTS", false),
+		EnableIngestEnrichment:     envBool("ENABLE_INGEST_ENRICHMENT", true),
+		PLCDirectoryURL:            envOrDefault("PLC_DIRECTORY_URL", "https://plc.directory"),
+		IdentityServiceURL:         envOrDefault("IDENTITY_SERVICE_URL", "https://public.api.bsky.app"),
+		XRPCTimeout:                envDuration("XRPC_TIMEOUT", 15*time.Second),
+		ConstellationURL:           envOrDefault("CONSTELLATION_URL", "https://constellation.microcosm.blue"),
+		ConstellationUserAgent:     envOrDefault("CONSTELLATION_USER_AGENT", "twister/1.0 (https://tangled.org/desertthunder.dev/twisted; Owais <desertthunder.dev@gmail.com>)"),
+		ConstellationTimeout:       envDuration("CONSTELLATION_TIMEOUT", 10*time.Second),
+		ConstellationCacheTTL:      envDuration("CONSTELLATION_CACHE_TTL", 5*time.Minute),
 		OAuthClientID:              os.Getenv("OAUTH_CLIENT_ID"),
 		OAuthRedirectURIs:          envSlice("OAUTH_REDIRECT_URIS", nil),
 		JetstreamURL:               envOrDefault("JETSTREAM_URL", "wss://jetstream2.us-east.bsky.network/subscribe"),

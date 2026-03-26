@@ -14,6 +14,7 @@ import (
 
 	"tangled.org/desertthunder.dev/twister/internal/config"
 	"tangled.org/desertthunder.dev/twister/internal/constellation"
+	idx "tangled.org/desertthunder.dev/twister/internal/index"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/reindex"
 	"tangled.org/desertthunder.dev/twister/internal/search"
@@ -30,10 +31,15 @@ type Server struct {
 	constellation *constellation.Client
 	xrpc          *xrpc.Client
 	registry      *normalize.Registry
+	policy        idx.Policy
+	processor     *idx.Processor
+	workerID      string
 }
 
 // New creates a new API server.
 func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log *slog.Logger, constellation *constellation.Client, xrpcClient *xrpc.Client) *Server {
+	registry := normalize.NewRegistry()
+	policy := idx.NewPolicy(cfg.IndexedCollections, cfg.ReadThroughCollections, cfg.ReadThroughMode)
 	return &Server{
 		search:        searchRepo,
 		store:         st,
@@ -41,7 +47,10 @@ func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log 
 		log:           log,
 		constellation: constellation,
 		xrpc:          xrpcClient,
-		registry:      normalize.NewRegistry(),
+		registry:      registry,
+		policy:        policy,
+		processor:     idx.NewProcessor(st, registry, xrpcClient, policy, log),
+		workerID:      newWorkerID("api"),
 	}
 }
 
@@ -349,7 +358,7 @@ func (s *Server) handleProfileSummary(w http.ResponseWriter, r *http.Request) {
 
 const tapConsumerName = "indexer-tap-v1"
 
-// handleAdminStatus returns Tap cursor, JetStream cursor, document count, and pending job count.
+// handleAdminStatus returns cursor and queue status for indexing subsystems.
 // Route: GET /admin/status
 func (s *Server) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.AdminAuthToken != "" {
@@ -381,10 +390,10 @@ func (s *Server) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pending, err := s.store.CountPendingIndexingJobs(r.Context())
+	stats, err := s.store.GetIndexingJobStats(r.Context())
 	if err != nil {
-		s.log.Error("admin status: count pending jobs failed", slog.String("error", err.Error()))
-		writeJSON(w, http.StatusInternalServerError, errorBody("db_error", "failed to count pending jobs"))
+		s.log.Error("admin status: queue stats failed", slog.String("error", err.Error()))
+		writeJSON(w, http.StatusInternalServerError, errorBody("db_error", "failed to fetch queue stats"))
 		return
 	}
 
@@ -413,10 +422,20 @@ func (s *Server) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"tap":          tapJSON,
-		"jetstream":    jsJSON,
-		"documents":    docs,
-		"pending_jobs": pending,
+		"tap":       tapJSON,
+		"jetstream": jsJSON,
+		"documents": docs,
+		"read_through": map[string]any{
+			"pending":              stats.Pending,
+			"processing":           stats.Processing,
+			"completed":            stats.Completed,
+			"failed":               stats.Failed,
+			"dead_letter":          stats.DeadLetter,
+			"oldest_pending_age_s": ageSeconds(stats.OldestPendingAt),
+			"oldest_running_age_s": ageSeconds(stats.OldestRunningAt),
+			"last_completed_at":    stats.LastCompletedAt,
+			"last_processed_at":    stats.LastProcessedAt,
+		},
 	})
 }
 

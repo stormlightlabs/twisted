@@ -4,7 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"tangled.org/desertthunder.dev/twister/internal/store"
 )
@@ -383,6 +385,7 @@ func TestIntegration(t *testing.T) {
 			RKey:       "repo1",
 			CID:        "cid-repo1",
 			RecordJSON: `{"name":"repo1"}`,
+			Source:     store.IndexSourceReadThrough,
 		}
 		if err := st.EnqueueIndexingJob(ctx, job); err != nil {
 			t.Fatalf("enqueue indexing job: %v", err)
@@ -391,7 +394,7 @@ func TestIntegration(t *testing.T) {
 			t.Fatalf("enqueue indexing job second call: %v", err)
 		}
 
-		claimed, err := st.ClaimIndexingJob(ctx)
+		claimed, err := st.ClaimIndexingJob(ctx, "worker-a", time.Now().Add(time.Minute).Format(time.RFC3339))
 		if err != nil {
 			t.Fatalf("claim indexing job: %v", err)
 		}
@@ -406,7 +409,7 @@ func TestIntegration(t *testing.T) {
 			t.Fatalf("retry indexing job: %v", err)
 		}
 
-		none, err := st.ClaimIndexingJob(ctx)
+		none, err := st.ClaimIndexingJob(ctx, "worker-b", time.Now().Add(time.Minute).Format(time.RFC3339))
 		if err != nil {
 			t.Fatalf("claim delayed indexing job: %v", err)
 		}
@@ -418,7 +421,7 @@ func TestIntegration(t *testing.T) {
 			t.Fatalf("retry indexing job now: %v", err)
 		}
 
-		claimed, err = st.ClaimIndexingJob(ctx)
+		claimed, err = st.ClaimIndexingJob(ctx, "worker-c", time.Now().Add(time.Minute).Format(time.RFC3339))
 		if err != nil {
 			t.Fatalf("claim retried indexing job: %v", err)
 		}
@@ -430,12 +433,94 @@ func TestIntegration(t *testing.T) {
 			t.Fatalf("complete indexing job: %v", err)
 		}
 
-		claimed, err = st.ClaimIndexingJob(ctx)
+		claimed, err = st.ClaimIndexingJob(ctx, "worker-d", time.Now().Add(time.Minute).Format(time.RFC3339))
 		if err != nil {
 			t.Fatalf("claim after complete: %v", err)
 		}
 		if claimed != nil {
 			t.Fatalf("expected no job after complete, got %#v", claimed)
+		}
+
+		got, err := st.GetIndexingJob(ctx, job.DocumentID)
+		if err != nil {
+			t.Fatalf("get completed job: %v", err)
+		}
+		if got == nil || got.Status != store.IndexingJobCompleted {
+			t.Fatalf("expected completed job row, got %#v", got)
+		}
+	})
+
+	t.Run("indexing claim is single winner", func(t *testing.T) {
+		job := store.IndexingJobInput{
+			DocumentID: "did:plc:owner|sh.tangled.repo|repo2",
+			DID:        "did:plc:owner",
+			Collection: "sh.tangled.repo",
+			RKey:       "repo2",
+			CID:        "cid-repo2",
+			RecordJSON: `{"name":"repo2"}`,
+			Source:     store.IndexSourceReadThrough,
+		}
+		if err := st.EnqueueIndexingJob(ctx, job); err != nil {
+			t.Fatalf("enqueue job: %v", err)
+		}
+
+		var wg sync.WaitGroup
+		results := make(chan *store.IndexingJob, 2)
+		errs := make(chan error, 2)
+		for _, worker := range []string{"worker-1", "worker-2"} {
+			wg.Add(1)
+			go func(worker string) {
+				defer wg.Done()
+				claimed, err := st.ClaimIndexingJob(
+					ctx, worker, time.Now().Add(time.Minute).Format(time.RFC3339),
+				)
+				errs <- err
+				results <- claimed
+			}(worker)
+		}
+		wg.Wait()
+		close(results)
+		close(errs)
+
+		claimedCount := 0
+		for err := range errs {
+			if err != nil {
+				t.Fatalf("claim concurrent job: %v", err)
+			}
+		}
+		for claimed := range results {
+			if claimed != nil {
+				claimedCount++
+			}
+		}
+		if claimedCount != 1 {
+			t.Fatalf("expected exactly one claimant, got %d", claimedCount)
+		}
+	})
+
+	t.Run("indexing audit and stats", func(t *testing.T) {
+		if err := st.AppendIndexingAudit(ctx, store.IndexingAuditInput{
+			Source:     store.IndexSourceReadThrough,
+			DocumentID: "doc-audit",
+			Collection: "sh.tangled.repo",
+			CID:        "cid-audit",
+			Decision:   "enqueued",
+		}); err != nil {
+			t.Fatalf("append indexing audit: %v", err)
+		}
+		stats, err := st.GetIndexingJobStats(ctx)
+		if err != nil {
+			t.Fatalf("get indexing stats: %v", err)
+		}
+		if stats.Completed < 1 {
+			t.Fatalf("expected completed jobs in stats, got %#v", stats)
+		}
+		entries, err := st.ListIndexingAudit(ctx, store.IndexingAuditFilter{DocumentID: "doc-audit"})
+		if err != nil {
+			t.Fatalf("list indexing audit: %v", err)
+		}
+		if len(entries) != 1 || entries[0].Decision != "enqueued" {
+			t.Fatalf("unexpected audit rows: %#v", entries)
 		}
 	})
 }

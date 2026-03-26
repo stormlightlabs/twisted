@@ -49,11 +49,15 @@ type IndexingJob struct {
 	RKey        string
 	CID         string
 	RecordJSON  string
+	Source      string
 	Attempts    int
 	Status      string
 	LastError   string
 	ScheduledAt string
 	UpdatedAt   string
+	LeaseOwner  string
+	LeaseUntil  string
+	CompletedAt string
 }
 
 // JetstreamEvent is a cached JetStream activity event.
@@ -86,6 +90,7 @@ type IndexingJobInput struct {
 	RKey       string
 	CID        string
 	RecordJSON string
+	Source     string
 }
 
 // DocumentFilter scopes a ListDocuments query to a subset of documents.
@@ -110,10 +115,16 @@ type Store interface {
 	UpdateRecordState(ctx context.Context, subjectURI string, state string) error
 	UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error
 	GetIdentityHandle(ctx context.Context, did string) (string, error)
+	GetIndexingJob(ctx context.Context, documentID string) (*IndexingJob, error)
 	EnqueueIndexingJob(ctx context.Context, input IndexingJobInput) error
-	ClaimIndexingJob(ctx context.Context) (*IndexingJob, error)
+	ClaimIndexingJob(ctx context.Context, workerID string, leaseUntil string) (*IndexingJob, error)
 	CompleteIndexingJob(ctx context.Context, documentID string) error
 	RetryIndexingJob(ctx context.Context, documentID string, nextScheduledAt string, lastError string) error
+	FailIndexingJob(ctx context.Context, documentID string, status string, lastError string) error
+	ListIndexingJobs(ctx context.Context, filter IndexingJobFilter) ([]*IndexingJob, error)
+	GetIndexingJobStats(ctx context.Context) (*IndexingJobStats, error)
+	AppendIndexingAudit(ctx context.Context, input IndexingAuditInput) error
+	ListIndexingAudit(ctx context.Context, filter IndexingAuditFilter) ([]*IndexingAuditEntry, error)
 	GetFollowSubjects(ctx context.Context, did string) ([]string, error)
 	GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error)
 	CountDocuments(ctx context.Context) (int64, error)

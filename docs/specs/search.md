@@ -96,24 +96,29 @@ Acceptance:
 - the production backend choice is documented with explicit tradeoffs
 - the chosen production backend has a migration path from the experimental local setup
 
-The concrete local DB operating procedure lives in `packages/api/README.md`.
+The concrete local DB operating procedure lives in `docs/reference/api.md`.
 The production migration path is documented in `docs/adr/storage.md`.
 
 ### Read-Through Indexing
 
-When the API fetches a repo, issue, PR, profile, or similar record directly from upstream, it should enqueue background indexing work if that record is not already searchable. Tap remains the primary ingest path; read-through indexing only closes gaps.
+When the API fetches a repo, issue, PR, profile, or similar detail record
+directly from upstream, it should enqueue background indexing work only when
+that record is missing or stale. Tap remains the primary ingest path;
+read-through indexing only closes gaps.
 
 Requirements:
 
 - add a durable job table for on-demand indexing
 - deduplicate jobs by stable document identity
 - reuse the existing normalization and upsert path
-- trigger jobs from the handlers that already fetch upstream records
+- trigger jobs from detail handlers that already fetch upstream records
+- do not enqueue whole collections from list or browse handlers
 
 Acceptance:
 
 - a fetched-but-missing record becomes searchable shortly after the first successful API read
 - repeated page views do not create unbounded duplicate work
+- queue state and terminal failures are inspectable through admin endpoints
 - failures are visible through logs and smoke tests
 
 ### Activity Cache
@@ -215,7 +220,7 @@ Acceptance:
 }
 ```
 
-## Pragmatic Search Strategy
+## Search Strategy
 
 Indexing via Tap is useful but has proven unreliable for maintaining complete, up-to-date coverage. The approach:
 

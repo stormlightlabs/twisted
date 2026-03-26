@@ -98,6 +98,9 @@ func (s *Server) registerAdminRoutes(mux *http.ServeMux) {
 		return
 	}
 	mux.HandleFunc("GET /admin/status", s.handleAdminStatus)
+	mux.HandleFunc("GET /admin/indexing/jobs", s.handleAdminIndexingJobs)
+	mux.HandleFunc("GET /admin/indexing/audit", s.handleAdminIndexingAudit)
+	mux.HandleFunc("POST /admin/indexing/enqueue", s.handleAdminIndexingEnqueue)
 	mux.HandleFunc("POST /admin/reindex", s.handleAdminReindex)
 }
 

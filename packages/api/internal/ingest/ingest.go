@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	idx "tangled.org/desertthunder.dev/twister/internal/index"
 	"tangled.org/desertthunder.dev/twister/internal/normalize"
 	"tangled.org/desertthunder.dev/twister/internal/store"
 	"tangled.org/desertthunder.dev/twister/internal/xrpc"
@@ -30,10 +31,10 @@ type client interface {
 // Runner ingests Tap events into the store.
 type Runner struct {
 	store        store.Store
-	registry     *normalize.Registry
 	tap          client
-	xrpcClient   *xrpc.Client
-	allowlist    allowlist
+	registry     *normalize.Registry
+	policy       idx.Policy
+	processor    *idx.Processor
 	consumerName string
 	log          *slog.Logger
 	resumeCursor int64
@@ -47,11 +48,13 @@ func NewRunner(st store.Store, registry *normalize.Registry, tap client, indexed
 	if log == nil {
 		log = slog.Default()
 	}
+	policy := idx.NewPolicy(indexedCollections, indexedCollections, idx.ReadThroughMissing)
 	return &Runner{
 		store:        st,
-		registry:     registry,
 		tap:          tap,
-		allowlist:    parseAllowlist(indexedCollections),
+		registry:     registry,
+		policy:       policy,
+		processor:    idx.NewProcessor(st, registry, nil, policy, log),
 		consumerName: defaultConsumerName,
 		log:          log,
 	}
@@ -59,7 +62,10 @@ func NewRunner(st store.Store, registry *normalize.Registry, tap client, indexed
 
 // SetXRPCClient enables ingest-time enrichment via XRPC lookups.
 func (r *Runner) SetXRPCClient(c *xrpc.Client) {
-	r.xrpcClient = c
+	if c == nil {
+		return
+	}
+	r.processor = idx.NewProcessor(r.store, r.registry, c, r.policy, r.log)
 }
 
 func (r *Runner) Run(ctx context.Context) error {
@@ -184,100 +190,48 @@ func (r *Runner) processEvent(ctx context.Context, event normalize.TapRecordEven
 }
 
 func (r *Runner) processRecordEvent(ctx context.Context, event normalize.TapRecordEvent) error {
-	if event.Record == nil {
-		return r.advanceCursorAndAck(ctx, event.ID)
-	}
-
 	record := event.Record
-	if !r.allowlist.match(record.Collection) {
-		return r.advanceCursorAndAck(ctx, event.ID)
-	}
-
-	if handler, ok := r.registry.StateHandler(record.Collection); ok {
-		if record.Action == "delete" {
-			return r.advanceCursorAndAck(ctx, event.ID)
-		}
-		update, err := handler.HandleState(event)
-		if err != nil {
-			r.log.Warn("state normalization failed",
-				slog.Int64("event_id", event.ID),
-				slog.String("collection", record.Collection),
-				slog.String("did", record.DID),
-				slog.String("rkey", record.RKey),
-				slog.String("error", err.Error()),
-			)
-			return r.advanceCursorAndAck(ctx, event.ID)
-		}
-		if err := r.store.UpdateRecordState(ctx, update.SubjectURI, update.State); err != nil {
-			return err
-		}
-		return r.advanceCursorAndAck(ctx, event.ID)
-	}
-
-	adapter, ok := r.registry.Adapter(record.Collection)
-	if !ok {
-		return r.advanceCursorAndAck(ctx, event.ID)
-	}
-
-	switch record.Action {
-	case "delete":
-		docID := normalize.StableID(record.DID, record.Collection, record.RKey)
-		if err := r.store.MarkDeleted(ctx, docID); err != nil {
-			return err
-		}
-		return r.advanceCursorAndAck(ctx, event.ID)
-	case "create", "update":
-		if record.Record == nil {
-			r.log.Warn("record payload missing",
-				slog.Int64("event_id", event.ID),
-				slog.String("collection", record.Collection),
-				slog.String("did", record.DID),
-				slog.String("rkey", record.RKey),
-			)
-			return r.advanceCursorAndAck(ctx, event.ID)
-		}
-	default:
-		return r.advanceCursorAndAck(ctx, event.ID)
-	}
-
-	doc, err := adapter.Normalize(event)
-	if err != nil {
-		r.log.Warn("normalization failed",
+	result, err := r.processor.ProcessRecord(ctx, store.IndexSourceTap, event)
+	if perr, ok := idx.IsPermanent(err); ok {
+		r.log.Warn("tap processing skipped",
 			slog.Int64("event_id", event.ID),
 			slog.String("collection", record.Collection),
 			slog.String("did", record.DID),
 			slog.String("rkey", record.RKey),
-			slog.String("error", err.Error()),
+			slog.String("decision", perr.Decision),
+			slog.String("error", perr.Error()),
 		)
+		_ = r.store.AppendIndexingAudit(ctx, store.IndexingAuditInput{
+			Source:     store.IndexSourceTap,
+			DocumentID: normalize.StableID(record.DID, record.Collection, record.RKey),
+			Collection: record.Collection,
+			CID:        record.CID,
+			Decision:   perr.Decision,
+			Error:      perr.Error(),
+		})
 		return r.advanceCursorAndAck(ctx, event.ID)
 	}
-
-	handle, err := r.store.GetIdentityHandle(ctx, record.DID)
 	if err != nil {
 		return err
 	}
-	if handle != "" {
-		doc.AuthorHandle = handle
-		if doc.RecordType == "profile" {
-			doc.Title = handle
-		}
+	if result != nil {
+		_ = r.store.AppendIndexingAudit(ctx, store.IndexingAuditInput{
+			Source:     store.IndexSourceTap,
+			DocumentID: result.DocumentID,
+			Collection: result.Collection,
+			CID:        result.CID,
+			Decision:   result.Decision,
+		})
 	}
-
-	r.enrichDocument(ctx, doc)
-
-	if err := r.store.UpsertDocument(ctx, doc); err != nil {
-		return err
-	}
-
 	return r.advanceCursorAndAck(ctx, event.ID)
 }
 
 func (r *Runner) advanceCursorAndAck(ctx context.Context, eventID int64) error {
 	cursor := fmt.Sprintf("%d", eventID)
-	if err := r.tap.AckEvent(ctx, eventID); err != nil {
+	if err := r.persistCursorWithRetry(ctx, cursor, eventID); err != nil {
 		return err
 	}
-	if err := r.persistCursorWithRetry(ctx, cursor, eventID); err != nil {
+	if err := r.tap.AckEvent(ctx, eventID); err != nil {
 		return err
 	}
 	r.markProcessed(cursor)
@@ -295,7 +249,7 @@ func (r *Runner) persistCursorWithRetry(ctx context.Context, cursor string, even
 		} else {
 			attempt++
 			backoff := retryBackoff(attempt)
-			r.log.Error("cursor persist failed after ack",
+			r.log.Error("cursor persist failed before ack",
 				slog.Int64("event_id", eventID),
 				slog.Int("attempt", attempt),
 				slog.Duration("retry_in", backoff),
@@ -344,113 +298,6 @@ func (r *Runner) markProcessed(cursor string) {
 	r.lastCursor = cursor
 	r.processedTick++
 	r.statusMu.Unlock()
-}
-
-type allowlist struct {
-	entries []string
-}
-
-func parseAllowlist(raw string) allowlist {
-	if strings.TrimSpace(raw) == "" {
-		return allowlist{entries: nil}
-	}
-	parts := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == ' ' || r == '\n' || r == '\t'
-	})
-	entries := make([]string, 0, len(parts))
-	for _, part := range parts {
-		entry := strings.TrimSpace(part)
-		if entry == "" {
-			continue
-		}
-		entries = append(entries, entry)
-	}
-	return allowlist{entries: entries}
-}
-
-func (a allowlist) match(collection string) bool {
-	if len(a.entries) == 0 {
-		return true
-	}
-	for _, entry := range a.entries {
-		if entry == collection {
-			return true
-		}
-		if strings.HasSuffix(entry, "*") {
-			prefix := strings.TrimSuffix(entry, "*")
-			if strings.HasPrefix(collection, prefix) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// enrichDocument fills RepoName, AuthorHandle, and WebURL via XRPC when possible.
-// Failures are logged but never block ingestion.
-func (r *Runner) enrichDocument(ctx context.Context, doc *store.Document) {
-	if r.xrpcClient == nil {
-		return
-	}
-
-	if doc.RepoDID != "" && doc.RepoName == "" {
-		repoRKey := extractRepoRKey(doc.ATURI, doc.Collection)
-		if repoRKey != "" {
-			name, err := r.xrpcClient.ResolveRepoName(ctx, doc.RepoDID, repoRKey)
-			if err != nil {
-				r.log.Debug("enrich: resolve repo name failed",
-					slog.String("doc_id", doc.ID),
-					slog.String("repo_did", doc.RepoDID),
-					slog.String("error", err.Error()),
-				)
-			} else {
-				doc.RepoName = name
-			}
-		}
-	}
-
-	if doc.AuthorHandle == "" && doc.DID != "" {
-		info, err := r.xrpcClient.ResolveIdentity(ctx, doc.DID)
-		if err != nil {
-			r.log.Debug("enrich: resolve author handle failed",
-				slog.String("doc_id", doc.ID),
-				slog.String("did", doc.DID),
-				slog.String("error", err.Error()),
-			)
-		} else if info.Handle != "" {
-			doc.AuthorHandle = info.Handle
-		}
-	}
-
-	if doc.WebURL == "" {
-		ownerHandle := doc.AuthorHandle
-		if doc.RepoDID != "" && doc.RepoDID != doc.DID {
-			repoOwnerHandle, err := r.store.GetIdentityHandle(ctx, doc.RepoDID)
-			if err == nil && repoOwnerHandle != "" {
-				ownerHandle = repoOwnerHandle
-			} else if r.xrpcClient != nil {
-				info, err := r.xrpcClient.ResolveIdentity(ctx, doc.RepoDID)
-				if err == nil && info.Handle != "" {
-					ownerHandle = info.Handle
-				}
-			}
-		}
-		doc.WebURL = xrpc.BuildWebURL(ownerHandle, doc.RepoName, doc.RecordType, doc.RKey)
-	}
-}
-
-// extractRepoRKey attempts to extract the repo rkey from the document context.
-// For repo-scoped collections like sh.tangled.repo.issue, the AT-URI is
-// at://did/collection/rkey but the repo is identified by RepoDID. We look
-// for a stored repo document, or try common rkey patterns.
-func extractRepoRKey(atURI, collection string) string {
-	if collection == "sh.tangled.repo" {
-		parts := strings.SplitN(atURI, "/", 5)
-		if len(parts) >= 5 {
-			return parts[4]
-		}
-	}
-	return ""
 }
 
 func retryBackoff(attempt int) time.Duration {
