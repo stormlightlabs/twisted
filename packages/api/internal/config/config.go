@@ -63,8 +63,8 @@ func Load(opts LoadOptions) (*Config, error) {
 		ReadThroughCollections:     envOrDefault("READ_THROUGH_COLLECTIONS", os.Getenv("INDEXED_COLLECTIONS")),
 		ReadThroughMaxAttempts:     envInt("READ_THROUGH_MAX_ATTEMPTS", 5),
 		SearchDefaultMode:          envOrDefault("SEARCH_DEFAULT_MODE", "keyword"),
-		HTTPBindAddr:               envOrDefault("HTTP_BIND_ADDR", ":8080"),
-		IndexerHealthAddr:          envOrDefault("INDEXER_HEALTH_ADDR", ":9090"),
+		HTTPBindAddr:               envBindAddr("HTTP_BIND_ADDR", "PORT", 8080),
+		IndexerHealthAddr:          envBindAddr("INDEXER_HEALTH_ADDR", "PORT", 9090),
 		LogLevel:                   envOrDefault("LOG_LEVEL", "info"),
 		LogFormat:                  envOrDefault("LOG_FORMAT", "json"),
 		AdminAuthToken:             os.Getenv("ADMIN_AUTH_TOKEN"),
@@ -153,6 +153,16 @@ func envOrDefault(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func envBindAddr(key, portKey string, defaultPort int) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	if port := strings.TrimSpace(os.Getenv(portKey)); port != "" {
+		return ":" + port
+	}
+	return ":" + strconv.Itoa(defaultPort)
 }
 
 func envInt(key string, def int) int {

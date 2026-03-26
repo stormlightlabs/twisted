@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -21,6 +21,6 @@ RUN apk add --no-cache ca-certificates tzdata
 
 COPY --from=builder /app/twister /usr/local/bin/twister
 
-EXPOSE 8080 9090 9091
+EXPOSE 8080 9090
 
 CMD ["twister", "api"]

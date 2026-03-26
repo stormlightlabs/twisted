@@ -6,6 +6,7 @@ Completed work — architecture, APIs, and data models as built.
 
 - [`reference/api.md`](reference/api.md) — Go search API service
 - [`reference/app.md`](reference/app.md) — Ionic Vue mobile app
+- [`reference/deployment-walkthrough.md`](reference/deployment-walkthrough.md) — Railway deployment guide
 - [`reference/lexicons.md`](reference/lexicons.md) — Tangled AT Protocol record types
 - [`reference/resync.md`](reference/resync.md) — Backfill and repo-resync recovery playbook
 

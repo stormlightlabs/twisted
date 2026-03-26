@@ -80,3 +80,41 @@ func TestLoadReadThroughDefaults(t *testing.T) {
 		t.Fatalf("ReadThroughMaxAttempts: got %d", cfg.ReadThroughMaxAttempts)
 	}
 }
+
+func TestLoadUsesRailwayPortForBindAddresses(t *testing.T) {
+	t.Setenv("TURSO_DATABASE_URL", "file:test.db")
+	t.Setenv("TURSO_AUTH_TOKEN", "")
+	t.Setenv("HTTP_BIND_ADDR", "")
+	t.Setenv("INDEXER_HEALTH_ADDR", "")
+	t.Setenv("PORT", "4567")
+
+	cfg, err := Load(LoadOptions{})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.HTTPBindAddr != ":4567" {
+		t.Fatalf("HTTPBindAddr: got %q, want %q", cfg.HTTPBindAddr, ":4567")
+	}
+	if cfg.IndexerHealthAddr != ":4567" {
+		t.Fatalf("IndexerHealthAddr: got %q, want %q", cfg.IndexerHealthAddr, ":4567")
+	}
+}
+
+func TestLoadPrefersExplicitBindAddressesOverRailwayPort(t *testing.T) {
+	t.Setenv("TURSO_DATABASE_URL", "file:test.db")
+	t.Setenv("TURSO_AUTH_TOKEN", "")
+	t.Setenv("HTTP_BIND_ADDR", "0.0.0.0:8081")
+	t.Setenv("INDEXER_HEALTH_ADDR", "0.0.0.0:9091")
+	t.Setenv("PORT", "4567")
+
+	cfg, err := Load(LoadOptions{})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.HTTPBindAddr != "0.0.0.0:8081" {
+		t.Fatalf("HTTPBindAddr: got %q", cfg.HTTPBindAddr)
+	}
+	if cfg.IndexerHealthAddr != "0.0.0.0:9091" {
+		t.Fatalf("IndexerHealthAddr: got %q", cfg.IndexerHealthAddr)
+	}
+}
