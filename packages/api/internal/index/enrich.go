@@ -51,6 +51,13 @@ func (p *Processor) enrichDocument(
 				ownerHandle = info.Handle
 			}
 		}
+		if ownerHandle == "" {
+			if doc.RepoDID != "" && doc.RepoDID != doc.DID {
+				ownerHandle = doc.RepoDID
+			} else {
+				ownerHandle = doc.DID
+			}
+		}
 		doc.WebURL = xrpc.BuildWebURL(ownerHandle, doc.RepoName, doc.RecordType, doc.RKey)
 	}
 	return nil

@@ -202,7 +202,10 @@ func (s *Server) enqueueXRPCRecord(ctx context.Context, uri, cid string, value m
 	s.enqueueRecordForIndexing(ctx, store.IndexSourceReadThrough, uri, cid, value)
 }
 
-func (s *Server) enqueueXRPCList(context.Context, []xrpc.ListRecordEntry) {
+func (s *Server) enqueueXRPCList(ctx context.Context, entries []xrpc.ListRecordEntry) {
+	for _, entry := range entries {
+		s.enqueueRecordForIndexing(ctx, store.IndexSourceReadThrough, entry.URI, entry.CID, entry.Value)
+	}
 }
 
 func (s *Server) enqueueRecordForIndexing(

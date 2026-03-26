@@ -8,11 +8,13 @@ func TestBuildWebURL(t *testing.T) {
 		want                          string
 	}{
 		{"alice.test", "myrepo", "repo", "", "https://tangled.org/alice.test/myrepo"},
-		{"alice.test", "myrepo", "issue", "123", "https://tangled.org/alice.test/myrepo/issues/123"},
+		{"alice.test", "myrepo", "issue", "123", "https://tangled.org/alice.test/myrepo/issues"},
 		{"alice.test", "myrepo", "pull", "456", "https://tangled.org/alice.test/myrepo/pulls/456"},
 		{"alice.test", "myrepo", "issue_comment", "789", "https://tangled.org/alice.test/myrepo/issues"},
 		{"alice.test", "myrepo", "pull_comment", "789", "https://tangled.org/alice.test/myrepo/pulls"},
 		{"alice.test", "", "profile", "", "https://tangled.org/alice.test"},
+		{"alice.test", "", "string", "3jqfcqzm2lc2g", "https://tangled.org/strings/alice.test/3jqfcqzm2lc2g"},
+		{"did:plc:alice", "", "string", "3jqfcqzm2lc2g", "https://tangled.org/strings/did:plc:alice/3jqfcqzm2lc2g"},
 		{"@alice.test", "myrepo", "repo", "", "https://tangled.org/alice.test/myrepo"},
 		{"", "myrepo", "repo", "", ""},
 		{"alice.test", "", "repo", "", ""},

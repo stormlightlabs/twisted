@@ -67,7 +67,7 @@ func TestEnqueueXRPCRecordOnlyQueuesOncePerCID(t *testing.T) {
 	}
 }
 
-func TestHandleActorFollowingDoesNotEnqueueBulkList(t *testing.T) {
+func TestHandleActorFollowingEnqueuesRecords(t *testing.T) {
 	var upstream *httptest.Server
 	upstream = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -112,8 +112,70 @@ func TestHandleActorFollowingDoesNotEnqueueBulkList(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status: got %d body=%s", rec.Code, rec.Body.String())
 	}
-	if len(st.jobs) != 0 {
-		t.Fatalf("expected no queued jobs from list handler, got %#v", st.jobs)
+	if len(st.jobs) != 1 {
+		t.Fatalf("expected one queued follow job, got %#v", st.jobs)
+	}
+	job := st.jobs["did:plc:alice|sh.tangled.graph.follow|1"]
+	if job == nil {
+		t.Fatalf("expected follow indexing job, got %#v", st.jobs)
+	}
+}
+
+func TestHandleActorReposEnqueuesRecords(t *testing.T) {
+	var upstream *httptest.Server
+	upstream = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/xrpc/com.atproto.identity.resolveHandle":
+			_ = json.NewEncoder(w).Encode(map[string]string{"did": "did:plc:alice"})
+		case r.URL.Path == "/did%3Aplc%3Aalice" || r.URL.Path == "/did:plc:alice":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":          "did:plc:alice",
+				"alsoKnownAs": []string{"at://alice.tangled.org"},
+				"service": []map[string]string{{
+					"type": "AtprotoPersonalDataServer", "serviceEndpoint": upstream.URL,
+				}},
+			})
+		case r.URL.Path == "/xrpc/com.atproto.repo.listRecords":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"records": []map[string]any{{
+					"uri": "at://did:plc:alice/sh.tangled.repo/repo1",
+					"cid": "cid-1",
+					"value": map[string]any{
+						"$type": "sh.tangled.repo",
+						"name":  "repo1",
+						"knot":  "knot.tangled.org",
+					},
+				}},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	client := xrpc.NewClient(
+		xrpc.WithHTTPClient(upstream.Client()),
+		xrpc.WithIdentityService(upstream.URL),
+		xrpc.WithPLCDirectory(upstream.URL),
+	)
+	st := newAPITestStore()
+	srv := newAPITestServer(st, client)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /actors/{handle}/repos", srv.handleListActorRepos)
+
+	req := httptest.NewRequest(http.MethodGet, "/actors/alice.tangled.org/repos", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(st.jobs) != 1 {
+		t.Fatalf("expected one queued repo job, got %#v", st.jobs)
+	}
+	job := st.jobs["did:plc:alice|sh.tangled.repo|repo1"]
+	if job == nil {
+		t.Fatalf("expected repo indexing job, got %#v", st.jobs)
 	}
 }
 

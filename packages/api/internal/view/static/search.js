@@ -11,6 +11,9 @@ function searchApp() {
     loading: false,
     searched: false,
     error: null,
+    toastMessage: "",
+    toastVisible: false,
+    toastTimer: null,
 
     get hasMore() {
       return this.searched && this.offset + this.limit < this.total;
@@ -86,32 +89,112 @@ function searchApp() {
       this.doSearch(false);
     },
 
-    canonicalURL(r) {
-      if (r.web_url) return r.web_url;
+    resultMode(r) {
+      return this.resolveResult(r).mode;
+    },
 
-      const explicitURL = this.extractTangledURL(r.body_snippet) || this.extractTangledURL(r.summary);
-      if (explicitURL) return explicitURL;
+    resultURL(r) {
+      return this.resolveResult(r).url;
+    },
 
-      const author = this.normalizeOwner(r.author_handle);
+    warningMessage(r) {
+      return this.resolveResult(r).warning;
+    },
+
+    resolveResult(r) {
+      const parsed = this.parseATURI(r.at_uri);
+      const author = this.normalizeOwner(r.author_handle) || this.normalizeSegment(r.did) || parsed.did;
       const repoOwner = this.normalizeOwner(r.repo_owner_handle) || author;
       const repoName = this.normalizeSegment(r.repo_name);
 
+      if (r.record_type === "issue") {
+        if (!r.at_uri) {
+          return {
+            mode: "none",
+            url: "",
+            warning: "This issue is missing its AT URI, so Twister cannot copy or link it yet.",
+          };
+        }
+        return { mode: "copy", url: "", warning: "" };
+      }
+
+      if (r.record_type === "string") {
+        const owner = author || parsed.did;
+        const rkey = parsed.rkey;
+        const url = r.web_url || (owner && rkey ? this.buildTangledURL("strings", owner, rkey) : "");
+        const warning = url ? "" : "This string is indexed from AT Protocol, but Tangled no longer has a page for it.";
+        return { mode: url ? "link" : "none", url, warning };
+      }
+
+      if (r.web_url) {
+        return { mode: "link", url: r.web_url, warning: "" };
+      }
+
+      let url = "";
       switch (r.record_type) {
         case "profile":
-          return author ? this.buildTangledURL(author) : "#";
+          url = author ? this.buildTangledURL(author) : "";
+          break;
         case "repo":
-          return repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName) : "#";
-        case "issue":
+          url = repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName) : "";
+          break;
         case "issue_comment":
-          return repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "issues") : "#";
+          url = repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "issues") : "";
+          break;
         case "pull":
         case "pull_comment":
-          return repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "pulls") : "#";
-        case "string":
-          return author ? this.buildTangledURL(author) : "#";
-        default:
-          return "#";
+          url = repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "pulls") : "";
+          break;
       }
+
+      return url
+        ? { mode: "link", url, warning: "" }
+        : {
+            mode: "none",
+            url: "",
+            warning: "This record is indexed from AT Protocol, but Tangled does not currently expose a page for it.",
+          };
+    },
+
+    async copyIssueATURI(r) {
+      if (!r.at_uri) {
+        this.showToast("Issue AT URI is unavailable.");
+        return;
+      }
+
+      try {
+        await this.writeClipboard(r.at_uri);
+        this.showToast("Issue AT URI copied.");
+      } catch (_) {
+        this.showToast("Could not copy the issue AT URI.");
+      }
+    },
+
+    async writeClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const input = document.createElement("textarea");
+      input.value = text;
+      input.setAttribute("readonly", "");
+      input.style.position = "absolute";
+      input.style.left = "-9999px";
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand("copy");
+      document.body.removeChild(input);
+      if (!copied) throw new Error("copy failed");
+    },
+
+    showToast(message) {
+      this.toastMessage = message;
+      this.toastVisible = true;
+      if (this.toastTimer) window.clearTimeout(this.toastTimer);
+      this.toastTimer = window.setTimeout(() => {
+        this.toastVisible = false;
+      }, 1800);
     },
 
     buildTangledURL() {
@@ -129,11 +212,13 @@ function searchApp() {
       return segment ? segment.trim() : "";
     },
 
-    extractTangledURL(text) {
-      if (!text) return "";
-      const match = text.match(/https:\/\/tangled\.org\/[^\s<>"']+/i);
-      if (!match) return "";
-      return match[0].replace(/[),.;:>]+$/, "");
+    parseATURI(uri) {
+      if (!uri || !uri.startsWith("at://")) return { did: "", collection: "", rkey: "" };
+      const parts = uri.slice("at://".length).split("/");
+      const did = parts[0] || "";
+      const collection = parts[1] || "";
+      const rkey = parts.slice(2).join("/");
+      return { did, collection, rkey };
     },
 
     relTime(iso) {

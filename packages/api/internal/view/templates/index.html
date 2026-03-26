@@ -39,23 +39,70 @@
       <div class="msg">No results found.</div>
     </template>
     <template x-for="r in results" :key="r.id">
-      <a :href="canonicalURL(r)" target="_blank" rel="noopener" class="card">
-        <div class="card-head">
-          <span class="badge" x-text="r.record_type"></span>
-          <span class="card-title" x-text="r.title || r.id"></span>
-        </div>
-        <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
-        <div class="card-meta">
-          <span x-show="r.author_handle" x-text="r.author_handle"></span>
-          <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
-          <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
-        </div>
-      </a>
+      <div class="result-shell">
+        <template x-if="resultMode(r) === 'link'">
+          <a :href="resultURL(r)" target="_blank" rel="noopener" class="card">
+            <div class="card-head">
+              <span class="badge" x-text="r.record_type"></span>
+              <span class="card-title" x-text="r.title || r.id"></span>
+            </div>
+            <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
+            <div class="card-meta">
+              <span x-show="r.author_handle" x-text="r.author_handle"></span>
+              <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
+              <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
+            </div>
+            <div x-show="warningMessage(r)" class="card-warning" role="note">
+              <strong class="warning-title" x-text="warningMessage(r)"></strong>
+              <code x-show="r.at_uri" class="warning-uri" x-text="r.at_uri"></code>
+            </div>
+          </a>
+        </template>
+        <template x-if="resultMode(r) === 'copy'">
+          <button type="button" class="card card-button" @click="copyIssueATURI(r)">
+            <div class="card-head">
+              <span class="badge" x-text="r.record_type"></span>
+              <span class="card-title" x-text="r.title || r.id"></span>
+            </div>
+            <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
+            <div class="card-meta">
+              <span x-show="r.author_handle" x-text="r.author_handle"></span>
+              <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
+              <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
+            </div>
+            <div class="card-warning" role="note">
+              <strong class="warning-title">Click to copy the issue AT URI.</strong>
+              <code x-show="r.at_uri" class="warning-uri" x-text="r.at_uri"></code>
+            </div>
+          </button>
+        </template>
+        <template x-if="resultMode(r) === 'none'">
+          <article class="card card-disabled">
+            <div class="card-head">
+              <span class="badge" x-text="r.record_type"></span>
+              <span class="card-title" x-text="r.title || r.id"></span>
+            </div>
+            <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
+            <div class="card-meta">
+              <span x-show="r.author_handle" x-text="r.author_handle"></span>
+              <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
+              <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
+            </div>
+            <div x-show="warningMessage(r)" class="card-warning" role="note">
+              <strong class="warning-title" x-text="warningMessage(r)"></strong>
+              <code x-show="r.at_uri" class="warning-uri" x-text="r.at_uri"></code>
+            </div>
+          </article>
+        </template>
+      </div>
     </template>
     <template x-if="hasMore">
       <button class="btn btn-more" @click="loadMore()" x-text="loading ? 'Loading\u2026' : 'Load more'" :disabled="loading"></button>
     </template>
   </section>
+  <div class="toast" :class="{ 'toast-visible': toastVisible }" x-show="toastVisible" x-transition.opacity.duration.150ms>
+    <span x-text="toastMessage"></span>
+  </div>
 </div>
 {{end}}
 {{define "scripts"}}

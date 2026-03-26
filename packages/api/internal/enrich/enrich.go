@@ -182,6 +182,13 @@ func (r *Runner) enrichDoc(ctx context.Context, doc *store.Document) bool {
 			}
 		}
 	}
+	if ownerHandle == "" {
+		if doc.RepoDID != "" && doc.RepoDID != doc.DID {
+			ownerHandle = doc.RepoDID
+		} else {
+			ownerHandle = doc.DID
+		}
+	}
 
 	if doc.WebURL == "" {
 		webURL := xrpc.BuildWebURL(ownerHandle, doc.RepoName, doc.RecordType, doc.RKey)
