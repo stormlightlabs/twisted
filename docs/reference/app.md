@@ -1,6 +1,6 @@
 ---
 title: Mobile App Reference
-updated: 2026-03-24
+updated: 2026-03-25
 ---
 
 Twisted is an Ionic Vue mobile app for browsing Tangled, a git hosting platform built on the AT Protocol. It targets iOS and Android via Capacitor (no web target).
@@ -20,7 +20,7 @@ TypeScript files use `.js` extensions in imports. Package management via pnpm.
 
 Three-layer design:
 
-**Presentation** — Vue components and pages using Ionic's component library. Five-tab navigation: Home, Explore, Activity, Profile (visible tabs) plus Repo (pushed route). Repo detail uses segmented tabs: Overview, Files, Issues, PRs.
+**Presentation** — Vue components and pages using Ionic's component library. Five-tab navigation: Home, Explore, Activity, Bookmarks/Profile, Settings. Repo detail uses segmented tabs: Overview, Files, Issues, PRs.
 
 **Domain** — TypeScript types modeling the app's data: UserSummary, RepoSummary, RepoDetail, RepoFile, PullRequestSummary, IssueSummary, ActivityItem. These are app-internal representations, decoupled from API response shapes.
 
@@ -49,17 +49,19 @@ The app reads from multiple sources depending on what's needed:
 - **Twister API** — Search and index-backed summaries (when available).
 - **Constellation** — Social signal counts and backlinks (stars, followers, reactions).
 
-Knots serve XRPC endpoints for git operations. The appview at `tangled.org` returns HTML only (no JSON API), so the app goes directly to knots for git data and PDS for AT Protocol records.
+The app calls the Twister API for app data. Twister proxies knot and PDS reads,
+handle resolution, Constellation counts, and the Jetstream activity stream.
 
 ## Completed Features
 
 ### Navigation & Shell (Phase 1)
 
-Five-tab layout with Vue Router, skeleton loaders, placeholder pages. Design system components: RepoCard, UserCard, ActivityCard, FileTreeItem, EmptyState, ErrorBoundary, SkeletonLoader, MarkdownRenderer.
+Five-tab layout with Vue Router, skeleton loaders, placeholder pages, and a
+local Bookmarks area for repos, strings, and saved files.
 
 ### Public Browsing (Phase 2)
 
-All read-only browsing works without authentication:
+All release-mode browsing works without authentication:
 
 **Repository browsing** — Metadata display, README rendering (markdown), file tree navigation, file viewer with syntax context, commit log with pagination, branch listing.
 
@@ -69,7 +71,27 @@ All read-only browsing works without authentication:
 
 **Pull Requests** — List view with status filter (open/closed/merged), detail view with comments.
 
-**Caching** — TanStack Query configured with per-data-type stale times. Persistence via Dexie (IndexedDB) — works in Capacitor's WebView on device and in the browser during local dev.
+**Caching** — TanStack Query configured with per-data-type stale times.
+Persistence currently uses IndexedDB via `idb-keyval`, with a separate local
+bookmarks store for saved repos, strings, files, and READMEs.
+
+## Storage Migration
+
+IndexedDB is the current implementation for cache and bookmark persistence, but
+it should be treated as an interim step.
+
+- Local cache and offline-content storage should migrate toward SQLite so larger
+  saved payloads, better inspection, and more explicit schema management are
+  available on-device.
+- Sensitive auth/session material should migrate toward Ionic secure storage
+  instead of living in browser-style storage primitives.
+- Until that migration lands, IndexedDB should stay limited to non-sensitive
+  cached data and user-saved offline reading content.
+
+## Auth Split
+
+Production builds are read-only and hide auth entry points. Dev builds keep the
+current OAuth flow available for testing future authenticated features.
 
 ## Routing
 

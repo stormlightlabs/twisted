@@ -8,15 +8,12 @@ import {
   WellKnownHandleResolver,
   DohJsonHandleResolver,
 } from "@atcute/identity-resolver";
+import { oauthClientId, oauthRedirectUri } from "@/core/config/app.js";
 
 const isNative = typeof window !== "undefined" && !window.location.origin.startsWith("http");
 const baseUrl = isNative ? "io.ionic.starter://" : window.location.origin;
-const clientId =
-  (!isNative && import.meta.env.VITE_OAUTH_CLIENT_ID?.trim()) ||
-  `${baseUrl}/client-metadata.json`;
-const redirectUri =
-  (!isNative && import.meta.env.VITE_OAUTH_REDIRECT_URI?.trim()) ||
-  `${baseUrl}/oauth-callback`;
+const clientId = (!isNative && oauthClientId) || `${baseUrl}/client-metadata.json`;
+const redirectUri = (!isNative && oauthRedirectUri) || `${baseUrl}/oauth-callback`;
 
 const didResolver = new CompositeDidDocumentResolver({
   methods: { plc: new PlcDidDocumentResolver(), web: new WebDidDocumentResolver() },

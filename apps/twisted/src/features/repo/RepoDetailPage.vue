@@ -8,6 +8,11 @@
         <ion-title class="repo-title">
           <span class="owner">{{ owner }}/</span>{{ repo?.name ?? repoName }}
         </ion-title>
+        <ion-buttons slot="end">
+          <ion-button :disabled="!repo" @click="toggleRepoSave">
+            <ion-icon slot="icon-only" :icon="repoSaved ? bookmark : bookmarkOutline" />
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
       <ion-toolbar>
         <ion-segment v-model="segment" class="detail-segment">
@@ -42,7 +47,10 @@
           v-if="segment === 'overview'"
           :repo="repo"
           :commits="commits"
-          :markdown-context="markdownContext" />
+          :markdown-context="markdownContext"
+          :readme-path="readmePath"
+          :is-readme-saved="readmeSaved"
+          @toggle-readme-save="toggleReadmeSave" />
         <RepoFiles v-else-if="segment === 'files'" :owner="owner" :repo="repoName" :branch="defaultBranch" />
         <RepoIssues
           v-else-if="segment === 'issues'"
@@ -68,12 +76,15 @@
     IonToolbar,
     IonTitle,
     IonContent,
+    IonButton,
     IonButtons,
     IonBackButton,
+    IonIcon,
     IonSegment,
     IonSegmentButton,
+    toastController,
   } from "@ionic/vue";
-  import { alertCircleOutline } from "ionicons/icons";
+  import { alertCircleOutline, bookmark, bookmarkOutline } from "ionicons/icons";
   import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
   import EmptyState from "@/components/common/EmptyState.vue";
   import RepoOverview from "./RepoOverview.vue";
@@ -88,10 +99,20 @@
     useRepoLog,
     useRepoIssues,
     useRepoPRs,
-  } from "@/services/tangled/queries.js";
-  import { useRepoStarCount } from "@/services/constellation/queries.js";
-  import type { RepoDetail } from "@/domain/models/repo.js";
-  import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
+  } from "@/services/tangled/queries.ts";
+  import { useRepoStarCount } from "@/services/constellation/queries.ts";
+  import type { RepoDetail } from "@/domain/models/repo.ts";
+  import type { RepoAssetContext } from "@/services/tangled/repo-assets.ts";
+  import {
+    buildFileBookmarkId,
+    buildRepoBookmarkId,
+    createSavedFileInput,
+    hasBookmark,
+    removeBookmark,
+    removeRepoBookmark,
+    saveFileBookmark,
+    saveRepoBookmark,
+  } from "@/core/bookmarks/service.ts";
 
   const route = useRoute();
   const router = useRouter();
@@ -159,6 +180,7 @@
 
   const repoAtUri = computed(() => recordQuery.data.value?.atUri ?? "");
   const hasAtUri = computed(() => !!repoAtUri.value);
+  const readmePath = computed(() => readmeQuery.data.value?.path ?? "");
 
   const starCountQuery = useRepoStarCount(repoAtUri, { enabled: hasAtUri });
 
@@ -181,6 +203,13 @@
     const err = recordQuery.error.value;
     return err instanceof Error ? err.message : "An unexpected error occurred.";
   });
+  const repoBookmarkId = computed(() => (repo.value ? buildRepoBookmarkId(repo.value.atUri) : ""));
+  const repoSaved = computed(() => !!repoBookmarkId.value && hasBookmark(repoBookmarkId.value));
+  const readmeBookmarkId = computed(() => {
+    if (!owner.value || !repoName.value || !defaultBranch.value || !readmePath.value) return "";
+    return buildFileBookmarkId(owner.value, repoName.value, defaultBranch.value, readmePath.value);
+  });
+  const readmeSaved = computed(() => !!readmeBookmarkId.value && hasBookmark(readmeBookmarkId.value));
 
   function openIssue(issue: { rkey: string }) {
     router.push(`${tabPrefix.value}/repo/${owner.value}/${repoName.value}/issues/${issue.rkey}?tab=issues`);
@@ -188,6 +217,42 @@
 
   function openPullRequest(pr: { rkey: string }) {
     router.push(`${tabPrefix.value}/repo/${owner.value}/${repoName.value}/pulls/${pr.rkey}?tab=prs`);
+  }
+
+  async function toggleRepoSave() {
+    if (!repo.value || !repoBookmarkId.value) return;
+    if (repoSaved.value) {
+      await removeRepoBookmark(repoBookmarkId.value);
+      await presentToast("Removed from bookmarks.");
+      return;
+    }
+    await saveRepoBookmark(repo.value);
+    await presentToast("Repo saved.");
+  }
+
+  async function toggleReadmeSave() {
+    if (!repo.value || !defaultBranch.value || !readmePath.value || !repo.value.readme) return;
+    if (readmeSaved.value) {
+      await removeBookmark(readmeBookmarkId.value);
+      await presentToast("README removed.");
+      return;
+    }
+    await saveFileBookmark(
+      createSavedFileInput(
+        owner.value,
+        repoName.value,
+        defaultBranch.value,
+        readmePath.value,
+        { path: readmePath.value, content: repo.value.readme, encoding: "utf-8", isBinary: false },
+        "readme",
+      ),
+    );
+    await presentToast("README saved.");
+  }
+
+  async function presentToast(message: string) {
+    const toast = await toastController.create({ message, duration: 1800, color: "success" });
+    await toast.present();
   }
 </script>
 

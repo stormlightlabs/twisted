@@ -1,15 +1,17 @@
 import { createApp } from "vue";
 import App from "./App.vue";
-import router from "@/app/router/index.js";
+import router from "@/app/router/index.ts";
 
 import { IonicVue } from "@ionic/vue";
 import { createPinia } from "pinia";
 import { VueQueryPlugin } from "@tanstack/vue-query";
-import { queryClient } from "./core/query/client.js";
+import { queryClient } from "./core/query/client.ts";
 import { persistQueryClient } from "@tanstack/query-persist-client-core";
-import { createIdbPersister } from "./core/query/persister.js";
-import { initializeThemePreference } from "./core/theme/preferences.js";
-import { useAuthStore } from "./core/auth/store.js";
+import { createIdbPersister } from "./core/query/persister.ts";
+import { initializeThemePreference } from "./core/theme/preferences.ts";
+import { useAuthStore } from "./core/auth/store.ts";
+import { ensureBookmarksLoaded } from "./core/bookmarks/service.ts";
+import { getIsDevAuthEnabled } from "./core/auth/dev-access.ts";
 
 import "@ionic/vue/css/core.css";
 import "@ionic/vue/css/normalize.css";
@@ -36,6 +38,7 @@ import "@ionic/vue/css/palettes/dark.class.css";
 import "./theme/variables.css";
 
 initializeThemePreference();
+void ensureBookmarksLoaded();
 
 if (import.meta.env.DEV) {
   void createIdbPersister().removeClient();
@@ -47,9 +50,13 @@ const pinia = createPinia();
 const app = createApp(App).use(IonicVue).use(router).use(pinia).use(VueQueryPlugin, { queryClient });
 
 const authStore = useAuthStore(pinia);
-authStore.initialize();
+if (getIsDevAuthEnabled()) {
+  authStore.initialize();
+}
 
 router.isReady().then(async () => {
-  await authStore.restoreSession();
+  if (getIsDevAuthEnabled()) {
+    await authStore.restoreSession();
+  }
   app.mount("#app");
 });

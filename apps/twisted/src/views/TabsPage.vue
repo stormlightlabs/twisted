@@ -15,9 +15,9 @@
           <ion-icon :icon="pulseOutline" />
           <ion-label>Activity</ion-label>
         </ion-tab-button>
-        <ion-tab-button tab="profile" href="/tabs/profile">
-          <ion-icon :icon="personOutline" />
-          <ion-label>Profile</ion-label>
+        <ion-tab-button :tab="profileTab.tab" :href="profileTab.href">
+          <ion-icon :icon="profileTab.icon" />
+          <ion-label>{{ profileTab.label }}</ion-label>
         </ion-tab-button>
         <ion-tab-button tab="settings" href="/tabs/settings">
           <ion-icon :icon="settingsOutline" />
@@ -30,5 +30,24 @@
 
 <script setup lang="ts">
   import { IonPage, IonTabs, IonRouterOutlet, IonTabBar, IonTabButton, IonIcon, IonLabel } from "@ionic/vue";
-  import { homeOutline, searchOutline, pulseOutline, personOutline, settingsOutline } from "ionicons/icons";
+  import {
+    homeOutline,
+    searchOutline,
+    pulseOutline,
+    personOutline,
+    settingsOutline,
+    bookmarkOutline,
+  } from "ionicons/icons";
+  import { computed } from "vue";
+  import { useDevAuthFeatures } from "@/core/auth/dev-access.ts";
+
+  const { isDevAuthEnabled } = useDevAuthFeatures();
+
+  const profileTab = computed(() => {
+    if (isDevAuthEnabled.value) {
+      return { tab: "profile", href: "/tabs/profile", label: "Profile", icon: personOutline };
+    }
+
+    return { tab: "bookmarks", href: "/tabs/bookmarks", label: "Bookmarks", icon: bookmarkOutline };
+  });
 </script>

@@ -102,12 +102,13 @@ Bluesky OAuth and authenticated actions.
 
 **Depends on:** App: Search & Discovery (for cache persistence of search/feed data)
 
-- [ ] Dexie setup with database schema (query cache + pinned content tables)
-- [ ] TanStack Query persister backed by Dexie
+- [x] IndexedDB-backed local cache and bookmark storage for first release
+- [ ] Migrate offline cache and saved-content storage from IndexedDB to SQLite
+- [ ] TanStack Query persister backed by SQLite or equivalent app-managed store
 - [ ] Pinned content store (save/unsave files for offline reading)
 - [ ] Pinned files UI (list, pin/unpin actions on file viewer, last-fetched timestamp)
 - [ ] Offline detection and banner
-- [ ] Secure token storage (Capacitor Secure Storage)
+- [ ] Migrate auth/session data to Ionic secure storage
 - [ ] Cache eviction (per-type limits and TTL, pinned content exempt)
 - [ ] List virtualization for large datasets
 - [ ] Lazy-load avatars, prefetch on hover

@@ -15,6 +15,9 @@
             <p v-if="stringItem.description" class="string-description">{{ stringItem.description }}</p>
             <pre class="string-preview">{{ preview(stringItem.contents) }}</pre>
           </ion-label>
+          <ion-button slot="end" fill="clear" size="small" @click.stop="toggleSave(stringItem)">
+            {{ isSaved(stringItem.atUri) ? "Saved" : "Save" }}
+          </ion-button>
         </ion-item>
       </ion-list>
 
@@ -28,12 +31,13 @@
 </template>
 
 <script setup lang="ts">
-  import { IonItem, IonLabel, IonList, IonSpinner } from "@ionic/vue";
+  import { IonButton, IonItem, IonLabel, IonList, IonSpinner, toastController } from "@ionic/vue";
   import { documentTextOutline } from "ionicons/icons";
   import EmptyState from "@/components/common/EmptyState.vue";
-  import type { StringSummary } from "@/domain/models/string.js";
+  import type { StringSummary } from "@/domain/models/string.ts";
+  import { buildStringBookmarkId, hasBookmark, removeBookmark, saveStringBookmark } from "@/core/bookmarks/service.ts";
 
-  defineProps<{ strings: StringSummary[]; isLoading?: boolean }>();
+  const props = defineProps<{ strings: StringSummary[]; ownerHandle: string; isLoading?: boolean }>();
 
   function preview(contents: string): string {
     return contents.length > 280 ? `${contents.slice(0, 280)}...` : contents;
@@ -48,6 +52,26 @@
     if (hours > 0) return `${hours}h ago`;
     if (minutes > 0) return `${minutes}m ago`;
     return "just now";
+  }
+
+  function isSaved(atUri: string): boolean {
+    return hasBookmark(buildStringBookmarkId(atUri));
+  }
+
+  async function toggleSave(stringItem: StringSummary) {
+    const id = buildStringBookmarkId(stringItem.atUri);
+    if (hasBookmark(id)) {
+      await removeBookmark(id);
+      await presentToast("String removed.");
+      return;
+    }
+    await saveStringBookmark(props.ownerHandle, stringItem);
+    await presentToast("String saved.");
+  }
+
+  async function presentToast(message: string) {
+    const toast = await toastController.create({ message, duration: 1800, color: "success" });
+    await toast.present();
   }
 </script>
 

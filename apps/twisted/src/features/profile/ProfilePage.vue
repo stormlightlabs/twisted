@@ -4,6 +4,9 @@
       <ion-toolbar>
         <ion-title class="profile-title mono">{{ profile?.handle || "Profile" }}</ion-title>
         <ion-buttons v-if="authStore.isAuthenticated" slot="end">
+          <ion-button @click="goToBookmarks">
+            <ion-icon slot="icon-only" :icon="bookmarkOutline" />
+          </ion-button>
           <ion-button @click="goToSettings">
             <ion-icon slot="icon-only" :icon="settingsOutline" />
           </ion-button>
@@ -25,7 +28,7 @@
           <ion-avatar class="avatar">
             <img v-if="profile?.avatar" :src="profile.avatar" :alt="`${profile.handle} avatar`" class="avatar-image" />
             <div v-else class="avatar-fallback" :style="{ background: avatarColor(profile?.handle || '') }">
-              {{ initials(profile?.handle || '') }}
+              {{ initials(profile?.handle || "") }}
             </div>
           </ion-avatar>
 
@@ -106,7 +109,11 @@
             message="You haven't created any repositories yet." />
         </template>
 
-        <UserStrings v-else-if="section === 'strings'" :strings="strings" :is-loading="stringsQuery.isPending.value" />
+        <UserStrings
+          v-else-if="section === 'strings'"
+          :strings="strings"
+          :owner-handle="profile?.handle || identifier"
+          :is-loading="stringsQuery.isPending.value" />
 
         <RepoIssues
           v-else-if="section === 'issues'"
@@ -207,6 +214,7 @@
     codeSlashOutline,
     logInOutline,
     logOutOutline,
+    bookmarkOutline,
     settingsOutline,
     personOutline,
     locationOutline,
@@ -221,7 +229,7 @@
   import RepoIssues from "@/features/repo/RepoIssues.vue";
   import RepoPRs from "@/features/repo/RepoPRs.vue";
   import UserStrings from "@/features/profile/UserStrings.vue";
-  import { useAuthStore } from "@/core/auth/store.js";
+  import { useAuthStore } from "@/core/auth/store.ts";
   import {
     useActorProfile,
     useUserRepos,
@@ -229,11 +237,11 @@
     useUserIssues,
     useUserPullRequests,
     useUserFollowing,
-  } from "@/services/tangled/queries.js";
-  import { useIndexedProfileSummary } from "@/services/project-api/queries.js";
-  import type { IssueSummary } from "@/domain/models/issue.js";
-  import type { PullRequestSummary } from "@/domain/models/pull-request.js";
-  import type { RepoSummary } from "@/domain/models/repo.js";
+  } from "@/services/tangled/queries.ts";
+  import { useIndexedProfileSummary } from "@/services/project-api/queries.ts";
+  import type { IssueSummary } from "@/domain/models/issue.ts";
+  import type { PullRequestSummary } from "@/domain/models/pull-request.ts";
+  import type { RepoSummary } from "@/domain/models/repo.ts";
 
   const router = useRouter();
   const authStore = useAuthStore();
@@ -312,6 +320,10 @@
 
   function goToSettings() {
     router.push("/tabs/settings");
+  }
+
+  function goToBookmarks() {
+    router.push("/tabs/bookmarks");
   }
 
   async function switchToAccount(did: `did:${string}:${string}`) {

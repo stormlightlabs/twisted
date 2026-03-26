@@ -46,6 +46,40 @@
         <p class="helper-copy">{{ themeHelperCopy }}</p>
       </section>
 
+      <section v-if="isDevAuthEnabled" class="settings-card">
+        <div class="section-head">
+          <div>
+            <p class="section-label">Bookmarks</p>
+            <h2 class="section-title">Saved content</h2>
+          </div>
+        </div>
+
+        <p class="helper-copy">
+          Dev builds keep Profile for auth flows, so saved repos, strings, files, and READMEs live on a separate page.
+        </p>
+
+        <ion-button expand="block" @click="goToBookmarks">Open bookmarks</ion-button>
+      </section>
+
+      <section v-if="canToggleDevAuth" class="settings-card">
+        <div class="section-head">
+          <div>
+            <p class="section-label">Local Dev</p>
+            <h2 class="section-title">Auth features</h2>
+          </div>
+        </div>
+
+        <ion-item lines="none" class="toggle-row">
+          <ion-label>
+            <div class="toggle-title">Enable auth UI</div>
+            <p class="toggle-copy">
+              Turn this off to force the app into bookmark-only mode locally without changing your build config.
+            </p>
+          </ion-label>
+          <ion-toggle slot="end" :checked="isDevAuthEnabled" @ionChange="handleDevAuthToggle" />
+        </ion-item>
+      </section>
+
       <section class="settings-card danger-card">
         <div class="section-head">
           <div>
@@ -84,6 +118,7 @@
 
 <script setup lang="ts">
   import { computed, ref } from "vue";
+  import { useRouter } from "vue-router";
   import {
     IonPage,
     IonHeader,
@@ -94,15 +129,22 @@
     IonSegmentButton,
     IonLabel,
     IonButton,
+    IonItem,
     IonIcon,
+    IonToggle,
     IonAlert,
     IonToast,
   } from "@ionic/vue";
   import { trashOutline } from "ionicons/icons";
-  import { clearAppCache } from "@/core/query/cache.js";
-  import { setThemePreference, useThemePreference } from "@/core/theme/preferences.js";
-  import type { ThemePreference } from "@/core/theme/preferences.js";
+  import { useAuthStore } from "@/core/auth/store.ts";
+  import { useDevAuthFeatures } from "@/core/auth/dev-access.ts";
+  import { clearAppCache } from "@/core/query/cache.ts";
+  import { setThemePreference, useThemePreference } from "@/core/theme/preferences.ts";
+  import type { ThemePreference } from "@/core/theme/preferences.ts";
 
+  const router = useRouter();
+  const authStore = useAuthStore();
+  const { canToggleDevAuth, isDevAuthEnabled, setDevAuthEnabled } = useDevAuthFeatures();
   const { themePreference, resolvedTheme, isSystemTheme } = useThemePreference();
 
   const showClearConfirm = ref(false);
@@ -155,6 +197,26 @@
 
   function isThemePreference(value: unknown): value is ThemePreference {
     return value === "system" || value === "light" || value === "dark";
+  }
+
+  function goToBookmarks() {
+    router.push("/tabs/bookmarks");
+  }
+
+  async function handleDevAuthToggle(event: CustomEvent<{ checked: boolean }>) {
+    const enabled = !!event.detail.checked;
+    setDevAuthEnabled(enabled);
+
+    if (enabled) {
+      authStore.initialize();
+      await authStore.restoreSession();
+      toastMessage.value = "Auth features enabled for local dev.";
+    } else {
+      router.replace("/tabs/bookmarks");
+      toastMessage.value = "Auth features hidden. Bookmarks mode is active.";
+    }
+
+    isToastOpen.value = true;
   }
 </script>
 
@@ -242,6 +304,26 @@
   .theme-segment {
     margin-top: 18px;
     --background: transparent;
+  }
+
+  .toggle-row {
+    --background: transparent;
+    --padding-start: 0;
+    --inner-padding-end: 0;
+    margin-top: 10px;
+  }
+
+  .toggle-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--t-text-primary);
+  }
+
+  .toggle-copy {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--t-text-secondary);
   }
 
   .helper-copy {

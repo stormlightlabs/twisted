@@ -107,7 +107,11 @@
             message="This user hasn't created any repositories yet." />
         </template>
 
-        <UserStrings v-else-if="section === 'strings'" :strings="strings" :is-loading="stringsQuery.isPending.value" />
+        <UserStrings
+          v-else-if="section === 'strings'"
+          :strings="strings"
+          :owner-handle="handle"
+          :is-loading="stringsQuery.isPending.value" />
 
         <RepoIssues
           v-else-if="section === 'issues'"
@@ -182,11 +186,11 @@
     useUserIssues,
     useUserPullRequests,
     useUserFollowing,
-  } from "@/services/tangled/queries.js";
-  import { useIndexedProfileSummary } from "@/services/project-api/queries.js";
-  import type { IssueSummary } from "@/domain/models/issue.js";
-  import type { PullRequestSummary } from "@/domain/models/pull-request.js";
-  import type { RepoSummary } from "@/domain/models/repo.js";
+  } from "@/services/tangled/queries.ts";
+  import { useIndexedProfileSummary } from "@/services/project-api/queries.ts";
+  import type { IssueSummary } from "@/domain/models/issue.ts";
+  import type { PullRequestSummary } from "@/domain/models/pull-request.ts";
+  import type { RepoSummary } from "@/domain/models/repo.ts";
 
   const route = useRoute();
   const router = useRouter();

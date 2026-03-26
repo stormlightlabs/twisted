@@ -39,4 +39,5 @@ www
 *.db-wal
 
 .env
+apps/twisted/.env.local
 __pycache__/

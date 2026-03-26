@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/vue-query";
+import { isDevBuild } from "@/core/config/app.ts";
 
-const isDev = import.meta.env.DEV;
+const isDev = isDevBuild;
 
 export const queryClient = new QueryClient({
   defaultOptions: {

@@ -1,7 +1,6 @@
-const rawTwisterApiBaseUrl = import.meta.env.VITE_TWISTER_API_BASE_URL?.trim() ?? "http://127.0.0.1:8080";
+import { hasTwisterApi, twisterApiBaseUrl } from "./app.ts";
 
-export const twisterApiBaseUrl = rawTwisterApiBaseUrl.replace(/\/+$/, "");
-export const hasTwisterApi = twisterApiBaseUrl.length > 0;
+export { hasTwisterApi, twisterApiBaseUrl };
 
 export function getTwisterApiUrl(path: string): string {
   if (!hasTwisterApi) {

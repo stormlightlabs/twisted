@@ -6,6 +6,14 @@
         {{ selectedFile ? "Files" : "Up" }}
       </ion-button>
       <span class="file-path mono">{{ selectedFile ? selectedFile.path : currentPath }}</span>
+      <ion-button
+        v-if="selectedFile && blobQuery.data.value"
+        fill="clear"
+        size="small"
+        class="save-btn"
+        @click="toggleFileSave">
+        {{ fileSaved ? "Saved" : "Save" }}
+      </ion-button>
     </div>
 
     <template v-if="selectedFile">
@@ -65,15 +73,22 @@
 
 <script setup lang="ts">
   import { ref, computed, watch, onBeforeUnmount } from "vue";
-  import { IonList, IonButton, IonIcon } from "@ionic/vue";
+  import { IonList, IonButton, IonIcon, toastController } from "@ionic/vue";
   import { folderOpenOutline, alertCircleOutline, arrowBackOutline, documentOutline } from "ionicons/icons";
   import FileTreeItem from "@/components/repo/FileTreeItem.vue";
   import EmptyState from "@/components/common/EmptyState.vue";
   import SkeletonLoader from "@/components/common/SkeletonLoader.vue";
-  import { useRepoBlob, useRepoTree } from "@/services/tangled/queries.js";
-  import type { RepoFile } from "@/domain/models/repo.js";
-  import { highlightCode } from "@/lib/syntax.js";
-  import { createObjectUrlFromBlobContent } from "@/services/tangled/repo-assets.js";
+  import {
+    buildFileBookmarkId,
+    createSavedFileInput,
+    hasBookmark,
+    removeBookmark,
+    saveFileBookmark,
+  } from "@/core/bookmarks/service.ts";
+  import { useRepoBlob, useRepoTree } from "@/services/tangled/queries.ts";
+  import type { RepoFile } from "@/domain/models/repo.ts";
+  import { highlightCode } from "@/lib/syntax.ts";
+  import { createObjectUrlFromBlobContent } from "@/services/tangled/repo-assets.ts";
 
   const props = defineProps<{ owner: string; repo: string; branch: string }>();
 
@@ -102,6 +117,11 @@
 
   const filePath = computed(() => selectedFile.value?.path ?? "");
   const isFileSelected = computed(() => !!selectedFile.value && selectedFile.value.type === "file");
+  const fileBookmarkId = computed(() => {
+    if (!selectedFile.value || !props.branch) return "";
+    return buildFileBookmarkId(props.owner, props.repo, props.branch, selectedFile.value.path);
+  });
+  const fileSaved = computed(() => !!fileBookmarkId.value && hasBookmark(fileBookmarkId.value));
 
   const blobQuery = useRepoBlob(
     computed(() => props.owner),
@@ -173,6 +193,31 @@
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
+
+  async function toggleFileSave() {
+    if (!selectedFile.value || !blobQuery.data.value || !props.branch || !fileBookmarkId.value) return;
+    if (fileSaved.value) {
+      await removeBookmark(fileBookmarkId.value);
+      await presentToast("File removed.");
+      return;
+    }
+    await saveFileBookmark(
+      createSavedFileInput(
+        props.owner,
+        props.repo,
+        props.branch,
+        selectedFile.value.path,
+        blobQuery.data.value,
+        "file",
+      ),
+    );
+    await presentToast("File saved.");
+  }
+
+  async function presentToast(message: string) {
+    const toast = await toastController.create({ message, duration: 1800, color: "success" });
+    await toast.present();
+  }
 </script>
 
 <style scoped>
@@ -196,6 +241,11 @@
   .back-btn {
     --color: var(--t-accent);
     flex-shrink: 0;
+  }
+
+  .save-btn {
+    --color: var(--t-accent);
+    margin: 0 0 0 auto;
   }
 
   .file-path {

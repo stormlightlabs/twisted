@@ -28,7 +28,8 @@ just test
 just api-run-api
 ```
 
-To enable indexed search in the client, set `VITE_TWISTER_API_BASE_URL` in `apps/twisted/.env`.
+The committed `apps/twisted/.env` points at production. Use `apps/twisted/.env.local`
+for machine-local overrides such as a localhost API or OAuth callback.
 
 ## Run Locally
 
@@ -94,11 +95,14 @@ Typical local setup is three terminals:
 2. `pnpm api:run:api`
 3. `pnpm api:run:indexer`
 
-If you want the app to call the local API, set this in `apps/twisted/.env`:
+If you want the app to call the local API, put this in `apps/twisted/.env.local`:
 
 ```bash
 VITE_TWISTER_API_BASE_URL=http://localhost:8080
 ```
+
+Dev builds keep the current OAuth flow available. Production builds are read-only
+and hide auth entry points for now.
 
 ### Local API DB
 

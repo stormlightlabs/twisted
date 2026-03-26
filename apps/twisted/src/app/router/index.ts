@@ -1,12 +1,16 @@
 import { createRouter, createWebHistory } from "@ionic/vue-router";
 import type { RouteRecordRaw } from "vue-router";
-
 import TabsPage from "@/views/TabsPage.vue";
+import { getIsDevAuthEnabled } from "@/core/auth/dev-access.ts";
 
 const routes: RouteRecordRaw[] = [
   { path: "/", redirect: "/tabs/home" },
-  { path: "/login", component: () => import("@/features/auth/LoginPage.vue") },
-  { path: "/oauth-callback", component: () => import("@/features/auth/OAuthCallbackPage.vue") },
+  { path: "/login", component: () => import("@/features/auth/LoginPage.vue"), meta: { requiresDevAuth: true } },
+  {
+    path: "/oauth-callback",
+    component: () => import("@/features/auth/OAuthCallbackPage.vue"),
+    meta: { requiresDevAuth: true },
+  },
   {
     path: "/tabs/",
     component: TabsPage,
@@ -45,7 +49,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/features/repo/PullRequestDetailPage.vue"),
       },
       { path: "activity/user/:handle", component: () => import("@/features/profile/UserProfilePage.vue") },
-      { path: "profile", component: () => import("@/features/profile/ProfilePage.vue") },
+      {
+        path: "profile",
+        component: () => import("@/features/profile/ProfilePage.vue"),
+        meta: { requiresDevAuth: true },
+      },
+      { path: "bookmarks", component: () => import("@/features/bookmarks/BookmarksPage.vue") },
+      { path: "bookmarks/:bookmarkId", component: () => import("@/features/bookmarks/BookmarkDetailPage.vue") },
       { path: "profile/settings", redirect: "/tabs/settings" },
       { path: "settings", component: () => import("@/features/profile/SettingsPage.vue") },
     ],
@@ -53,5 +63,12 @@ const routes: RouteRecordRaw[] = [
 ];
 
 const router = createRouter({ history: createWebHistory(import.meta.env.BASE_URL), routes });
+
+router.beforeEach((to) => {
+  if (to.meta.requiresDevAuth && !getIsDevAuthEnabled()) {
+    return "/tabs/bookmarks";
+  }
+  return true;
+});
 
 export default router;

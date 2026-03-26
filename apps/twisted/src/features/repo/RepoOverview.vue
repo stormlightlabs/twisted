@@ -42,7 +42,17 @@
 
     <!-- README -->
     <div class="section">
-      <h3 class="section-label">README</h3>
+      <div class="section-head">
+        <h3 class="section-label">README</h3>
+        <ion-button
+          v-if="readmePath && repo.readme"
+          fill="clear"
+          size="small"
+          class="save-button"
+          @click="$emit('toggleReadmeSave')">
+          {{ isReadmeSaved ? "Saved" : "Save" }}
+        </ion-button>
+      </div>
       <MarkdownRenderer v-if="repo.readme" :content="repo.readme" :repo-context="markdownContext" />
       <EmptyState v-else :icon="documentOutline" title="No README" message="This repo doesn't have a README yet." />
     </div>
@@ -63,15 +73,23 @@
 
 <script setup lang="ts">
   import { computed } from "vue";
-  import { IonIcon, IonChip } from "@ionic/vue";
+  import { IonButton, IonIcon, IonChip } from "@ionic/vue";
   import { starOutline, gitBranchOutline, codeOutline, documentOutline } from "ionicons/icons";
   import MarkdownRenderer from "@/components/repo/MarkdownRenderer.vue";
   import EmptyState from "@/components/common/EmptyState.vue";
-  import type { RepoDetail } from "@/domain/models/repo.js";
-  import type { CommitEntry } from "@/services/tangled/queries.js";
-  import type { RepoAssetContext } from "@/services/tangled/repo-assets.js";
+  import type { RepoDetail } from "@/domain/models/repo.ts";
+  import type { CommitEntry } from "@/services/tangled/queries.ts";
+  import type { RepoAssetContext } from "@/services/tangled/repo-assets.ts";
 
-  const props = defineProps<{ repo: RepoDetail; commits?: CommitEntry[]; markdownContext?: RepoAssetContext }>();
+  defineEmits<{ toggleReadmeSave: [] }>();
+
+  const props = defineProps<{
+    repo: RepoDetail;
+    commits?: CommitEntry[];
+    markdownContext?: RepoAssetContext;
+    readmePath?: string;
+    isReadmeSaved?: boolean;
+  }>();
 
   function relativeTime(iso: string): string {
     const d = new Date(iso);
@@ -180,13 +198,26 @@
     margin-top: 20px;
   }
 
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 16px 10px;
+  }
+
   .section-label {
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--t-text-muted);
-    margin: 0 16px 10px;
+    margin: 0;
+  }
+
+  .save-button {
+    --color: var(--t-accent);
+    margin: 0;
   }
 
   .lang-list {
