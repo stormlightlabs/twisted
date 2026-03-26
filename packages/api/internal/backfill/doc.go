@@ -1,14 +1,19 @@
-// Package backfill provides graph bootstrap tooling for Twister.
+// Package backfill provides Tap bootstrap tooling for Twister.
 //
 // # Backfill Runbook
 //
-// This runbook covers initial graph bootstrap and repeat runs using:
+// This runbook covers initial bootstrap and repeat runs using:
 //
 //	twister backfill
 //
-// # Seeds Input
+// `--source lightrail` is the default and discovers DIDs from
+// com.atproto.sync.listReposByCollection. `--source graph` keeps the older
+// handle/DID seed crawl for targeted fallback runs.
 //
-// The `--seeds` flag supports either of these forms:
+// # Graph Seeds Input
+//
+// The `--seeds` flag applies only to `--source graph` and supports either of
+// these forms:
 //
 //  1. File path:
 //
@@ -39,26 +44,24 @@
 //
 // # First Bootstrap
 //
-//  1. Copy and customize seeds:
+//  1. Run full-network dry-run:
 //
-//     cp docs/api/seeds.txt /tmp/twister-seeds.txt
+//     twister backfill --dry-run
 //
-//  2. Run dry-run first:
+//  2. Run real bootstrap:
 //
-//     twister backfill --seeds /tmp/twister-seeds.txt --max-hops 2 --dry-run
+//     twister backfill
 //
-//  3. Run real backfill:
+//  3. Use graph mode only for targeted fallback:
 //
-//     twister backfill --seeds /tmp/twister-seeds.txt --max-hops 2 --concurrency 5 --batch-size 10 --batch-delay 1s
+//     twister backfill --source graph --seeds /tmp/twister-seeds.txt --max-hops 2
 //
-// Watch logs for seed count, hop-level discoveries, already-tracked vs submitted
-// users, and batch progress totals.
+// Watch logs for discovery totals and Tap submission progress.
 //
 // # Repeat Run
 //
-// Append new candidate users to the seed source, run dry-run, then run the real
-// command again. Reruns are safe because discovery deduplicates in-memory and
-// Tap /repos/add is treated as idempotent.
+// Re-run `twister backfill` whenever you need to reseed the authoritative Tap
+// corpus. Append graph seeds only when using `--source graph`.
 //
 // # Dry-Run Safety
 //

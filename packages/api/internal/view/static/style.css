@@ -110,7 +110,7 @@ a:hover { text-decoration: underline; }
   font-size: .9rem;
   cursor: pointer;
 }
-.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 500; }
 .btn-primary:hover { background: #6b93e8; color: var(--bg); }
@@ -137,6 +137,12 @@ a:hover { text-decoration: underline; }
 /* Messages */
 .msg { padding: 1rem; color: var(--text-dim); text-align: center; }
 .msg-error { color: #f7768e; }
+.msg-empty {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.msg-empty p:last-child { margin-bottom: 0; }
 
 /* Result cards */
 .card {
@@ -151,13 +157,6 @@ a:hover { text-decoration: underline; }
   min-width: 0;
 }
 .card:hover { border-color: var(--accent); text-decoration: none; }
-.card-button {
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-}
-.card-disabled:hover { border-color: var(--border); }
 .card-head {
   display: flex;
   align-items: flex-start;
@@ -209,6 +208,16 @@ a:hover { text-decoration: underline; }
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+.card-actions {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .75rem;
+}
+.btn-card {
+  padding: .45rem .7rem;
+  font-size: .82rem;
 }
 .meta-sep::before { content: "\00b7"; margin-right: .5rem; }
 .card-warning {

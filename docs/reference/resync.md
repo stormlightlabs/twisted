@@ -1,6 +1,6 @@
 ---
 title: Backfill & Resync Playbook
-updated: 2026-03-25
+updated: 2026-03-26
 ---
 
 Twister's search index has three recovery paths. Choose based on what broke.
@@ -39,19 +39,23 @@ Persists cursor to `sync_state` table under consumer name `indexer-tap-v1`.
 
 ### `twister backfill`
 
-Discovers users via follow graph from seed DIDs/handles, checks Tap status for
-each, and registers untracked repos with Tap `/repos/add`.
+Defaults to `--source lightrail`: discovers DIDs from
+`com.atproto.sync.listReposByCollection` and submits them to Tap in batches.
+Use `--source graph` only for targeted fallback seeding from handles or DIDs.
 
 ```sh
-# dry-run first
-twister backfill --seeds seeds.txt --max-hops 2 --dry-run
+# full-network dry-run first
+twister backfill --dry-run
 
-# real run
-twister backfill --seeds seeds.txt --max-hops 2 \
+# full-network bootstrap
+twister backfill
+
+# targeted fallback
+twister backfill --source graph --seeds seeds.txt --max-hops 2 \
   --concurrency 5 --batch-size 10 --batch-delay 1s
 ```
 
-Safe to re-run. Discovery deduplicates and `repos/add` is idempotent.
+Safe to re-run. Discovery deduplicates and `repos/add` is treated as idempotent.
 
 ### `twister reindex`
 
@@ -106,7 +110,7 @@ but does not appear in `/search`, the document was never indexed.
 1. Check if the DID is tracked by Tap. If not, run `backfill`:
 
    ```sh
-   twister backfill --seeds <handle-or-did> --max-hops 0
+   twister backfill --source graph --seeds <handle-or-did> --max-hops 0
    ```
 
 2. Once Tap is tracking the DID, the `indexer` will deliver historical events.
@@ -135,8 +139,8 @@ full-loss event.
 2. Register repos with Tap:
 
    ```sh
-   twister backfill --seeds seeds.txt --max-hops 2 --dry-run
-   twister backfill --seeds seeds.txt --max-hops 2
+   twister backfill --dry-run
+   twister backfill
    ```
 
 3. Start the indexer and let it consume: `twister indexer`

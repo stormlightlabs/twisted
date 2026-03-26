@@ -35,65 +35,78 @@
     <template x-if="error">
       <div class="msg msg-error" x-text="error"></div>
     </template>
+    <template x-if="!error && !searched && !loading">
+      <div class="msg msg-empty">
+        <p>Search indexed Tangled records.</p>
+        <p>
+          If a record is missing, fetch it through the API to index it for search.
+          Try
+          <a href="/actors/desertthunder.dev" target="_blank" rel="noopener">
+            <code>GET /actors/desertthunder.dev</code>
+          </a>.
+        </p>
+      </div>
+    </template>
     <template x-if="!error && searched && results.length === 0">
-      <div class="msg">No results found.</div>
+      <div class="msg msg-empty">
+        <p>No results found.</p>
+        <p>
+          Fetching a resource through the API will index it for search.
+          Try
+          <a href="/actors/desertthunder.dev" target="_blank" rel="noopener">
+            <code>GET /actors/desertthunder.dev</code>
+          </a>
+          and search again.
+        </p>
+      </div>
     </template>
     <template x-for="r in results" :key="r.id">
       <div class="result-shell">
-        <template x-if="resultMode(r) === 'link'">
-          <a :href="resultURL(r)" target="_blank" rel="noopener" class="card">
-            <div class="card-head">
-              <span class="badge" x-text="r.record_type"></span>
-              <span class="card-title" x-text="r.title || r.id"></span>
-            </div>
-            <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
-            <div class="card-meta">
-              <span x-show="r.author_handle" x-text="r.author_handle"></span>
-              <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
-              <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
-            </div>
-            <div x-show="warningMessage(r)" class="card-warning" role="note">
-              <strong class="warning-title" x-text="warningMessage(r)"></strong>
-              <code x-show="r.at_uri" class="warning-uri" x-text="r.at_uri"></code>
-            </div>
-          </a>
-        </template>
-        <template x-if="resultMode(r) === 'copy'">
-          <button type="button" class="card card-button" @click="copyIssueATURI(r)">
-            <div class="card-head">
-              <span class="badge" x-text="r.record_type"></span>
-              <span class="card-title" x-text="r.title || r.id"></span>
-            </div>
-            <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
-            <div class="card-meta">
-              <span x-show="r.author_handle" x-text="r.author_handle"></span>
-              <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
-              <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
-            </div>
-            <div class="card-warning" role="note">
-              <strong class="warning-title">Click to copy the issue AT URI.</strong>
-              <code x-show="r.at_uri" class="warning-uri" x-text="r.at_uri"></code>
-            </div>
-          </button>
-        </template>
-        <template x-if="resultMode(r) === 'none'">
-          <article class="card card-disabled">
-            <div class="card-head">
-              <span class="badge" x-text="r.record_type"></span>
-              <span class="card-title" x-text="r.title || r.id"></span>
-            </div>
-            <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
-            <div class="card-meta">
-              <span x-show="r.author_handle" x-text="r.author_handle"></span>
-              <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
-              <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
-            </div>
-            <div x-show="warningMessage(r)" class="card-warning" role="note">
-              <strong class="warning-title" x-text="warningMessage(r)"></strong>
-              <code x-show="r.at_uri" class="warning-uri" x-text="r.at_uri"></code>
-            </div>
-          </article>
-        </template>
+        <article class="card">
+          <div class="card-head">
+            <span class="badge" x-text="r.record_type"></span>
+            <span class="card-title" x-text="r.title || r.id"></span>
+          </div>
+          <div class="card-snippet" x-show="r.body_snippet" x-html="r.body_snippet"></div>
+          <div class="card-snippet" x-show="!r.body_snippet && r.summary" x-text="r.summary"></div>
+          <div class="card-meta">
+            <span x-show="r.author_handle" x-text="r.author_handle"></span>
+            <span x-show="r.repo_name" class="meta-sep" x-text="r.repo_name"></span>
+            <span x-show="r.updated_at" class="meta-sep" x-text="relTime(r.updated_at)"></span>
+          </div>
+          <div class="card-actions">
+            <a
+              x-show="resultURL(r)"
+              :href="resultURL(r)"
+              target="_blank"
+              rel="noopener"
+              class="btn btn-card"
+            >Open on Tangled</a>
+            <button
+              x-show="r.at_uri"
+              type="button"
+              class="btn btn-card"
+              @click="copyATURI(r)"
+            >Copy AT URI</button>
+            <a
+              x-show="r.at_uri"
+              :href="pdsURL(r)"
+              target="_blank"
+              rel="noopener"
+              class="btn btn-card"
+            >Open in pds.ls</a>
+            <a
+              :href="jsonURL(r)"
+              target="_blank"
+              rel="noopener"
+              class="btn btn-card"
+            >View JSON</a>
+          </div>
+          <div x-show="warningMessage(r)" class="card-warning" role="note">
+            <strong class="warning-title" x-text="warningMessage(r)"></strong>
+            <code x-show="r.at_uri" class="warning-uri" x-text="r.at_uri"></code>
+          </div>
+        </article>
       </div>
     </template>
     <template x-if="hasMore">

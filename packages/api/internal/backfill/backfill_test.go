@@ -95,6 +95,28 @@ func (f *fakeProfileFetcher) FetchProfile(_ context.Context, did string) (*Profi
 	return &ProfileRecord{}, nil
 }
 
+type fakeLightrailRepoLister struct {
+	dids        []string
+	err         error
+	calls       int
+	baseURL     string
+	collections []string
+	limit       int
+}
+
+func (f *fakeLightrailRepoLister) ListReposByCollection(
+	_ context.Context, baseURL string, collections []string, limit int,
+) ([]string, error) {
+	f.calls++
+	f.baseURL = baseURL
+	f.collections = append([]string(nil), collections...)
+	f.limit = limit
+	if f.err != nil {
+		return nil, f.err
+	}
+	return append([]string(nil), f.dids...), nil
+}
+
 func TestRunner_DiscoveryAndSubmit(t *testing.T) {
 	st := &fakeStore{
 		collaborators: map[string][]string{
@@ -105,7 +127,11 @@ func TestRunner_DiscoveryAndSubmit(t *testing.T) {
 	tap := &fakeTapAdmin{statuses: map[string]RepoStatus{"did:plc:f1": {Found: true, Tracked: true, Backfilled: true}}}
 	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := NewRunnerWithDeps(st, tap, resolver, follows, &fakeProfileFetcher{profiles: map[string]*ProfileRecord{}}, log)
+	r := NewRunnerWithDeps(
+		st, tap, resolver, follows,
+		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeLightrailRepoLister{}, log,
+	)
 
 	dir := t.TempDir()
 	seedsPath := filepath.Join(dir, "seeds.txt")
@@ -118,6 +144,7 @@ func TestRunner_DiscoveryAndSubmit(t *testing.T) {
 		MaxHops:     1,
 		Concurrency: 2,
 		BatchSize:   2,
+		Source:      SourceGraph,
 	})
 	if err != nil {
 		t.Fatalf("run backfill: %v", err)
@@ -137,7 +164,11 @@ func TestRunner_DryRunSkipsMutations(t *testing.T) {
 	tap := &fakeTapAdmin{statuses: map[string]RepoStatus{}}
 	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := NewRunnerWithDeps(st, tap, resolver, follows, &fakeProfileFetcher{profiles: map[string]*ProfileRecord{}}, log)
+	r := NewRunnerWithDeps(
+		st, tap, resolver, follows,
+		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeLightrailRepoLister{}, log,
+	)
 
 	dir := t.TempDir()
 	seedsPath := filepath.Join(dir, "seeds.txt")
@@ -151,6 +182,7 @@ func TestRunner_DryRunSkipsMutations(t *testing.T) {
 		DryRun:      true,
 		Concurrency: 1,
 		BatchSize:   10,
+		Source:      SourceGraph,
 	})
 	if err != nil {
 		t.Fatalf("run dry-run backfill: %v", err)
@@ -168,7 +200,11 @@ func TestRunner_SkipsInProgressBackfills(t *testing.T) {
 	}}
 	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := NewRunnerWithDeps(st, tap, resolver, follows, &fakeProfileFetcher{profiles: map[string]*ProfileRecord{}}, log)
+	r := NewRunnerWithDeps(
+		st, tap, resolver, follows,
+		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeLightrailRepoLister{}, log,
+	)
 
 	dir := t.TempDir()
 	seedsPath := filepath.Join(dir, "seeds.txt")
@@ -176,7 +212,9 @@ func TestRunner_SkipsInProgressBackfills(t *testing.T) {
 		t.Fatalf("write seeds: %v", err)
 	}
 
-	err := r.Run(context.Background(), Options{SeedsPath: seedsPath, MaxHops: 0})
+	err := r.Run(context.Background(), Options{
+		SeedsPath: seedsPath, MaxHops: 0, Source: SourceGraph,
+	})
 	if err != nil {
 		t.Fatalf("run backfill: %v", err)
 	}
@@ -198,7 +236,11 @@ func TestRunner_ContinuesWhenRepoStatusFails(t *testing.T) {
 	}
 	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := NewRunnerWithDeps(st, tap, resolver, follows, &fakeProfileFetcher{profiles: map[string]*ProfileRecord{}}, log)
+	r := NewRunnerWithDeps(
+		st, tap, resolver, follows,
+		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeLightrailRepoLister{}, log,
+	)
 
 	dir := t.TempDir()
 	seedsPath := filepath.Join(dir, "seeds.txt")
@@ -211,6 +253,7 @@ func TestRunner_ContinuesWhenRepoStatusFails(t *testing.T) {
 		MaxHops:     1,
 		Concurrency: 1,
 		BatchSize:   10,
+		Source:      SourceGraph,
 	})
 	if err != nil {
 		t.Fatalf("run backfill: %v", err)
@@ -250,7 +293,11 @@ func TestRunner_FallsBackToSingleRepoSubmissionOnBatchFailure(t *testing.T) {
 	}
 	resolver := &fakeResolver{mapping: map[string]string{"alice.tangled.sh": "did:plc:seed"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := NewRunnerWithDeps(st, tap, resolver, follows, &fakeProfileFetcher{profiles: map[string]*ProfileRecord{}}, log)
+	r := NewRunnerWithDeps(
+		st, tap, resolver, follows,
+		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeLightrailRepoLister{}, log,
+	)
 
 	dir := t.TempDir()
 	seedsPath := filepath.Join(dir, "seeds.txt")
@@ -263,6 +310,7 @@ func TestRunner_FallsBackToSingleRepoSubmissionOnBatchFailure(t *testing.T) {
 		MaxHops:     1,
 		Concurrency: 1,
 		BatchSize:   10,
+		Source:      SourceGraph,
 	})
 	if err != nil {
 		t.Fatalf("run backfill: %v", err)
@@ -297,7 +345,9 @@ func TestRunner_IndexesProfilesAndHandles(t *testing.T) {
 		},
 	}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	r := NewRunnerWithDeps(st, tap, resolver, follows, profiles, log)
+	r := NewRunnerWithDeps(
+		st, tap, resolver, follows, profiles, &fakeLightrailRepoLister{}, log,
+	)
 
 	dir := t.TempDir()
 	seedsPath := filepath.Join(dir, "seeds.txt")
@@ -305,7 +355,9 @@ func TestRunner_IndexesProfilesAndHandles(t *testing.T) {
 		t.Fatalf("write seeds: %v", err)
 	}
 
-	err := r.Run(context.Background(), Options{SeedsPath: seedsPath, MaxHops: 0})
+	err := r.Run(context.Background(), Options{
+		SeedsPath: seedsPath, MaxHops: 0, Source: SourceGraph,
+	})
 	if err != nil {
 		t.Fatalf("run backfill: %v", err)
 	}
@@ -332,5 +384,69 @@ func TestRunner_IndexesProfilesAndHandles(t *testing.T) {
 	}
 	if !strings.Contains(doc.Summary, "NYC") {
 		t.Errorf("expected summary to contain location, got %q", doc.Summary)
+	}
+}
+
+func TestRunner_LightrailDryRunSkipsTapAndProfileIndexing(t *testing.T) {
+	st := &fakeStore{collaborators: map[string][]string{}}
+	tap := &fakeTapAdmin{
+		statusErrs: map[string]error{"did:plc:a": errors.New("should not be called")},
+	}
+	lightrail := &fakeLightrailRepoLister{dids: []string{"did:plc:b", "did:plc:a"}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := NewRunnerWithDeps(
+		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, &fakeProfileFetcher{},
+		lightrail, log,
+	)
+
+	err := r.Run(context.Background(), Options{
+		Source: SourceLightrail, DryRun: true,
+		LightrailURL: "https://example.test", PageLimit: 500,
+	})
+	if err != nil {
+		t.Fatalf("run lightrail dry-run: %v", err)
+	}
+	if len(tap.added) != 0 {
+		t.Fatalf("expected no Tap submissions, got %#v", tap.added)
+	}
+	if len(st.documents) != 0 {
+		t.Fatalf("expected no profile indexing, got %#v", st.documents)
+	}
+	if lightrail.calls != 1 {
+		t.Fatalf("expected one Lightrail call, got %d", lightrail.calls)
+	}
+	if len(lightrail.collections) != len(DefaultCollections) {
+		t.Fatalf("expected default collections, got %#v", lightrail.collections)
+	}
+}
+
+func TestRunner_LightrailSubmitsWithoutRepoStatusChecks(t *testing.T) {
+	st := &fakeStore{collaborators: map[string][]string{}}
+	tap := &fakeTapAdmin{
+		statusErrs: map[string]error{
+			"did:plc:a": errors.New("RepoStatus should not be called in lightrail mode"),
+		},
+	}
+	lightrail := &fakeLightrailRepoLister{
+		dids: []string{"did:plc:b", "did:plc:a", "did:plc:b"},
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := NewRunnerWithDeps(
+		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, &fakeProfileFetcher{},
+		lightrail, log,
+	)
+
+	err := r.Run(context.Background(), Options{
+		Source: SourceLightrail, BatchSize: 10,
+		Collections: []string{"sh.tangled.repo"},
+	})
+	if err != nil {
+		t.Fatalf("run lightrail backfill: %v", err)
+	}
+	if len(tap.added) != 1 {
+		t.Fatalf("expected one Tap batch, got %#v", tap.added)
+	}
+	if len(tap.added[0]) != 2 {
+		t.Fatalf("expected deduped DIDs, got %#v", tap.added)
 	}
 }

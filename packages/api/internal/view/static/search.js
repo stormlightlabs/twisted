@@ -1,5 +1,7 @@
 function searchApp() {
   const TANGLED_BASE = "https://tangled.org";
+  const PDS_BASE = "https://pds.ls";
+  const DOCUMENTS_BASE = "/documents";
 
   return {
     query: "",
@@ -89,10 +91,6 @@ function searchApp() {
       this.doSearch(false);
     },
 
-    resultMode(r) {
-      return this.resolveResult(r).mode;
-    },
-
     resultURL(r) {
       return this.resolveResult(r).url;
     },
@@ -101,43 +99,37 @@ function searchApp() {
       return this.resolveResult(r).warning;
     },
 
+    jsonURL(r) {
+      return DOCUMENTS_BASE + "/" + encodeURIComponent(r.id);
+    },
+
+    pdsURL(r) {
+      return r.at_uri ? PDS_BASE + "/" + r.at_uri : "";
+    },
+
     resolveResult(r) {
       const parsed = this.parseATURI(r.at_uri);
       const author = this.normalizeOwner(r.author_handle) || this.normalizeSegment(r.did) || parsed.did;
       const repoOwner = this.normalizeOwner(r.repo_owner_handle) || author;
       const repoName = this.normalizeSegment(r.repo_name);
 
-      if (r.record_type === "issue") {
-        if (!r.at_uri) {
-          return {
-            mode: "none",
-            url: "",
-            warning: "This issue is missing its AT URI, so Twister cannot copy or link it yet.",
-          };
-        }
-        return { mode: "copy", url: "", warning: "" };
-      }
-
       if (r.record_type === "string") {
         const owner = author || parsed.did;
         const rkey = parsed.rkey;
         const url = r.web_url || (owner && rkey ? this.buildTangledURL("strings", owner, rkey) : "");
         const warning = url ? "" : "This string is indexed from AT Protocol, but Tangled no longer has a page for it.";
-        return { mode: url ? "link" : "none", url, warning };
-      }
-
-      if (r.web_url) {
-        return { mode: "link", url: r.web_url, warning: "" };
+        return { url, warning };
       }
 
       let url = "";
       switch (r.record_type) {
         case "profile":
-          url = author ? this.buildTangledURL(author) : "";
+          url = r.web_url || (author ? this.buildTangledURL(author) : "");
           break;
         case "repo":
-          url = repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName) : "";
+          url = r.web_url || (repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName) : "");
           break;
+        case "issue":
         case "issue_comment":
           url = repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "issues") : "";
           break;
@@ -145,28 +137,47 @@ function searchApp() {
         case "pull_comment":
           url = repoOwner && repoName ? this.buildTangledURL(repoOwner, repoName, "pulls") : "";
           break;
+        default:
+          url = r.web_url || "";
       }
 
       return url
-        ? { mode: "link", url, warning: "" }
+        ? { url, warning: "" }
         : {
-            mode: "none",
             url: "",
             warning: "This record is indexed from AT Protocol, but Tangled does not currently expose a page for it.",
           };
     },
 
-    async copyIssueATURI(r) {
+    async copyATURI(r) {
+      const label = this.recordLabel(r);
       if (!r.at_uri) {
-        this.showToast("Issue AT URI is unavailable.");
+        this.showToast(label + " AT URI is unavailable.");
         return;
       }
 
       try {
         await this.writeClipboard(r.at_uri);
-        this.showToast("Issue AT URI copied.");
+        this.showToast(label + " AT URI copied.");
       } catch (_) {
-        this.showToast("Could not copy the issue AT URI.");
+        this.showToast("Could not copy the " + label.toLowerCase() + " AT URI.");
+      }
+    },
+
+    recordLabel(r) {
+      switch (r.record_type) {
+        case "profile":
+          return "User";
+        case "repo":
+          return "Repo";
+        case "issue":
+          return "Issue";
+        case "pull":
+          return "Pull";
+        default: {
+          const label = (r.record_type || "record").replace(/_/g, " ");
+          return label.charAt(0).toUpperCase() + label.slice(1);
+        }
       }
     },
 

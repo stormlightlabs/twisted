@@ -19,17 +19,9 @@ That keeps direct browsing honest while giving the client one place to ask for c
 
 ## Development
 
-Use the top-level [`justfile`](justfile) for common workflows:
+Use the top-level [`justfile`](justfile) for common workflows (`just --list` to view)
 
-```bash
-just dev
-just build
-just test
-just api-run-api
-```
-
-The committed `apps/twisted/.env` points at production. Use `apps/twisted/.env.local`
-for machine-local overrides such as a localhost API or OAuth callback.
+Use `apps/twisted/.env.local` for machine-local overrides such as a localhost API or OAuth callback.
 
 ## Run Locally
 
@@ -104,94 +96,8 @@ VITE_TWISTER_API_BASE_URL=http://localhost:8080
 Dev builds keep the current OAuth flow available. Production builds are read-only
 and hide auth entry points for now.
 
-### Local API DB
+## Attributions
 
-The experimental local API database lives at `packages/api/twister-dev.db`.
-Treat it as disposable unless you explicitly back it up.
-
-Operational rules:
-
-1. Stop the API before copying or restoring the file.
-2. Copy `twister-dev.db` and any matching `-wal` or `-shm` sidecars together.
-3. Prefer restore-or-rebuild over manual repair if the DB looks suspect.
-4. Let the file grow during experiments, then compact or delete it afterward.
-
-Useful local commands:
-
-```bash
-cd packages/api
-du -h twister-dev.db*
-ls -lh twister-dev.db*
-```
-
-## Infrastructure Setup
-
-### Turso
-
-Use one Turso database per environment, for example:
-
-- `twister-dev`
-- `twister-prod`
-
-Do not introduce separate app variable names for dev and prod. Always use the same variables:
-
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
-
-Only the values change per environment.
-
-Example:
-
-```bash
-# Development
-TURSO_DATABASE_URL=libsql://twister-dev-your-org.turso.io
-TURSO_AUTH_TOKEN=...
-
-# Production
-TURSO_DATABASE_URL=libsql://twister-prod-your-org.turso.io
-TURSO_AUTH_TOKEN=...
-```
-
-### Railway
-
-Create or reuse one Railway project containing:
-
-- existing `tap`
-- `api` running `twister api`
-- `indexer` running `twister indexer`
-
-Set these shared variables on the Railway services:
-
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
-- `LOG_LEVEL`
-- `LOG_FORMAT`
-
-Set these API-specific variables:
-
-- `HTTP_BIND_ADDR`
-- `SEARCH_DEFAULT_LIMIT`
-- `SEARCH_MAX_LIMIT`
-- `ENABLE_ADMIN_ENDPOINTS`
-- `ADMIN_AUTH_TOKEN`
-- `READ_THROUGH_MODE`
-- `READ_THROUGH_COLLECTIONS`
-- `READ_THROUGH_MAX_ATTEMPTS`
-
-Set these indexer-specific variables:
-
-- `TAP_URL`
-- `TAP_AUTH_PASSWORD`
-- `INDEXED_COLLECTIONS`
-
-If you use separate Railway environments for dev and prod, keep the same variable names in both and only swap the Turso values.
-
-### First Bootstrap
-
-For a brand-new environment:
-
-1. Point `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` at the target database.
-2. Deploy `api` and `indexer` on Railway.
-3. Verify API readiness and indexer health.
-4. Run `twister backfill` with your seed file.
-5. Treat the environment as search-ready only after historical backfill completes.
+This project relies heavily on the work of the [Tangled team](https://tangled.org/tangled.org) (duh)
+and the infrastructure made available by [microcosm](https://microcosm.blue), specifically
+Lightrail and Constellation.

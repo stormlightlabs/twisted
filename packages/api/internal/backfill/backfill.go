@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,12 +21,13 @@ type discoveryStore interface {
 
 // Runner executes seed resolution, graph discovery, and Tap registration.
 type Runner struct {
-	store    discoveryStore
-	tap      tapAdmin
-	resolver handleResolver
-	follows  followFetcher
-	profiles profileFetcher
-	log      *slog.Logger
+	store     discoveryStore
+	tap       tapAdmin
+	resolver  handleResolver
+	follows   followFetcher
+	profiles  profileFetcher
+	lightrail lightrailRepoLister
+	log       *slog.Logger
 }
 
 func NewRunner(store discoveryStore, tap tapAdmin, xrpcClient *xrpc.Client, log *slog.Logger) *Runner {
@@ -34,24 +36,29 @@ func NewRunner(store discoveryStore, tap tapAdmin, xrpcClient *xrpc.Client, log 
 		NewXRPCHandleResolver(xrpcClient),
 		NewXRPCFollowFetcher(xrpcClient),
 		NewXRPCProfileFetcher(xrpcClient),
+		NewHTTPLightrailClient(),
 		log,
 	)
 }
 
-func NewRunnerWithDeps(store discoveryStore, tap tapAdmin, resolver handleResolver, follows followFetcher, profiles profileFetcher, log *slog.Logger) *Runner {
+func NewRunnerWithDeps(
+	store discoveryStore, tap tapAdmin, resolver handleResolver,
+	follows followFetcher, profiles profileFetcher, lightrail lightrailRepoLister,
+	log *slog.Logger,
+) *Runner {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Runner{store: store, tap: tap, resolver: resolver, follows: follows, profiles: profiles, log: log}
+	if lightrail == nil {
+		lightrail = NewHTTPLightrailClient()
+	}
+	return &Runner{
+		store: store, tap: tap, resolver: resolver, follows: follows,
+		profiles: profiles, lightrail: lightrail, log: log,
+	}
 }
 
 func (r *Runner) Run(ctx context.Context, opts Options) error {
-	if opts.SeedsPath == "" {
-		return fmt.Errorf("--seeds is required")
-	}
-	if opts.MaxHops < 0 {
-		return fmt.Errorf("--max-hops must be >= 0")
-	}
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = 5
 	}
@@ -60,6 +67,30 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 	}
 	if opts.BatchDelay < 0 {
 		return fmt.Errorf("--batch-delay must be >= 0")
+	}
+	if opts.PageLimit <= 0 {
+		opts.PageLimit = DefaultPageLimit
+	}
+	if strings.TrimSpace(opts.LightrailURL) == "" {
+		opts.LightrailURL = DefaultLightrailURL
+	}
+
+	switch normalizeSource(opts.Source) {
+	case SourceLightrail:
+		return r.runLightrail(ctx, opts)
+	case SourceGraph:
+		return r.runGraph(ctx, opts)
+	default:
+		return fmt.Errorf("unsupported --source %q", opts.Source)
+	}
+}
+
+func (r *Runner) runGraph(ctx context.Context, opts Options) error {
+	if opts.SeedsPath == "" {
+		return fmt.Errorf("--seeds is required for --source graph")
+	}
+	if opts.MaxHops < 0 {
+		return fmt.Errorf("--max-hops must be >= 0")
 	}
 
 	seedEntries, err := parseSeedInput(opts.SeedsPath)
@@ -75,6 +106,7 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 	}
 
 	r.log.Info("starting backfill discovery",
+		slog.String("source", SourceGraph),
 		slog.Int("seed_count", len(seeds)),
 		slog.Int("max_hops", opts.MaxHops),
 		slog.Int("concurrency", opts.Concurrency),
@@ -123,52 +155,10 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 		slog.Int("to_submit", len(toSubmit)),
 	)
 
-	submitted := 0
-	submitFailures := 0
-	for i := 0; i < len(toSubmit); i += opts.BatchSize {
-		end := i + opts.BatchSize
-		if end > len(toSubmit) {
-			end = len(toSubmit)
-		}
-		batch := toSubmit[i:end]
-		if err := r.tap.AddRepos(ctx, batch); err != nil {
-			r.log.Warn("tap batch submission failed",
-				slog.Int("batch_start", i),
-				slog.Int("batch_end", end),
-				slog.Int("batch_size", len(batch)),
-				slog.String("error", err.Error()),
-			)
-			for _, did := range batch {
-				if err := r.tap.AddRepos(ctx, []string{did}); err != nil {
-					submitFailures++
-					r.log.Warn("tap repo submission failed",
-						slog.String("did", did),
-						slog.String("error", err.Error()),
-					)
-					continue
-				}
-				submitted++
-				r.log.Info("submitted Tap repo", slog.String("did", did), slog.Int("submitted_total", submitted))
-			}
-		} else {
-			submitted += len(batch)
-			r.log.Info("submitted Tap batch",
-				slog.Int("batch_start", i),
-				slog.Int("batch_end", end),
-				slog.Int("batch_size", len(batch)),
-				slog.Int("submitted_total", submitted),
-			)
-		}
-		if end < len(toSubmit) && opts.BatchDelay > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(opts.BatchDelay):
-			}
-		}
-	}
+	submitted, submitFailures := r.submitDIDs(ctx, toSubmit, opts.BatchSize, opts.BatchDelay)
 
 	r.log.Info("backfill complete",
+		slog.String("source", SourceGraph),
 		slog.Int("discovered_total", len(discovered)),
 		slog.Int("already_tracked", alreadyTracked),
 		slog.Int("backfill_in_progress", inProgress),
@@ -181,6 +171,53 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 		return fmt.Errorf("index profiles: %w", err)
 	}
 
+	return nil
+}
+
+func (r *Runner) runLightrail(ctx context.Context, opts Options) error {
+	collections := normalizeCollections(opts.Collections)
+	if len(collections) == 0 {
+		collections = append([]string(nil), DefaultCollections...)
+	}
+
+	r.log.Info("starting backfill discovery",
+		slog.String("source", SourceLightrail),
+		slog.String("lightrail_url", opts.LightrailURL),
+		slog.Int("collection_count", len(collections)),
+		slog.Int("page_limit", opts.PageLimit),
+	)
+
+	dids, err := r.lightrail.ListReposByCollection(
+		ctx, opts.LightrailURL, collections, opts.PageLimit,
+	)
+	if err != nil {
+		return fmt.Errorf("discover repos from lightrail: %w", err)
+	}
+	dids = normalizeDIDs(dids)
+	sort.Strings(dids)
+	discovered := make([]DiscoveredUser, 0, len(dids))
+	for _, did := range dids {
+		discovered = append(discovered, DiscoveredUser{
+			DID: did, Hop: 0, Source: strings.Join(collections, ","), Reason: "collection",
+		})
+	}
+
+	r.log.Info("discovery complete",
+		slog.String("source", SourceLightrail),
+		slog.Int("discovered_total", len(discovered)),
+	)
+	if opts.DryRun {
+		r.log.Info("dry-run mode enabled; skipping Tap mutations")
+		return nil
+	}
+
+	submitted, submitFailures := r.submitDIDs(ctx, dids, opts.BatchSize, opts.BatchDelay)
+	r.log.Info("backfill complete",
+		slog.String("source", SourceLightrail),
+		slog.Int("discovered_total", len(discovered)),
+		slog.Int("submitted", submitted),
+		slog.Int("submit_failures", submitFailures),
+	)
 	return nil
 }
 
@@ -317,6 +354,98 @@ func (r *Runner) discover(ctx context.Context, seeds []string, maxHops int, conc
 	}
 
 	return ordered, nil
+}
+
+func (r *Runner) submitDIDs(
+	ctx context.Context, dids []string, batchSize int, batchDelay time.Duration,
+) (int, int) {
+	submitted := 0
+	submitFailures := 0
+	for i := 0; i < len(dids); i += batchSize {
+		end := i + batchSize
+		if end > len(dids) {
+			end = len(dids)
+		}
+		batch := dids[i:end]
+		if err := r.tap.AddRepos(ctx, batch); err != nil {
+			r.log.Warn("tap batch submission failed",
+				slog.Int("batch_start", i),
+				slog.Int("batch_end", end),
+				slog.Int("batch_size", len(batch)),
+				slog.String("error", err.Error()),
+			)
+			for _, did := range batch {
+				if err := r.tap.AddRepos(ctx, []string{did}); err != nil {
+					submitFailures++
+					r.log.Warn("tap repo submission failed",
+						slog.String("did", did),
+						slog.String("error", err.Error()),
+					)
+					continue
+				}
+				submitted++
+				r.log.Info("submitted Tap repo",
+					slog.String("did", did),
+					slog.Int("submitted_total", submitted),
+				)
+			}
+		} else {
+			submitted += len(batch)
+			r.log.Info("submitted Tap batch",
+				slog.Int("batch_start", i),
+				slog.Int("batch_end", end),
+				slog.Int("batch_size", len(batch)),
+				slog.Int("submitted_total", submitted),
+			)
+		}
+		if end < len(dids) && batchDelay > 0 {
+			select {
+			case <-ctx.Done():
+				return submitted, submitFailures
+			case <-time.After(batchDelay):
+			}
+		}
+	}
+	return submitted, submitFailures
+}
+
+func normalizeSource(source string) string {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "", SourceLightrail:
+		return SourceLightrail
+	case SourceGraph:
+		return SourceGraph
+	default:
+		return strings.ToLower(strings.TrimSpace(source))
+	}
+}
+
+func normalizeCollections(collections []string) []string {
+	seen := make(map[string]bool)
+	normalized := make([]string, 0, len(collections))
+	for _, collection := range collections {
+		collection = strings.TrimSpace(collection)
+		if collection == "" || seen[collection] {
+			continue
+		}
+		seen[collection] = true
+		normalized = append(normalized, collection)
+	}
+	return normalized
+}
+
+func normalizeDIDs(dids []string) []string {
+	seen := make(map[string]bool)
+	normalized := make([]string, 0, len(dids))
+	for _, did := range dids {
+		did = strings.TrimSpace(did)
+		if did == "" || seen[did] {
+			continue
+		}
+		seen[did] = true
+		normalized = append(normalized, did)
+	}
+	return normalized
 }
 
 // indexProfiles fetches sh.tangled.actor.profile records via XRPC for each

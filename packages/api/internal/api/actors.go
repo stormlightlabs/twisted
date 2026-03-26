@@ -90,7 +90,6 @@ func (s *Server) resolveRepo(r *http.Request, handleOrDID, repoName string) (*re
 	if err != nil {
 		return nil, fmt.Errorf("list repos for %s: %w", actor.DID, err)
 	}
-	s.enqueueXRPCList(r.Context(), entries)
 
 	for _, entry := range entries {
 		name, _ := entry.Value["name"].(string)
@@ -230,7 +229,6 @@ func (s *Server) handleListActorRepos(w http.ResponseWriter, r *http.Request) {
 		s.actorError(w, err)
 		return
 	}
-	s.enqueueXRPCList(r.Context(), entries)
 
 	records := make([]recordEntry, len(entries))
 	for i, e := range entries {
@@ -432,7 +430,6 @@ func (s *Server) handleRepoIssues(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch issues"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), issues)
 
 	var records []issueEntry
 	for _, e := range issues {
@@ -470,7 +467,6 @@ func (s *Server) handleRepoPulls(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch pulls"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), pulls)
 
 	var records []pullEntry
 	for _, e := range pulls {
@@ -509,7 +505,6 @@ func (s *Server) handleActorIssues(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch issues"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), issues)
 
 	records := make([]issueEntry, len(issues))
 	for i, e := range issues {
@@ -540,7 +535,6 @@ func (s *Server) handleActorPulls(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch pulls"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), pulls)
 
 	records := make([]pullEntry, len(pulls))
 	for i, e := range pulls {
@@ -571,7 +565,6 @@ func (s *Server) handleActorFollowing(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch follows"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), entries)
 
 	records := make([]recordEntry, len(entries))
 	for i, e := range entries {
@@ -599,7 +592,6 @@ func (s *Server) handleActorStrings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch strings"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), entries)
 
 	records := make([]recordEntry, len(entries))
 	for i, e := range entries {
@@ -669,7 +661,6 @@ func (s *Server) handleIssueComments(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch comments"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), entries)
 
 	var records []recordEntry
 	for _, e := range entries {
@@ -746,7 +737,6 @@ func (s *Server) handlePullComments(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, errorBody("upstream_error", "failed to fetch comments"))
 		return
 	}
-	s.enqueueXRPCList(r.Context(), entries)
 
 	var records []recordEntry
 	for _, e := range entries {

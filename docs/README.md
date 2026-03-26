@@ -8,6 +8,7 @@ Completed work — architecture, APIs, and data models as built.
 - [`reference/app.md`](reference/app.md) — Ionic Vue mobile app
 - [`reference/deployment-walkthrough.md`](reference/deployment-walkthrough.md) — Railway deployment guide
 - [`reference/lexicons.md`](reference/lexicons.md) — Tangled AT Protocol record types
+- [`reference/metrics.md`](reference/metrics.md) — Railway and Turso usage checks after deploy
 - [`reference/resync.md`](reference/resync.md) — Backfill and repo-resync recovery playbook
 
 ## Specs

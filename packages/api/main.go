@@ -212,7 +212,7 @@ func newBackfillCmd(local *bool) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "backfill",
-		Short: "Discover users from seeds and register repos for Tap backfill",
+		Short: "Discover repos and register them with Tap backfill",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(config.LoadOptions{Local: *local})
 			if err != nil {
@@ -265,13 +265,16 @@ func newBackfillCmd(local *bool) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.SeedsPath, "seeds", "", "Seed source: file path or comma-separated DIDs/handles (required)")
-	cmd.Flags().IntVar(&opts.MaxHops, "max-hops", 2, "Max fan-out depth from seeds")
+	cmd.Flags().StringVar(&opts.Source, "source", backfill.SourceLightrail, "Discovery source: lightrail or graph")
+	cmd.Flags().StringVar(&opts.LightrailURL, "lightrail-url", backfill.DefaultLightrailURL, "Base URL for listReposByCollection discovery")
+	cmd.Flags().StringArrayVar(&opts.Collections, "collection", nil, "Collection to discover via Lightrail (repeatable)")
+	cmd.Flags().IntVar(&opts.PageLimit, "page-limit", backfill.DefaultPageLimit, "Max DIDs to request per Lightrail page")
+	cmd.Flags().StringVar(&opts.SeedsPath, "seeds", "", "Seed source for --source graph: file path or comma-separated DIDs/handles")
+	cmd.Flags().IntVar(&opts.MaxHops, "max-hops", 2, "Max fan-out depth from graph seeds")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Print discovery plan without mutating Tap")
 	cmd.Flags().IntVar(&opts.Concurrency, "concurrency", 5, "Parallel discovery workers")
 	cmd.Flags().IntVar(&opts.BatchSize, "batch-size", 10, "DIDs per /repos/add request")
 	cmd.Flags().DurationVar(&opts.BatchDelay, "batch-delay", time.Second, "Delay between Tap /repos/add batches")
-	_ = cmd.MarkFlagRequired("seeds")
 
 	return cmd
 }

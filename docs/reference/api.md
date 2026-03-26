@@ -159,7 +159,10 @@ The built-in XRPC client provides typed access to AT Protocol endpoints with cac
 
 ## Backfill
 
-The backfill command discovers users from a seed file and registers them with Tap for indexing. Discovery fans out via follow graphs and repo collaborators up to a configurable hop depth (default 2). Supports dry-run mode, configurable concurrency and batch sizes, and is idempotent.
+The backfill command now defaults to `--source lightrail`: it calls
+`com.atproto.sync.listReposByCollection`, dedupes returned DIDs, and batch
+submits them to Tap. `--source graph` keeps the older seed-file follow and
+collaborator crawl for targeted fallback runs.
 
 ## Configuration
 
@@ -185,12 +188,16 @@ All configuration is via environment variables (with `.env` file support):
 | `PLC_DIRECTORY_URL`        | `https://plc.directory` | PLC Directory                                   |
 | `XRPC_TIMEOUT`             | 15s                     | XRPC HTTP timeout                               |
 
+Recommended production practice is to use explicit search-relevant collection
+lists for `INDEXED_COLLECTIONS` and `READ_THROUGH_COLLECTIONS`, not
+`sh.tangled.*`, and to leave `sh.tangled.graph.follow` out of both.
+
 ## Deployment
 
 Deployed on Railway with three services:
 
-- **api** — HTTP server (port 8080, health at `/healthz`)
-- **indexer** — Tap consumer (health at `:9090/healthz`)
+- **api** — HTTP server (port 8080, health at `/readyz`)
+- **indexer** — Tap consumer (health at `:9090/health`)
 - **tap** — Tap instance (external dependency)
 
 All services share the same Turso database. The API and indexer are separate deployments of the same binary with different subcommands.

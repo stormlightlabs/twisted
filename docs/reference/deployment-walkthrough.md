@@ -23,7 +23,6 @@ Before you start, have these ready:
 - a Railway account and the Railway CLI
 - a Turso database URL and auth token
 - a Tap URL and Tap auth password
-- a seed list for the first backfill run
 From this machine:
 
 ```sh
@@ -68,7 +67,7 @@ Set these on `api`:
 - `SEARCH_DEFAULT_LIMIT=20`
 - `SEARCH_MAX_LIMIT=100`
 - `READ_THROUGH_MODE=missing`
-- `READ_THROUGH_COLLECTIONS=sh.tangled.*`
+- `READ_THROUGH_COLLECTIONS=<explicit search collection CSV>`
 - `READ_THROUGH_MAX_ATTEMPTS=5`
 - `ENABLE_ADMIN_ENDPOINTS=false`
 - `ADMIN_AUTH_TOKEN=<set this if admin routes are enabled>`
@@ -76,8 +75,10 @@ Set these on `indexer`:
 - `INDEXER_HEALTH_ADDR=0.0.0.0:${{ PORT }}`
 - `TAP_URL=<your Tap URL>`
 - `TAP_AUTH_PASSWORD=<your Tap password>`
-- `INDEXED_COLLECTIONS=sh.tangled.*`
+- `INDEXED_COLLECTIONS=<matching explicit search collection CSV>`
 - `ENABLE_INGEST_ENRICHMENT=true`
+Do not use `sh.tangled.*` for those allowlists. Match the Lightrail-backed
+search collection set and leave `sh.tangled.graph.follow` out.
 Optional OAuth variables for a Railway-hosted web client metadata endpoint:
 - `OAUTH_CLIENT_ID`
 - `OAUTH_REDIRECT_URIS`
@@ -114,12 +115,13 @@ A fresh environment is not search-ready just because the services booted.
 3. Confirm the `api` domain returns `200` from `/readyz`.
 4. Confirm the `indexer` returns `200` from `/health`.
 5. Run the initial backfill against the same Turso and Tap environment.
-One simple way to run backfill from this machine is to use the same env values
-locally and execute:
+Use Railway shell so the command runs inside the live `indexer` environment:
 
 ```sh
-cd /Users/owais/Projects/Twisted/packages/api
-go run ./main.go backfill --seeds /path/to/seeds.txt
+cd /Users/owais/Projects/Twisted
+railway link # Select indexer service if prompted
+railway shell
+twister backfill --source lightrail
 ```
 
 Do not call the environment ready until that first backfill has completed.
@@ -139,12 +141,3 @@ pnpm --dir apps/twisted dev
 pnpm --dir apps/twisted build
 pnpm --dir apps/twisted exec cap sync
 ```
-
-## Operating Model
-
-This is the practical split:
-
-- Railway hosts the always-on backend
-- Turso stores indexed data
-- this machine, or CI, builds the mobile app and points it at Railway
-If you later want a Railway-hosted web frontend, add that as a separate service.

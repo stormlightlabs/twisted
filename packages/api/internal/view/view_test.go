@@ -21,6 +21,9 @@ func TestHandlerRendersSearchHome(t *testing.T) {
 	if !strings.Contains(body, "Search Tangled") {
 		t.Fatalf("expected search home content, got body %q", body)
 	}
+	if !strings.Contains(body, "GET /actors/desertthunder.dev") {
+		t.Fatalf("expected search empty state example, got body %q", body)
+	}
 	if strings.Contains(body, "Health Endpoints") {
 		t.Fatalf("expected search home page, got health page content")
 	}
