@@ -98,7 +98,7 @@ func (r *Runner) Run(ctx context.Context) error {
 				)
 				continue
 			}
-			r.log.Info("skipped previously-processed event", slog.Int64("event_id", event.ID), slog.Int64("resume_cursor", r.resumeCursor))
+			r.log.Debug("skipped previously-processed event", slog.Int64("event_id", event.ID), slog.Int64("resume_cursor", r.resumeCursor))
 			continue
 		}
 
