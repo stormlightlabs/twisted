@@ -40,7 +40,7 @@ func (s *apiTestStore) MarkDeleted(_ context.Context, id string) error {
 func (s *apiTestStore) ListDocuments(_ context.Context, _ store.DocumentFilter) ([]*store.Document, error) {
 	return nil, nil
 }
-func (s *apiTestStore) OptimizeFTS(_ context.Context) error { return nil }
+func (s *apiTestStore) OptimizeSearchIndex(_ context.Context) error { return nil }
 func (s *apiTestStore) GetSyncState(_ context.Context, _ string) (*store.SyncState, error) {
 	return nil, nil
 }

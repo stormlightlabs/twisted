@@ -108,8 +108,8 @@ func (r *Runner) Run(ctx context.Context, opts Options) (*Result, error) {
 
 	if !opts.DryRun && result.Updated > 0 {
 		r.log.Info("enrich: optimizing fts index")
-		if err := r.store.OptimizeFTS(ctx); err != nil {
-			r.log.Error("enrich: fts optimize failed", slog.String("error", err.Error()))
+		if err := r.store.OptimizeSearchIndex(ctx); err != nil {
+			r.log.Error("enrich: search index finalize failed", slog.String("error", err.Error()))
 			result.Errors++
 		}
 	}

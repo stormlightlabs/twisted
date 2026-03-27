@@ -16,7 +16,7 @@ func TestIntegration(t *testing.T) {
 	dbPath := filepath.Join(dir, "test.db")
 	url := "file:" + dbPath
 
-	db, err := store.Open(url, "")
+	db, err := store.Open(url)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	st := store.New(db)
+	st := store.New(url, db)
 	ctx := context.Background()
 
 	t.Run("upsert and get document", func(t *testing.T) {

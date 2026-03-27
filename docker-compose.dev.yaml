@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${USER:-postgres}
+      POSTGRES_DB: ${USER:-postgres}_dev
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - twisted-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h localhost -p 5432 -U ${USER:-postgres} -d ${USER:-postgres}_dev",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tap:
+    image: ghcr.io/bluesky-social/indigo/tap:sha-4f47add43060c27e8a37d9d76482ecddf001fcd8
+    restart: unless-stopped
+    ports:
+      - "2480:2480"
+    environment:
+      TAP_BIND: :2480
+      TAP_DATABASE_URL: sqlite:///data/tap.db
+      TAP_ADMIN_PASSWORD: ${TAP_AUTH_PASSWORD:-twisted-dev}
+      TAP_LOG_LEVEL: ${TAP_LOG_LEVEL:-info}
+      TAP_COLLECTION_FILTERS: ${TAP_COLLECTION_FILTERS:-}
+    volumes:
+      - twisted-tap:/data
+
+volumes:
+  twisted-postgres:
+  twisted-tap:

@@ -3,189 +3,126 @@ title: Backfill & Resync Playbook
 updated: 2026-03-26
 ---
 
-Twister's search index has three recovery paths. Choose based on what broke.
+Twisted has three recovery tools. Choose based on what broke.
 
-| Situation                                             | Recovery path                                |
-| ----------------------------------------------------- | -------------------------------------------- |
-| FTS index corrupted or drifted from stored documents  | `twister reindex`                            |
-| Documents missing — never received via Tap            | `twister backfill` + let the indexer consume |
-| Documents missing — received but fields empty/wrong   | `twister enrich`                             |
-| Full index loss — DB dropped or migrated              | backfill then reindex then enrich            |
-| Tap cursor too far ahead — events skipped after a gap | cursor reset via `sync_state` table          |
-
----
-
-## Paths Overview
-
-**Tap** is the authoritative ingest and backfill path. Documents reach the index
-when the `indexer` consumes events from Tap. Completeness depends on which DIDs
-Tap is tracking.
-
-**Read-through indexing** now runs in `missing` mode by default: when the API
-fetches a record that is absent or stale, and the collection is allowed, it
-enqueues a background job. Bulk list reads no longer enqueue entire collections.
-
-**JetStream** feeds only the activity cache (`/activity`). It does not contribute
-to the search index.
-
----
+| Situation | Recovery path |
+| --- | --- |
+| Search results wrong but documents exist | `twister reindex` |
+| Documents missing because Tap never delivered them | `twister backfill` |
+| Documents exist but derived metadata is empty or stale | `twister enrich` |
+| Full database loss or migration to a fresh PostgreSQL instance | backfill, enrich, reindex |
 
 ## Commands
 
 ### `twister indexer`
 
-Runs the Tap consumer. Must be running continuously for real-time indexing.
-Persists cursor to `sync_state` table under consumer name `indexer-tap-v1`.
+Runs the Tap consumer continuously. Persists its cursor in `sync_state`.
 
 ### `twister backfill`
 
-Defaults to `--source lightrail`: discovers DIDs from
-`com.atproto.sync.listReposByCollection` and submits them to Tap in batches.
-Use `--source graph` only for targeted fallback seeding from handles or DIDs.
+Default source is `lightrail`. Use graph mode only for targeted fallback.
 
 ```sh
-# full-network dry-run first
 twister backfill --dry-run
-
-# full-network bootstrap
 twister backfill
-
-# targeted fallback
-twister backfill --source graph --seeds seeds.txt --max-hops 2 \
-  --concurrency 5 --batch-size 10 --batch-delay 1s
+twister backfill --source graph --seeds seeds.txt --max-hops 2
 ```
 
-Safe to re-run. Discovery deduplicates and `repos/add` is treated as idempotent.
+Safe to rerun. Discovery is deduplicated and Tap registration is treated as
+idempotent.
 
 ### `twister reindex`
 
-Re-upserts stored documents into the FTS table and runs `optimize`. Does not
-re-fetch from upstream — only re-processes what is already in the DB.
+Re-upserts stored documents so PostgreSQL recomputes search state from the
+canonical `documents` rows.
 
 ```sh
-twister reindex                            # all documents
+twister reindex
 twister reindex --collection sh.tangled.repo
 twister reindex --did did:plc:abc123
-twister reindex --dry-run                  # preview without writing
+twister reindex --dry-run
 ```
-
-Run this when: FTS results are stale after a schema migration, after a bulk
-document import, or whenever search quality seems inconsistent with stored data.
 
 ### `twister enrich`
 
-Resolves missing `author_handle`, `repo_name`, and `web_url` via XRPC for
-documents already in the DB.
+Fills missing `author_handle`, `repo_name`, and `web_url`.
 
 ```sh
-twister enrich                             # all documents
+twister enrich
 twister enrich --collection sh.tangled.repo.issue
 twister enrich --did did:plc:abc123
 twister enrich --dry-run
 ```
 
-Run this when: search results show documents with empty author handles, or
-after deploying enrichment logic changes.
-
----
-
 ## Scenario Playbooks
 
-### FTS index out of sync
+### Search drift
 
-Documents exist in the DB but search returns wrong/stale results.
-
-```sh
-twister reindex --dry-run   # confirm scope
-twister reindex             # re-upsert + FTS optimize
-```
-
-Verify with `GET /search?q=<known-term>`.
-
-### Documents missing from search
-
-Fetch a known record directly. If it returns from `/actors/{handle}/repos/{repo}`
-but does not appear in `/search`, the document was never indexed.
-
-1. Check if the DID is tracked by Tap. If not, run `backfill`:
-
-   ```sh
-   twister backfill --source graph --seeds <handle-or-did> --max-hops 0
-   ```
-
-2. Once Tap is tracking the DID, the `indexer` will deliver historical events.
-   Monitor progress via `GET /admin/status` and inspect backlog or failures with
-   `GET /admin/indexing/jobs` and `GET /admin/indexing/audit`.
-
-3. If you need the record indexed immediately, fetch the detail endpoint through
-   the API or enqueue it explicitly with `POST /admin/indexing/enqueue`.
-
-### Enrichment gaps
-
-Documents appear in search but `author_handle` or `repo_name` is empty.
+If search results look stale but the document rows are present:
 
 ```sh
-twister enrich --dry-run   # preview what would be resolved
-twister enrich             # apply
-twister reindex            # re-sync FTS after field updates
+twister reindex --dry-run
+twister reindex
 ```
 
-### Full index recovery
+### Missing documents
 
-Use this sequence after a DB drop, migration to a new Turso database, or other
-full-loss event.
+If a record is fetchable through the API but not searchable:
 
-1. Confirm migrations ran: `twister api --local` performs `store.Migrate` on startup.
-2. Register repos with Tap:
+1. make sure Tap is tracking the DID
+2. run targeted `backfill` if needed
+3. let `indexer` drain
+4. re-run `enrich` if metadata is still incomplete
 
-   ```sh
-   twister backfill --dry-run
-   twister backfill
-   ```
+### Metadata gaps
 
-3. Start the indexer and let it consume: `twister indexer`
-4. Once backfill is complete, enrich fields and re-sync FTS:
+If `author_handle` or `repo_name` is empty:
 
-   ```sh
-   twister enrich
-   twister reindex
-   ```
+```sh
+twister enrich --dry-run
+twister enrich
+twister reindex
+```
 
-5. Verify: `GET /admin/status` for cursor progress, `GET /readyz` for DB health.
+### Full PostgreSQL rebuild
+
+Use this after restoring to a fresh database or moving to a new PostgreSQL
+instance.
+
+1. start `api` once so migrations run
+2. start `indexer`
+3. run `twister backfill`
+4. run `twister enrich`
+5. run `twister reindex`
+6. verify `/readyz`, `/health`, and smoke checks
+
+This is the default migration path from the old Turso-backed deployment too.
 
 ### Tap cursor reset
 
-If the indexer cursor is ahead of what Tap will deliver (e.g., after a Tap
-instance reset), events will be skipped until the cursor catches up.
-
-To reset the cursor and reprocess from the beginning of Tap's retention window:
+If the Tap cursor is ahead of the retained event window:
 
 ```sql
 DELETE FROM sync_state WHERE consumer_name = 'indexer-tap-v1';
 ```
 
-Then restart the `indexer`. It will start from the head of the stream and
-process all events Tap delivers.
+Then restart the `indexer`.
 
-> **Note:** This does not cause duplicate documents — `UpsertDocument` is
-> idempotent. It may reprocess a large backlog depending on Tap retention.
+## Status Checks
 
----
-
-## Checking Status
-
-With `ENABLE_ADMIN_ENDPOINTS=true`:
+With admin routes enabled:
 
 ```sh
 curl -H "Authorization: Bearer $ADMIN_AUTH_TOKEN" \
   http://localhost:8080/admin/status
 ```
 
-Response includes:
+Watch:
 
-- `tap.cursor` and `tap.updated_at`
-- `jetstream.cursor` and `jetstream.updated_at`
+- `tap.cursor`
+- `jetstream.cursor`
 - `documents`
-- `read_through.pending`, `processing`, `completed`, `failed`, `dead_letter`
-- `read_through.oldest_pending_age_s` and `oldest_running_age_s`
-- `read_through.last_completed_at` and `last_processed_at`
+- `read_through.pending`
+- `read_through.processing`
+- `read_through.failed`
+- `read_through.dead_letter`

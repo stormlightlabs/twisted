@@ -24,7 +24,7 @@ import (
 
 // Server is the HTTP search API server.
 type Server struct {
-	search        *search.Repository
+	search        search.Repository
 	store         store.Store
 	cfg           *config.Config
 	log           *slog.Logger
@@ -37,7 +37,7 @@ type Server struct {
 }
 
 // New creates a new API server.
-func New(searchRepo *search.Repository, st store.Store, cfg *config.Config, log *slog.Logger, constellation *constellation.Client, xrpcClient *xrpc.Client) *Server {
+func New(searchRepo search.Repository, st store.Store, cfg *config.Config, log *slog.Logger, constellation *constellation.Client, xrpcClient *xrpc.Client) *Server {
 	registry := normalize.NewRegistry()
 	policy := idx.NewPolicy(cfg.IndexedCollections, cfg.ReadThroughCollections, cfg.ReadThroughMode)
 	return &Server{

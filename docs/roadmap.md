@@ -1,13 +1,13 @@
 ---
 title: Roadmap
-updated: 2026-03-25
+updated: 2026-03-26
 ---
 
 ## API: Search Stabilization
 
 Highest priority. This work blocks further investment in search quality and broader discovery features.
 
-- [x] Stabilize local development and experimentation around a local `file:` database
+- [x] Stabilize local development around PostgreSQL, with SQLite kept only as a rollback path
 - [x] Document backup, restore, and disk-growth procedures for the experimental local DB
 - [x] Research production backend options: PostgreSQL, Turso remote/libSQL, and Turso embedded replicas
 - [x] Write a production storage decision record with workload and operational tradeoffs, using `docs/adr/pg.md` and `docs/adr/turso.md`
@@ -33,14 +33,14 @@ Highest priority. This work blocks further investment in search quality and broa
 
 Completed on [2026-03-25](../CHANGELOG.md#2026-03-25)
 
-## API: FTS5 Search Quality
+## API: Keyword Search Quality
 
 Improve keyword search quality without external dependencies.
 
 **Depends on:** API: Search Stabilization
 
 - [ ] Synonym expansion at query time (e.g. "repo" matches "repository")
-- [ ] Stemming tokenizer (porter or unicode61+porter)
+- [ ] Stemming and parser tuning for PostgreSQL full-text search
 - [ ] Prefix search support for autocomplete
 - [ ] Field weight tuning based on real query patterns
 - [ ] Recency boost for recently updated content

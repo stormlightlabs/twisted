@@ -1,4 +1,4 @@
-// Package reindex re-syncs documents to the FTS index from stored fields.
+// Package reindex re-syncs documents to the search index from stored fields.
 // It is used by the `twister reindex` CLI command and the POST /admin/reindex endpoint.
 package reindex
 
@@ -41,8 +41,8 @@ func New(st store.Store, log *slog.Logger) *Runner {
 }
 
 // Run reindexes documents matching opts.
-// It re-upserts each document (which re-syncs the FTS virtual table) and then
-// runs an FTS optimize pass to merge Tantivy/FTS5 segments.
+// It re-upserts each document and then runs any backend-specific search index
+// optimization step.
 func (r *Runner) Run(ctx context.Context, opts Options) (*Result, error) {
 	filter := store.DocumentFilter{
 		Collection: opts.Collection,
@@ -103,9 +103,9 @@ func (r *Runner) Run(ctx context.Context, opts Options) (*Result, error) {
 	}
 
 	if !opts.DryRun {
-		r.log.Info("reindex: optimizing fts index")
-		if err := r.store.OptimizeFTS(ctx); err != nil {
-			r.log.Error("reindex: fts optimize failed", slog.String("error", err.Error()))
+		r.log.Info("reindex: finalizing search index")
+		if err := r.store.OptimizeSearchIndex(ctx); err != nil {
+			r.log.Error("reindex: search index finalize failed", slog.String("error", err.Error()))
 			result.Errors++
 		}
 	}

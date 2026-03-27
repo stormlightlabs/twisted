@@ -6,20 +6,22 @@ import (
 	"testing"
 )
 
-func TestLoadRequiresRemoteTursoConfigurationByDefault(t *testing.T) {
+func TestLoadUsesDefaultLocalPostgresURL(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
 	t.Setenv("TURSO_DATABASE_URL", "")
-	t.Setenv("TURSO_AUTH_TOKEN", "")
 
-	_, err := Load(LoadOptions{})
-	if err == nil {
-		t.Fatal("expected missing Turso config to fail")
+	cfg, err := Load(LoadOptions{})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if got, want := cfg.DatabaseURL, defaultLocalDatabaseURL(); got != want {
+		t.Fatalf("DatabaseURL: got %q, want %q", got, want)
 	}
 }
 
 func TestLoadLocalOverridesRemoteDatabaseAndLogging(t *testing.T) {
 	workDir := t.TempDir()
-	t.Setenv("TURSO_DATABASE_URL", "libsql://example.turso.io")
-	t.Setenv("TURSO_AUTH_TOKEN", "secret")
+	t.Setenv("DATABASE_URL", "postgresql://localhost/test_dev?sslmode=disable")
 	t.Setenv("LOG_FORMAT", "json")
 
 	cfg, err := Load(LoadOptions{Local: true, WorkDir: workDir})
@@ -28,11 +30,8 @@ func TestLoadLocalOverridesRemoteDatabaseAndLogging(t *testing.T) {
 	}
 
 	wantURL := "file:" + filepath.Join(workDir, "twister-dev.db")
-	if cfg.TursoURL != wantURL {
-		t.Fatalf("TursoURL: got %q, want %q", cfg.TursoURL, wantURL)
-	}
-	if cfg.TursoToken != "" {
-		t.Fatalf("TursoToken: got %q, want empty", cfg.TursoToken)
+	if cfg.DatabaseURL != wantURL {
+		t.Fatalf("DatabaseURL: got %q, want %q", cfg.DatabaseURL, wantURL)
 	}
 	if cfg.LogFormat != "text" {
 		t.Fatalf("LogFormat: got %q, want %q", cfg.LogFormat, "text")
@@ -44,8 +43,8 @@ func TestLoadLocalUsesCurrentWorkingDirectoryWhenUnset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
+	t.Setenv("DATABASE_URL", "")
 	t.Setenv("TURSO_DATABASE_URL", "")
-	t.Setenv("TURSO_AUTH_TOKEN", "")
 
 	cfg, err := Load(LoadOptions{Local: true})
 	if err != nil {
@@ -53,14 +52,13 @@ func TestLoadLocalUsesCurrentWorkingDirectoryWhenUnset(t *testing.T) {
 	}
 
 	wantURL := "file:" + filepath.Join(wd, "twister-dev.db")
-	if cfg.TursoURL != wantURL {
-		t.Fatalf("TursoURL: got %q, want %q", cfg.TursoURL, wantURL)
+	if cfg.DatabaseURL != wantURL {
+		t.Fatalf("DatabaseURL: got %q, want %q", cfg.DatabaseURL, wantURL)
 	}
 }
 
 func TestLoadReadThroughDefaults(t *testing.T) {
-	t.Setenv("TURSO_DATABASE_URL", "file:test.db")
-	t.Setenv("TURSO_AUTH_TOKEN", "")
+	t.Setenv("DATABASE_URL", "file:test.db")
 	t.Setenv("INDEXED_COLLECTIONS", "sh.tangled.repo,sh.tangled.repo.issue")
 	t.Setenv("READ_THROUGH_MODE", "")
 	t.Setenv("READ_THROUGH_COLLECTIONS", "")
@@ -81,9 +79,8 @@ func TestLoadReadThroughDefaults(t *testing.T) {
 	}
 }
 
-func TestLoadUsesRailwayPortForBindAddresses(t *testing.T) {
-	t.Setenv("TURSO_DATABASE_URL", "file:test.db")
-	t.Setenv("TURSO_AUTH_TOKEN", "")
+func TestLoadUsesPortEnvForBindAddresses(t *testing.T) {
+	t.Setenv("DATABASE_URL", "file:test.db")
 	t.Setenv("HTTP_BIND_ADDR", "")
 	t.Setenv("INDEXER_HEALTH_ADDR", "")
 	t.Setenv("PORT", "4567")
@@ -100,9 +97,8 @@ func TestLoadUsesRailwayPortForBindAddresses(t *testing.T) {
 	}
 }
 
-func TestLoadPrefersExplicitBindAddressesOverRailwayPort(t *testing.T) {
-	t.Setenv("TURSO_DATABASE_URL", "file:test.db")
-	t.Setenv("TURSO_AUTH_TOKEN", "")
+func TestLoadPrefersExplicitBindAddressesOverPortEnv(t *testing.T) {
+	t.Setenv("DATABASE_URL", "file:test.db")
 	t.Setenv("HTTP_BIND_ADDR", "0.0.0.0:8081")
 	t.Setenv("INDEXER_HEALTH_ADDR", "0.0.0.0:9091")
 	t.Setenv("PORT", "4567")
@@ -116,5 +112,18 @@ func TestLoadPrefersExplicitBindAddressesOverRailwayPort(t *testing.T) {
 	}
 	if cfg.IndexerHealthAddr != "0.0.0.0:9091" {
 		t.Fatalf("IndexerHealthAddr: got %q", cfg.IndexerHealthAddr)
+	}
+}
+
+func TestLoadSupportsLegacyDatabaseEnvName(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("TURSO_DATABASE_URL", "file:test.db")
+
+	cfg, err := Load(LoadOptions{})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if got, want := cfg.DatabaseURL, "file:test.db"; got != want {
+		t.Fatalf("DatabaseURL: got %q, want %q", got, want)
 	}
 }

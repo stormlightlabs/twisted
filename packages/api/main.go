@@ -42,7 +42,7 @@ func main() {
 		SilenceErrors: true,
 	}
 
-	root.PersistentFlags().BoolVar(&local, "local", false, "Use a local twister-dev.db database and text logs for development")
+	root.PersistentFlags().BoolVar(&local, "local", false, "Deprecated: use the legacy local SQLite fallback instead of the default Postgres database URL")
 
 	root.AddCommand(
 		newAPICmd(&local),
@@ -83,18 +83,18 @@ func newAPICmd(local *bool) *cobra.Command {
 			log := observability.NewLogger(cfg)
 			log.Info("starting api", slog.String("service", "api"), slog.String("version", version), slog.String("addr", cfg.HTTPBindAddr))
 
-			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			db, err := store.Open(cfg.DatabaseURL)
 			if err != nil {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db, cfg.TursoURL); err != nil {
+			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 
-			st := store.New(db)
-			searchRepo := search.NewRepository(db)
+			st := store.New(cfg.DatabaseURL, db)
+			searchRepo := search.NewRepository(cfg.DatabaseURL, db)
 
 			constellationClient := constellation.NewClient(
 				constellation.WithBaseURL(cfg.ConstellationURL),
@@ -141,17 +141,17 @@ func newIndexerCmd(local *bool) *cobra.Command {
 				return fmt.Errorf("TAP_URL is required for indexer")
 			}
 
-			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			db, err := store.Open(cfg.DatabaseURL)
 			if err != nil {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db, cfg.TursoURL); err != nil {
+			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 
-			st := store.New(db)
+			st := store.New(cfg.DatabaseURL, db)
 			registry := normalize.NewRegistry()
 			tap := tapclient.New(cfg.TapURL, cfg.TapAuthPassword, log)
 			runner := ingest.NewRunner(st, registry, tap, cfg.IndexedCollections, log)
@@ -225,13 +225,13 @@ func newBackfillCmd(local *bool) *cobra.Command {
 				return fmt.Errorf("TAP_URL is required for backfill")
 			}
 
-			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			db, err := store.Open(cfg.DatabaseURL)
 			if err != nil {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db, cfg.TursoURL); err != nil {
+			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 
@@ -247,7 +247,7 @@ func newBackfillCmd(local *bool) *cobra.Command {
 			)
 
 			runner := backfill.NewRunner(
-				store.New(db),
+				store.New(cfg.DatabaseURL, db),
 				tapAdmin,
 				xrpcClient,
 				log,
@@ -293,20 +293,20 @@ func newReindexCmd(local *bool) *cobra.Command {
 			log := observability.NewLogger(cfg)
 			log.Info("starting reindex", slog.String("service", "reindex"), slog.String("version", version))
 
-			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			db, err := store.Open(cfg.DatabaseURL)
 			if err != nil {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db, cfg.TursoURL); err != nil {
+			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 
 			ctx, cancel := baseContext()
 			defer cancel()
 
-			runner := reindex.New(store.New(db), log)
+			runner := reindex.New(store.New(cfg.DatabaseURL, db), log)
 			result, err := runner.Run(ctx, opts)
 			if result != nil {
 				log.Info("reindex finished",
@@ -341,13 +341,13 @@ func newEnrichCmd(local *bool) *cobra.Command {
 			log := observability.NewLogger(cfg)
 			log.Info("starting enrich", slog.String("service", "enrich"), slog.String("version", version))
 
-			db, err := store.Open(cfg.TursoURL, cfg.TursoToken)
+			db, err := store.Open(cfg.DatabaseURL)
 			if err != nil {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db, cfg.TursoURL); err != nil {
+			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
 				return fmt.Errorf("migrate database: %w", err)
 			}
 
@@ -360,7 +360,7 @@ func newEnrichCmd(local *bool) *cobra.Command {
 			ctx, cancel := baseContext()
 			defer cancel()
 
-			runner := enrich.New(store.New(db), xrpcClient, log)
+			runner := enrich.New(store.New(cfg.DatabaseURL, db), xrpcClient, log)
 			result, err := runner.Run(ctx, opts)
 			if result != nil {
 				log.Info("enrich finished",

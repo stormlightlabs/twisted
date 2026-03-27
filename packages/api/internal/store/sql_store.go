@@ -8,17 +8,20 @@ import (
 	"time"
 )
 
-// SQLStore implements Store against a libSQL database.
-type SQLStore struct {
+// SQLiteStore implements Store against a SQLite database.
+type SQLiteStore struct {
 	db *sql.DB
 }
 
 // New wraps an open *sql.DB in a Store implementation.
-func New(db *sql.DB) Store {
-	return &SQLStore{db: db}
+func New(url string, db *sql.DB) Store {
+	if DetectBackend(url) == BackendPostgres {
+		return &PostgresStore{db: db}
+	}
+	return &SQLiteStore{db: db}
 }
 
-func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
+func (s *SQLiteStore) UpsertDocument(ctx context.Context, doc *Document) error {
 	doc.IndexedAt = time.Now().UTC().Format(time.RFC3339)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -68,7 +71,7 @@ func (s *SQLStore) UpsertDocument(ctx context.Context, doc *Document) error {
 	return nil
 }
 
-func (s *SQLStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]*Document, error) {
+func (s *SQLiteStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]*Document, error) {
 	query := `SELECT id, did, collection, rkey, at_uri, cid, record_type,
 		       title, body, summary, repo_did, repo_name, author_handle,
 		       tags_json, language, created_at, updated_at, indexed_at, web_url, deleted_at
@@ -128,15 +131,15 @@ func (s *SQLStore) ListDocuments(ctx context.Context, filter DocumentFilter) ([]
 	return docs, nil
 }
 
-func (s *SQLStore) OptimizeFTS(ctx context.Context) error {
+func (s *SQLiteStore) OptimizeSearchIndex(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO documents_fts(documents_fts) VALUES('optimize')`)
 	if err != nil {
-		return fmt.Errorf("optimize fts: %w", err)
+		return fmt.Errorf("optimize search index: %w", err)
 	}
 	return nil
 }
 
-func (s *SQLStore) GetDocument(ctx context.Context, id string) (*Document, error) {
+func (s *SQLiteStore) GetDocument(ctx context.Context, id string) (*Document, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, did, collection, rkey, at_uri, cid, record_type,
 		       title, body, summary, repo_did, repo_name, author_handle,
@@ -153,7 +156,7 @@ func (s *SQLStore) GetDocument(ctx context.Context, id string) (*Document, error
 	return doc, nil
 }
 
-func (s *SQLStore) MarkDeleted(ctx context.Context, id string) error {
+func (s *SQLiteStore) MarkDeleted(ctx context.Context, id string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -175,7 +178,7 @@ func (s *SQLStore) MarkDeleted(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *SQLStore) GetSyncState(ctx context.Context, consumer string) (*SyncState, error) {
+func (s *SQLiteStore) GetSyncState(ctx context.Context, consumer string) (*SyncState, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT consumer_name, cursor, high_water_mark, updated_at
 		FROM sync_state WHERE consumer_name = ?`, consumer)
@@ -193,7 +196,7 @@ func (s *SQLStore) GetSyncState(ctx context.Context, consumer string) (*SyncStat
 	return ss, nil
 }
 
-func (s *SQLStore) SetSyncState(ctx context.Context, consumer string, cursor string) error {
+func (s *SQLiteStore) SetSyncState(ctx context.Context, consumer string, cursor string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO sync_state (consumer_name, cursor, updated_at) VALUES (?, ?, ?)
@@ -208,7 +211,7 @@ func (s *SQLStore) SetSyncState(ctx context.Context, consumer string, cursor str
 	return nil
 }
 
-func (s *SQLStore) UpdateRecordState(ctx context.Context, subjectURI string, state string) error {
+func (s *SQLiteStore) UpdateRecordState(ctx context.Context, subjectURI string, state string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO record_state (subject_uri, state, updated_at) VALUES (?, ?, ?)
@@ -223,7 +226,7 @@ func (s *SQLStore) UpdateRecordState(ctx context.Context, subjectURI string, sta
 	return nil
 }
 
-func (s *SQLStore) UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error {
+func (s *SQLiteStore) UpsertIdentityHandle(ctx context.Context, did, handle string, isActive bool, status string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO identity_handles (did, handle, is_active, status, updated_at)
@@ -241,7 +244,7 @@ func (s *SQLStore) UpsertIdentityHandle(ctx context.Context, did, handle string,
 	return nil
 }
 
-func (s *SQLStore) GetIdentityHandle(ctx context.Context, did string) (string, error) {
+func (s *SQLiteStore) GetIdentityHandle(ctx context.Context, did string) (string, error) {
 	var handle sql.NullString
 	err := s.db.QueryRowContext(ctx, `SELECT handle FROM identity_handles WHERE did = ?`, did).Scan(&handle)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -253,7 +256,7 @@ func (s *SQLStore) GetIdentityHandle(ctx context.Context, did string) (string, e
 	return handle.String, nil
 }
 
-func (s *SQLStore) GetFollowSubjects(ctx context.Context, did string) ([]string, error) {
+func (s *SQLiteStore) GetFollowSubjects(ctx context.Context, did string) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT repo_did
 		FROM documents
@@ -283,7 +286,7 @@ func (s *SQLStore) GetFollowSubjects(ctx context.Context, did string) ([]string,
 	return subjects, nil
 }
 
-func (s *SQLStore) GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error) {
+func (s *SQLiteStore) GetRepoCollaborators(ctx context.Context, repoOwnerDID string) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT did
 		FROM documents
@@ -317,7 +320,7 @@ func (s *SQLStore) GetRepoCollaborators(ctx context.Context, repoOwnerDID string
 	return collaborators, nil
 }
 
-func (s *SQLStore) CountDocuments(ctx context.Context) (int64, error) {
+func (s *SQLiteStore) CountDocuments(ctx context.Context) (int64, error) {
 	var n int64
 	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL`).Scan(&n)
 	if err != nil {
@@ -326,7 +329,7 @@ func (s *SQLStore) CountDocuments(ctx context.Context) (int64, error) {
 	return n, nil
 }
 
-func (s *SQLStore) CountPendingIndexingJobs(ctx context.Context) (int64, error) {
+func (s *SQLiteStore) CountPendingIndexingJobs(ctx context.Context) (int64, error) {
 	var n int64
 	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM indexing_jobs WHERE status = 'pending'`).Scan(&n)
 	if err != nil {
@@ -335,7 +338,7 @@ func (s *SQLStore) CountPendingIndexingJobs(ctx context.Context) (int64, error) 
 	return n, nil
 }
 
-func (s *SQLStore) InsertJetstreamEvent(ctx context.Context, event *JetstreamEvent, maxEvents int) error {
+func (s *SQLiteStore) InsertJetstreamEvent(ctx context.Context, event *JetstreamEvent, maxEvents int) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin insert jetstream event tx: %w", err)
@@ -370,7 +373,7 @@ func (s *SQLStore) InsertJetstreamEvent(ctx context.Context, event *JetstreamEve
 	return nil
 }
 
-func (s *SQLStore) ListJetstreamEvents(ctx context.Context, filter JetstreamEventFilter) ([]*JetstreamEvent, error) {
+func (s *SQLiteStore) ListJetstreamEvents(ctx context.Context, filter JetstreamEventFilter) ([]*JetstreamEvent, error) {
 	query := `
 		SELECT id, time_us, did, kind,
 		       COALESCE(collection, ''), COALESCE(rkey, ''), COALESCE(operation, ''),
@@ -429,7 +432,7 @@ func (s *SQLStore) ListJetstreamEvents(ctx context.Context, filter JetstreamEven
 	return events, nil
 }
 
-func (s *SQLStore) Ping(ctx context.Context) error {
+func (s *SQLiteStore) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 

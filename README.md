@@ -1,59 +1,72 @@
 # Twisted
 
-Twisted is a monorepo for a Tangled mobile client and the supporting Tap-backed indexing API.
+Twisted is a monorepo for a Tangled mobile client and a Tap-backed indexing API.
 
 ## Projects
 
-- `apps/twisted`: Ionic Vue client for browsing Tangled repos, profiles, issues, PRs, and indexed search results
-- `packages/api`: Go service that consumes Tangled records through Tap, fills gaps in the public Tangled API, and serves search
-- `docs`: top-level specs and plans, split by project under `docs/app` and `docs/api`
+- `apps/twisted`: Ionic Vue client for browsing Tangled repos, profiles, issues, PRs, and search
+- `packages/api`: Go service for ingest, search, read-through indexing, and activity cache
+- `docs`: project docs, ADRs, and operational references
 
 ## Architecture
 
-The app still uses Tangled's public knot and PDS APIs for canonical repo and profile data. The API project adds two complementary capabilities:
+The app still reads canonical repo and profile data from Tangled and AT Protocol APIs.
+The API adds:
 
-1. Global search over indexed Tangled content
-2. Index-backed summaries for data that is hard to derive from the public API alone, such as followers
+1. network-wide search over indexed Tangled content
+2. index-backed summaries that are hard to derive from public APIs alone
 
-That keeps direct browsing honest while giving the client one place to ask for cross-network discovery and graph augmentation.
+The backend now targets PostgreSQL for both local and remote deployments.
 
 ## Development
 
-Use the top-level [`justfile`](justfile) for common workflows (`just --list` to view)
-
-Use `apps/twisted/.env.local` for machine-local overrides such as a localhost API or OAuth callback.
-
-## Run Locally
-
-Install dependencies once from the repo root:
+Install JS dependencies once:
 
 ```bash
 pnpm install
 ```
 
-Start the Ionic/Vite app:
+Default local database URL:
 
 ```bash
-pnpm dev # or: just dev
+postgresql://localhost/${USER}_dev?sslmode=disable
 ```
 
-That serves the client from `apps/twisted` with Vite.
+That matches the Postgres.app-style local workflow and also matches the repo's
+`docker-compose.dev.yaml` if you want disposable local Postgres and Tap
+containers instead.
 
-To run the Go API locally for routine experimentation, no Turso credentials are required.
-
-Start the API in local file mode:
+Start the local database:
 
 ```bash
-pnpm api:run:api # or: just api-dev
+just db-up
 ```
 
-This serves the API and search site on `http://localhost:8080` using
-`packages/api/twister-dev.db`.
-
-To run the API against remote Turso instead:
+Run the mobile app:
 
 ```bash
-just api-dev remote
+pnpm dev
+```
+
+Run the API against local Postgres:
+
+```bash
+just api-dev
+```
+
+Run the indexer against local Postgres:
+
+```bash
+just api-run-indexer
+```
+
+Use `just api-dev sqlite` or `just api-run-indexer sqlite` only for the
+temporary SQLite rollback path.
+
+If you want the app to call the local API, put this in `apps/twisted/.env.local`:
+
+```bash
+VITE_TWISTER_API_BASE_URL=http://localhost:8080
 ```
 
 Run the API smoke checks from the repo root:
@@ -62,42 +75,20 @@ Run the API smoke checks from the repo root:
 uv run --project packages/scripts/api twister-api-smoke
 ```
 
-To verify admin endpoints as well, ensure `ADMIN_AUTH_TOKEN` is present in the
-environment before running the smoke script.
+If `ADMIN_AUTH_TOKEN` is present, the smoke script also checks admin status.
 
-To run the indexer in local file mode as well:
+## Deployment
 
-```bash
-pnpm api:run:indexer # or: just api-run-indexer
-```
+Production deployment now uses Coolify plus a separate Coolify-managed
+PostgreSQL instance. The backend services are defined in
+`docker-compose.prod.yaml`.
 
-To run the indexer against remote Turso, `packages/api/.env` needs:
-
-- `TAP_URL`
-- `TAP_AUTH_PASSWORD`
-- `INDEXED_COLLECTIONS`
-
-```bash
-just api-run-indexer remote
-```
-
-Typical local setup is three terminals:
-
-1. `pnpm dev`
-2. `pnpm api:run:api`
-3. `pnpm api:run:indexer`
-
-If you want the app to call the local API, put this in `apps/twisted/.env.local`:
-
-```bash
-VITE_TWISTER_API_BASE_URL=http://localhost:8080
-```
-
-Dev builds keep the current OAuth flow available. Production builds are read-only
-and hide auth entry points for now.
+See [`docs/reference/deployment-walkthrough.md`](docs/reference/deployment-walkthrough.md)
+for the full setup, bootstrap, backup, and cutover flow.
 
 ## Attributions
 
-This project relies heavily on the work of the [Tangled team](https://tangled.org/tangled.org) (duh)
-and the infrastructure made available by [microcosm](https://microcosm.blue), specifically
-Lightrail and Constellation.
+This project relies heavily on the work of the
+[Tangled team](https://tangled.org/tangled.org) and the infrastructure made
+available by [microcosm](https://microcosm.blue), especially Lightrail and
+Constellation.

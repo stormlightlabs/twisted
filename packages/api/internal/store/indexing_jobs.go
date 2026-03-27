@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (s *SQLStore) GetIndexingJob(ctx context.Context, documentID string) (*IndexingJob, error) {
+func (s *SQLiteStore) GetIndexingJob(ctx context.Context, documentID string) (*IndexingJob, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT document_id, did, collection, rkey, cid, record_json, source,
 		       attempts, status, COALESCE(last_error, ''), scheduled_at, updated_at,
@@ -28,7 +28,7 @@ func (s *SQLStore) GetIndexingJob(ctx context.Context, documentID string) (*Inde
 	return job, nil
 }
 
-func (s *SQLStore) EnqueueIndexingJob(ctx context.Context, input IndexingJobInput) error {
+func (s *SQLiteStore) EnqueueIndexingJob(ctx context.Context, input IndexingJobInput) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	source := strings.TrimSpace(input.Source)
 	if source == "" {
@@ -64,7 +64,7 @@ func (s *SQLStore) EnqueueIndexingJob(ctx context.Context, input IndexingJobInpu
 	return nil
 }
 
-func (s *SQLStore) ClaimIndexingJob(
+func (s *SQLiteStore) ClaimIndexingJob(
 	ctx context.Context, workerID string, leaseUntil string,
 ) (*IndexingJob, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -131,7 +131,7 @@ func (s *SQLStore) ClaimIndexingJob(
 	return job, nil
 }
 
-func (s *SQLStore) CompleteIndexingJob(ctx context.Context, documentID string) error {
+func (s *SQLiteStore) CompleteIndexingJob(ctx context.Context, documentID string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE indexing_jobs
@@ -146,7 +146,7 @@ func (s *SQLStore) CompleteIndexingJob(ctx context.Context, documentID string) e
 	return nil
 }
 
-func (s *SQLStore) RetryIndexingJob(
+func (s *SQLiteStore) RetryIndexingJob(
 	ctx context.Context, documentID string, nextScheduledAt string, lastError string,
 ) error {
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -163,7 +163,7 @@ func (s *SQLStore) RetryIndexingJob(
 	return nil
 }
 
-func (s *SQLStore) FailIndexingJob(
+func (s *SQLiteStore) FailIndexingJob(
 	ctx context.Context, documentID string, status string, lastError string,
 ) error {
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -180,7 +180,7 @@ func (s *SQLStore) FailIndexingJob(
 	return nil
 }
 
-func (s *SQLStore) ListIndexingJobs(
+func (s *SQLiteStore) ListIndexingJobs(
 	ctx context.Context, filter IndexingJobFilter,
 ) ([]*IndexingJob, error) {
 	query := `
@@ -237,7 +237,7 @@ func (s *SQLStore) ListIndexingJobs(
 	return jobs, nil
 }
 
-func (s *SQLStore) GetIndexingJobStats(ctx context.Context) (*IndexingJobStats, error) {
+func (s *SQLiteStore) GetIndexingJobStats(ctx context.Context) (*IndexingJobStats, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE status = ?),

@@ -1,143 +1,125 @@
 # Deployment Walkthrough
 
-This repo maps cleanly to Railway, but only for the backend pieces.
+Twisted deploys to Coolify as one Compose application with three services:
 
-- Deploy `packages/api` to Railway as two services: `api` and `indexer`.
-- Keep the Ionic + Capacitor app on your machine or in CI for native builds.
-- Point the mobile app at the Railway `api` service with
-  `VITE_TWISTER_API_BASE_URL`.
+- `api`: public HTTP service
+- `indexer`: private Tap consumer
+- `tap`: private Indigo Tap service
 
-## What Railway Should Host
+PostgreSQL is a separate Coolify-managed resource.
 
-Railway is a good home for the Go services in this repo:
+## Files
 
-- `api`: serves HTTP routes, docs, search, proxies, and readiness checks
-- `indexer`: consumes Tap, writes into Turso, and exposes its own health endpoint
-Railway is not the place that ships the native iOS or Android app. You still
-build, sign, and distribute the Capacitor shells separately.
+- production compose: `docker-compose.prod.yaml`
+- local dev compose: `docker-compose.dev.yaml`
+- app image build: `packages/api/Dockerfile`
+- Tap image: `ghcr.io/bluesky-social/indigo/tap:sha-4f47add43060c27e8a37d9d76482ecddf001fcd8`
 
 ## Prerequisites
 
-Before you start, have these ready:
+- Coolify access
+- one Coolify PostgreSQL resource
+- this repo connected to Coolify
+- explicit `INDEXED_COLLECTIONS` and `READ_THROUGH_COLLECTIONS`
+- one shared Tap admin password
 
-- a Railway account and the Railway CLI
-- a Turso database URL and auth token
-- a Tap URL and Tap auth password
-From this machine:
+## Provision PostgreSQL
 
-```sh
-cd /Users/owais/Projects/Twisted
-railway login
-```
+Create the PostgreSQL resource first.
 
-## Create The Railway Project
+- keep the generated connection string in Coolify secrets as `DATABASE_URL`
+- use PostgreSQL backups from the database resource
+- point both `api` and `indexer` at the same database
 
-In the Railway dashboard, create one empty project with two empty services:
+## Create The Coolify App
 
-- `api`
-- `indexer`
-Then link this repo to that project:
+In Coolify:
 
-```sh
-cd /Users/owais/Projects/Twisted
-railway link
-```
+1. create a new Application
+2. choose the Docker Compose build pack
+3. point it at this repo
+4. set base directory to `/`
+5. set compose file location to `/docker-compose.prod.yaml`
 
-## Configure Service Shape
+Do not add your own Traefik container. Coolify already provides the proxy.
 
-Both services should deploy from the same local path:
+## Set Environment Variables
 
-- path: `packages/api`
-- build source: `packages/api/Dockerfile`
-Set the service start commands in Railway:
-- `api`: `twister api`
-- `indexer`: `twister indexer`
-The checked-in Dockerfile already builds the `twister` binary.
+Shared:
 
-## Set Variables
-
-Use shared variables for values both services need:
-
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
+- `DATABASE_URL`
+- `INDEXED_COLLECTIONS`
 - `LOG_LEVEL=info`
 - `LOG_FORMAT=json`
-Set these on `api`:
-- `HTTP_BIND_ADDR=0.0.0.0:${{ PORT }}`
+- `TAP_AUTH_PASSWORD=<required>`
+
+`api`:
+
+- `HTTP_BIND_ADDR=:8080`
 - `SEARCH_DEFAULT_LIMIT=20`
 - `SEARCH_MAX_LIMIT=100`
 - `READ_THROUGH_MODE=missing`
-- `READ_THROUGH_COLLECTIONS=<explicit search collection CSV>`
+- `READ_THROUGH_COLLECTIONS=<explicit CSV>`
 - `READ_THROUGH_MAX_ATTEMPTS=5`
 - `ENABLE_ADMIN_ENDPOINTS=false`
-- `ADMIN_AUTH_TOKEN=<set this if admin routes are enabled>`
-Set these on `indexer`:
-- `INDEXER_HEALTH_ADDR=0.0.0.0:${{ PORT }}`
-- `TAP_URL=<your Tap URL>`
-- `TAP_AUTH_PASSWORD=<your Tap password>`
-- `INDEXED_COLLECTIONS=<matching explicit search collection CSV>`
+- `ADMIN_AUTH_TOKEN=<optional>`
+- `OAUTH_CLIENT_ID=<optional>`
+- `OAUTH_REDIRECT_URIS=<optional CSV>`
+
+`indexer`:
+
+- `INDEXER_HEALTH_ADDR=:9090`
+- `TAP_URL=ws://tap:2480/channel`
 - `ENABLE_INGEST_ENRICHMENT=true`
-Do not use `sh.tangled.*` for those allowlists. Match the Lightrail-backed
-search collection set and leave `sh.tangled.graph.follow` out.
-Optional OAuth variables for a Railway-hosted web client metadata endpoint:
-- `OAUTH_CLIENT_ID`
-- `OAUTH_REDIRECT_URIS`
-The `${{ PORT }}` reference matters. Railway health checks run against the
-service port it injects, so the process must listen on that port.
 
-## Deploy From This Machine
+`tap`:
 
-From the repo root, deploy `packages/api` into each Railway service:
+- `TAP_COLLECTION_FILTERS=<optional explicit CSV>`
+- optional persistent volume override if you do not want the default `/data`
 
-```sh
-cd /Users/owais/Projects/Twisted
-railway up packages/api --path-as-root --service api
-railway up packages/api --path-as-root --service indexer
-```
+Use explicit search collections. Do not use `sh.tangled.*` in production.
 
-`--path-as-root` is important in this monorepo. It makes `packages/api` the
-deployment root instead of archiving the whole repo.
+## Domains And Health Checks
 
-## Configure Health Checks
+Expose only `api` publicly.
 
-Set the health check path in Railway for each service:
-
-- `api`: `/readyz`
-- `indexer`: `/health`
-`/readyz` is the better API check because it verifies database reachability.
+- assign the domain in Coolify to the `api` service
+- if `api` stays on `:8080`, include that internal port in the Coolify mapping
+- configure readiness checks against `GET /readyz`
+- keep `indexer` and `tap` private
+- monitor `indexer` with `GET /health`
 
 ## First Bootstrap
 
-A fresh environment is not search-ready just because the services booted.
-
-1. Deploy `api`.
-2. Deploy `indexer`.
-3. Confirm the `api` domain returns `200` from `/readyz`.
-4. Confirm the `indexer` returns `200` from `/health`.
-5. Run the initial backfill against the same Turso and Tap environment.
-Use Railway shell so the command runs inside the live `indexer` environment:
+1. deploy `tap`
+2. deploy `api`
+3. deploy `indexer`
+4. confirm `api` returns `200` from `/readyz`
+5. confirm `indexer` returns `200` from `/health`
+6. confirm `indexer` can reach `ws://tap:2480/channel`
+7. open a Coolify terminal in the `indexer` service and run:
 
 ```sh
-cd /Users/owais/Projects/Twisted
-railway link # Select indexer service if prompted
-railway shell
-twister backfill --source lightrail
+twister backfill
+twister enrich
+twister reindex
 ```
 
-Do not call the environment ready until that first backfill has completed.
+This rebuilds the serving dataset from authoritative sources. Do not import the
+old Turso data as the default migration path.
 
-## Point The App At Railway
+## Point The App At Coolify
 
-For local app builds, set the Railway API URL in `apps/twisted/.env`:
+For local app builds:
 
 ```sh
 VITE_TWISTER_API_BASE_URL=https://<your-api-domain>
 ```
 
-Then build or run the app as usual:
+Then run the app normally with `pnpm --dir apps/twisted dev` or `build`.
 
-```sh
-pnpm --dir apps/twisted dev
-pnpm --dir apps/twisted build
-pnpm --dir apps/twisted exec cap sync
-```
+## Rollback Notes
+
+- keep the SQLite `--local` path only as a temporary development fallback
+- rollback production by restoring PostgreSQL and redeploying the prior app
+- treat PostgreSQL restore as the database rollback primitive

@@ -157,7 +157,7 @@ func (f *fakeStore) ListDocuments(_ context.Context, _ store.DocumentFilter) ([]
 	return docs, nil
 }
 
-func (f *fakeStore) OptimizeFTS(_ context.Context) error {
+func (f *fakeStore) OptimizeSearchIndex(_ context.Context) error {
 	return nil
 }
 

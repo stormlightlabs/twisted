@@ -109,7 +109,7 @@ type Store interface {
 	GetDocument(ctx context.Context, id string) (*Document, error)
 	MarkDeleted(ctx context.Context, id string) error
 	ListDocuments(ctx context.Context, filter DocumentFilter) ([]*Document, error)
-	OptimizeFTS(ctx context.Context) error
+	OptimizeSearchIndex(ctx context.Context) error
 	GetSyncState(ctx context.Context, consumer string) (*SyncState, error)
 	SetSyncState(ctx context.Context, consumer string, cursor string) error
 	UpdateRecordState(ctx context.Context, subjectURI string, state string) error

@@ -1,20 +1,19 @@
 {{define "title"}}Search &mdash; Twister API{{end}}
 {{define "content"}}
 <h1>Search</h1>
-<p>Search endpoints run FTS5 keyword queries over indexed Tangled documents.
-Results include highlighted body snippets and BM25 relevance scores. If
-Constellation is configured, repository results are enriched with star counts.</p>
+<p>Search endpoints run PostgreSQL full-text queries over indexed Tangled
+documents. Results include highlighted snippets and weighted relevance scores.
+If Constellation is configured, repository results are enriched with star counts.</p>
 {{range .}}{{template "doc-entry" .}}{{end}}
 <h2>Query syntax</h2>
-<p>The keyword search uses SQLite FTS5 query syntax:</p>
+<p>The keyword search uses PostgreSQL web-style query parsing:</p>
 <table>
   <thead><tr><th>Feature</th><th>Example</th></tr></thead>
   <tbody>
-    <tr><td>Boolean AND</td><td><code>go AND search</code></td></tr>
-    <tr><td>Boolean NOT</td><td><code>rust NOT unsafe</code></td></tr>
+    <tr><td>Simple terms</td><td><code>go search</code></td></tr>
+    <tr><td>Exclude term</td><td><code>rust -unsafe</code></td></tr>
     <tr><td>Phrase</td><td><code>"pull request"</code></td></tr>
-    <tr><td>Prefix</td><td><code>tang*</code></td></tr>
-    <tr><td>Field-scoped</td><td><code>title:parser</code></td></tr>
+    <tr><td>Natural-language</td><td><code>repo issue parser</code></td></tr>
   </tbody>
 </table>
 <h2>Errors</h2>

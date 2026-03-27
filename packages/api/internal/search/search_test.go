@@ -10,12 +10,12 @@ import (
 	"tangled.org/desertthunder.dev/twister/internal/store"
 )
 
-func TestKeywordSearchUsesFTS5Index(t *testing.T) {
+func TestKeywordSearchUsesLegacySQLiteSearchIndex(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "search.db")
 	url := "file:" + dbPath
 
-	db, err := store.Open(url, "")
+	db, err := store.Open(url)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -28,8 +28,8 @@ func TestKeywordSearchUsesFTS5Index(t *testing.T) {
 		t.Fatalf("migrate: %v", err)
 	}
 
-	st := store.New(db)
-	repo := search.NewRepository(db)
+	st := store.New(url, db)
+	repo := search.NewRepository(url, db)
 	ctx := context.Background()
 
 	doc := &store.Document{

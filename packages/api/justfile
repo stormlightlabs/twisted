@@ -5,25 +5,33 @@ ldflags := "-s -w -X main.version=" + version + " -X main.commit=" + commit
 build:
     CGO_ENABLED=0 go build -ldflags "{{ldflags}}" -o twister ./main.go
 
-# Run the API server. Usage: just run-api [mode], mode: local|remote (default local)
+# Run the API server. Usage: just run-api [mode], mode: local|remote|sqlite (default local)
 run-api mode="local":
     if [ "{{mode}}" = "local" ]; then \
-        go run -ldflags "{{ldflags}}" ./main.go api --local; \
+        DATABASE_URL="postgresql://localhost/${USER:-postgres}_dev?sslmode=disable" \
+        go run -ldflags "{{ldflags}}" ./main.go api; \
     elif [ "{{mode}}" = "remote" ]; then \
         go run -ldflags "{{ldflags}}" ./main.go api; \
+    elif [ "{{mode}}" = "sqlite" ]; then \
+        go run -ldflags "{{ldflags}}" ./main.go api --local; \
     else \
-        echo "invalid mode '{{mode}}' (expected local or remote)" >&2; \
+        echo "invalid mode '{{mode}}' (expected local, remote, or sqlite)" >&2; \
         exit 1; \
     fi
 
-# Run the indexer. Usage: just run-indexer [mode], mode: local|remote (default local)
+# Run the indexer. Usage: just run-indexer [mode], mode: local|remote|sqlite (default local)
 run-indexer mode="local":
     if [ "{{mode}}" = "local" ]; then \
-        go run -ldflags "{{ldflags}}" ./main.go indexer --local; \
+        DATABASE_URL="postgresql://localhost/${USER:-postgres}_dev?sslmode=disable" \
+        TAP_URL="${TAP_URL:-ws://localhost:2480/channel}" \
+        TAP_AUTH_PASSWORD="${TAP_AUTH_PASSWORD:-twisted-dev}" \
+        go run -ldflags "{{ldflags}}" ./main.go indexer; \
     elif [ "{{mode}}" = "remote" ]; then \
         go run -ldflags "{{ldflags}}" ./main.go indexer; \
+    elif [ "{{mode}}" = "sqlite" ]; then \
+        go run -ldflags "{{ldflags}}" ./main.go indexer --local; \
     else \
-        echo "invalid mode '{{mode}}' (expected local or remote)" >&2; \
+        echo "invalid mode '{{mode}}' (expected local, remote, or sqlite)" >&2; \
         exit 1; \
     fi
 

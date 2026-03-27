@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (s *SQLStore) AppendIndexingAudit(ctx context.Context, input IndexingAuditInput) error {
+func (s *SQLiteStore) AppendIndexingAudit(ctx context.Context, input IndexingAuditInput) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO indexing_audit (
@@ -21,7 +21,7 @@ func (s *SQLStore) AppendIndexingAudit(ctx context.Context, input IndexingAuditI
 	return nil
 }
 
-func (s *SQLStore) ListIndexingAudit(
+func (s *SQLiteStore) ListIndexingAudit(
 	ctx context.Context, filter IndexingAuditFilter,
 ) ([]*IndexingAuditEntry, error) {
 	query := `

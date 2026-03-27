@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -12,8 +13,7 @@ import (
 )
 
 type Config struct {
-	TursoURL                   string
-	TursoToken                 string
+	DatabaseURL                string
 	TapURL                     string
 	TapAuthPassword            string
 	IndexedCollections         string
@@ -54,8 +54,7 @@ func Load(opts LoadOptions) (*Config, error) {
 	loadDotEnv()
 
 	cfg := &Config{
-		TursoURL:                   os.Getenv("TURSO_DATABASE_URL"),
-		TursoToken:                 os.Getenv("TURSO_AUTH_TOKEN"),
+		DatabaseURL:                databaseURL(),
 		TapURL:                     os.Getenv("TAP_URL"),
 		TapAuthPassword:            os.Getenv("TAP_AUTH_PASSWORD"),
 		IndexedCollections:         os.Getenv("INDEXED_COLLECTIONS"),
@@ -88,21 +87,17 @@ func Load(opts LoadOptions) (*Config, error) {
 	}
 
 	if opts.Local {
-		dbURL, err := localDatabaseURL(opts.WorkDir)
+		dbURL, err := localSQLiteDatabaseURL(opts.WorkDir)
 		if err != nil {
 			return nil, err
 		}
-		cfg.TursoURL = dbURL
-		cfg.TursoToken = ""
+		cfg.DatabaseURL = dbURL
 		cfg.LogFormat = "text"
 	}
 
 	var errs []error
-	if cfg.TursoURL == "" {
-		errs = append(errs, errors.New("TURSO_DATABASE_URL is required"))
-	}
-	if cfg.TursoToken == "" && !strings.HasPrefix(cfg.TursoURL, "file:") {
-		errs = append(errs, errors.New("TURSO_AUTH_TOKEN is required for non-file URLs"))
+	if cfg.DatabaseURL == "" {
+		errs = append(errs, errors.New("DATABASE_URL is required"))
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
@@ -110,7 +105,7 @@ func Load(opts LoadOptions) (*Config, error) {
 	return cfg, nil
 }
 
-func localDatabaseURL(workDir string) (string, error) {
+func localSQLiteDatabaseURL(workDir string) (string, error) {
 	if strings.TrimSpace(workDir) == "" {
 		var err error
 		workDir, err = os.Getwd()
@@ -119,6 +114,29 @@ func localDatabaseURL(workDir string) (string, error) {
 		}
 	}
 	return "file:" + filepath.Join(workDir, "twister-dev.db"), nil
+}
+
+func databaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("DATABASE_URL")); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(os.Getenv("TURSO_DATABASE_URL")); v != "" {
+		return v
+	}
+	return defaultLocalDatabaseURL()
+}
+
+func defaultLocalDatabaseURL() string {
+	userName := strings.TrimSpace(os.Getenv("USER"))
+	if userName == "" {
+		if current, err := user.Current(); err == nil {
+			userName = strings.TrimSpace(current.Username)
+		}
+	}
+	if userName == "" {
+		userName = "postgres"
+	}
+	return "postgresql://localhost/" + userName + "_dev?sslmode=disable"
 }
 
 func loadDotEnv() {

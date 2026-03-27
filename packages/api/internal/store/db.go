@@ -9,32 +9,48 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/tursodatabase/libsql-client-go/libsql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*.sql migrations_postgres/*.sql
 var migrationsFS embed.FS
 
+type Backend string
+
+const (
+	BackendPostgres Backend = "postgres"
+	BackendSQLite   Backend = "sqlite"
+)
+
 type migrationMode struct {
-	allowTursoExtensionSkip bool
-	targetDescription       string
+	backend           Backend
+	targetDescription string
+}
+
+// DetectBackend returns the configured database backend for the given URL.
+func DetectBackend(url string) Backend {
+	if strings.HasPrefix(url, "file:") {
+		return BackendSQLite
+	}
+	return BackendPostgres
 }
 
 // Open establishes a connection to the database.
-// For remote Turso URLs (libsql:// or https://) it uses the libsql-client-go driver.
-// For local file: URLs it uses the pure-Go SQLite driver (no CGo required).
-func Open(url, token string) (*sql.DB, error) {
-	driver, dsn := driverAndDSN(url, token)
+func Open(url string) (*sql.DB, error) {
+	driver, dsn := driverAndDSN(url)
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
-	if strings.HasPrefix(url, "file:") {
+	switch DetectBackend(url) {
+	case BackendSQLite:
 		if err := configureLocalSQLite(db); err != nil {
 			db.Close()
 			return nil, err
 		}
+	case BackendPostgres:
+		configurePostgresPool(db)
 	}
 	if err := db.Ping(); err != nil {
 		db.Close()
@@ -44,11 +60,9 @@ func Open(url, token string) (*sql.DB, error) {
 }
 
 func configureLocalSQLite(db *sql.DB) error {
-	// Busy timeout gives the writer a window to wait instead of failing fast with "database is locked".
 	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
 		return fmt.Errorf("configure sqlite busy_timeout: %w", err)
 	}
-	// WAL mode allows concurrent readers with a writer and is the default for multi-process local dev.
 	if _, err := db.Exec(`PRAGMA journal_mode = WAL`); err != nil {
 		return fmt.Errorf("configure sqlite wal mode: %w", err)
 	}
@@ -63,22 +77,31 @@ func configureLocalSQLite(db *sql.DB) error {
 	return nil
 }
 
-// driverAndDSN returns the sql driver name and DSN for the given URL.
-// file: URLs use the pure-Go "sqlite" driver; all others use "libsql".
-func driverAndDSN(url, token string) (driver, dsn string) {
+func configurePostgresPool(db *sql.DB) {
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(30 * time.Minute)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+}
+
+func driverAndDSN(url string) (driver, dsn string) {
 	if strings.HasPrefix(url, "file:") {
 		return "sqlite", strings.TrimPrefix(url, "file:")
 	}
-	if token == "" || strings.Contains(url, "?") {
-		return "libsql", url
-	}
-	return "libsql", url + "?authToken=" + token
+	return "pgx", url
 }
 
-// Migrate runs all embedded SQL migration files in order, skipping any that
-// have already been applied. Applied filenames are recorded in the
-// schema_migrations table so re-runs are idempotent.
+// Migrate runs embedded SQL migrations for the selected backend.
 func Migrate(db *sql.DB, url string) error {
+	switch DetectBackend(url) {
+	case BackendSQLite:
+		return migrateSQLite(db, url)
+	default:
+		return migratePostgres(db)
+	}
+}
+
+func migrateSQLite(db *sql.DB, url string) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 		filename   TEXT PRIMARY KEY,
 		applied_at TEXT NOT NULL
@@ -86,15 +109,34 @@ func Migrate(db *sql.DB, url string) error {
 		return fmt.Errorf("create schema_migrations table: %w", err)
 	}
 
-	if err := backfillMigrationHistory(db); err != nil {
+	if err := backfillSQLiteMigrationHistory(db); err != nil {
 		return fmt.Errorf("backfill migration history: %w", err)
 	}
 
 	mode := migrationMode{
-		allowTursoExtensionSkip: strings.HasPrefix(url, "file:"),
-		targetDescription:       migrationTargetDescription(url),
+		backend:           BackendSQLite,
+		targetDescription: migrationTargetDescription(url),
 	}
-	entries, err := migrationsFS.ReadDir("migrations")
+	return runMigrations(db, "migrations", "?", mode)
+}
+
+func migratePostgres(db *sql.DB) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		filename   TEXT PRIMARY KEY,
+		applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	)`); err != nil {
+		return fmt.Errorf("create schema_migrations table: %w", err)
+	}
+
+	mode := migrationMode{
+		backend:           BackendPostgres,
+		targetDescription: "postgresql",
+	}
+	return runMigrations(db, "migrations_postgres", "$", mode)
+}
+
+func runMigrations(db *sql.DB, dir, placeholderPrefix string, mode migrationMode) error {
+	entries, err := migrationsFS.ReadDir(dir)
 	if err != nil {
 		return fmt.Errorf("read migrations dir: %w", err)
 	}
@@ -105,23 +147,34 @@ func Migrate(db *sql.DB, url string) error {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
+
 		var already int
-		_ = db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE filename = ?`, entry.Name()).Scan(&already)
+		query := `SELECT COUNT(*) FROM schema_migrations WHERE filename = ?`
+		args := []any{entry.Name()}
+		if placeholderPrefix == "$" {
+			query = `SELECT COUNT(*) FROM schema_migrations WHERE filename = $1`
+		}
+		if err := db.QueryRow(query, args...).Scan(&already); err != nil {
+			return fmt.Errorf("check migration %s: %w", entry.Name(), err)
+		}
 		if already > 0 {
 			slog.Debug("migration already applied, skipping", "file", entry.Name())
 			continue
 		}
-		data, err := migrationsFS.ReadFile("migrations/" + entry.Name())
+
+		data, err := migrationsFS.ReadFile(dir + "/" + entry.Name())
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
 		}
 		if err := execMigration(db, entry.Name(), string(data), mode); err != nil {
 			return err
 		}
-		if _, err := db.Exec(
-			`INSERT INTO schema_migrations (filename, applied_at) VALUES (?, datetime('now'))`,
-			entry.Name(),
-		); err != nil {
+
+		insert := `INSERT INTO schema_migrations (filename, applied_at) VALUES (?, datetime('now'))`
+		if placeholderPrefix == "$" {
+			insert = `INSERT INTO schema_migrations (filename) VALUES ($1)`
+		}
+		if _, err := db.Exec(insert, entry.Name()); err != nil {
 			return fmt.Errorf("record migration %s: %w", entry.Name(), err)
 		}
 		slog.Info("migration applied", "file", entry.Name())
@@ -129,10 +182,7 @@ func Migrate(db *sql.DB, url string) error {
 	return nil
 }
 
-// backfillMigrationHistory records already-applied migrations for databases
-// that pre-date the schema_migrations tracking table. It is a no-op if the
-// table already has any entries (i.e. tracking was already in place).
-func backfillMigrationHistory(db *sql.DB) error {
+func backfillSQLiteMigrationHistory(db *sql.DB) error {
 	var count int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil || count > 0 {
 		return nil
@@ -154,15 +204,12 @@ func backfillMigrationHistory(db *sql.DB) error {
 	if sqliteTableExists(db, "identity_handles") {
 		mark("002_identity_handles.sql")
 	}
-
 	if sqliteTableExists(db, "documents_fts") {
-		mark("003_documents_fts.sql")
+		mark("003_documents_fts5.sql")
 	}
-
 	if sqliteColumnExists(db, "documents", "web_url") {
 		mark("004_web_url.sql")
 	}
-
 	return nil
 }
 
@@ -185,18 +232,21 @@ func sqliteColumnExists(db *sql.DB, table, column string) bool {
 func execMigration(db *sql.DB, name, content string, mode migrationMode) error {
 	for _, stmt := range splitStatements(content) {
 		if _, err := db.Exec(stmt); err != nil {
-			upper := strings.ToUpper(stmt)
-			if strings.Contains(upper, "LIBSQL_VECTOR_IDX") {
-				slog.Debug("migration: skipping unsupported vector index DDL",
-					"migration", name,
-				)
-				continue
-			}
-			if strings.Contains(upper, "CREATE VIRTUAL TABLE") && strings.Contains(upper, "USING FTS5") {
-				return fmt.Errorf(
-					"migration %s: SQLite FTS5 statement failed on %s: %w\nstatement: %s\nhint: this app uses SQLite FTS5 on Turso Cloud. Enable SQLite extensions for the Turso group/database before rerunning the service",
-					name, mode.targetDescription, err, stmt,
-				)
+			if mode.backend == BackendSQLite {
+				upper := strings.ToUpper(stmt)
+				if strings.Contains(upper, "LIBSQL_VECTOR_IDX") {
+					slog.Debug("migration: skipping unsupported vector index DDL",
+						"migration", name,
+					)
+					continue
+				}
+				if strings.Contains(upper, "CREATE VIRTUAL TABLE") &&
+					strings.Contains(upper, "USING FTS5") {
+					return fmt.Errorf(
+						"migration %s: SQLite FTS5 statement failed on %s: %w\nstatement: %s",
+						name, mode.targetDescription, err, stmt,
+					)
+				}
 			}
 			return fmt.Errorf("migration %s: exec failed: %w\nstatement: %s", name, err, stmt)
 		}
@@ -205,13 +255,11 @@ func execMigration(db *sql.DB, name, content string, mode migrationMode) error {
 }
 
 func migrationTargetDescription(url string) string {
-	switch {
-	case strings.HasPrefix(url, "file:"):
+	switch DetectBackend(url) {
+	case BackendSQLite:
 		return "local SQLite"
-	case strings.HasPrefix(url, "libsql://"), strings.HasPrefix(url, "https://"):
-		return "remote Turso/libSQL"
 	default:
-		return "database"
+		return "postgresql"
 	}
 }
 

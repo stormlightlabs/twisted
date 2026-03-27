@@ -6,12 +6,32 @@
     "summary": "Unified search across all indexed Tangled documents.",
     "details": "Delegates to keyword search. The mode parameter is accepted but only \"keyword\" is supported.",
     "queryParams": [
-      { "name": "q", "type": "string", "required": true, "description": "Search query. Supports boolean operators, phrases, and prefix matching." },
-      { "name": "mode", "type": "string", "required": false, "description": "Search mode. Only \"keyword\" is supported." },
+      {
+        "name": "q",
+        "type": "string",
+        "required": true,
+        "description": "Search query. Supports boolean operators, phrases, and prefix matching."
+      },
+      {
+        "name": "mode",
+        "type": "string",
+        "required": false,
+        "description": "Search mode. Only \"keyword\" is supported."
+      },
       { "name": "limit", "type": "int", "required": false, "description": "Results per page (1–100). Default 20." },
       { "name": "offset", "type": "int", "required": false, "description": "Pagination offset. Default 0." },
-      { "name": "collection", "type": "string", "required": false, "description": "Filter by ATProto collection NSID." },
-      { "name": "type", "type": "string", "required": false, "description": "Filter by record type: repo, issue, pull, profile, string." },
+      {
+        "name": "collection",
+        "type": "string",
+        "required": false,
+        "description": "Filter by ATProto collection NSID."
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "required": false,
+        "description": "Filter by record type: repo, issue, pull, profile, string."
+      },
       { "name": "author", "type": "string", "required": false, "description": "Filter by author handle or DID." },
       { "name": "repo", "type": "string", "required": false, "description": "Filter by repository name." },
       { "name": "language", "type": "string", "required": false, "description": "Filter by programming language." },
@@ -24,14 +44,29 @@
     "page": "search",
     "route": "/search/keyword",
     "method": "GET",
-    "summary": "FTS5 keyword search over indexed Tangled documents.",
+    "summary": "PostgreSQL full-text keyword search over indexed Tangled documents.",
     "details": "Same parameters and response shape as GET /search. Use this route to bypass mode negotiation.",
     "queryParams": [
-      { "name": "q", "type": "string", "required": true, "description": "Search query. Supports boolean operators, phrases, and prefix matching." },
+      {
+        "name": "q",
+        "type": "string",
+        "required": true,
+        "description": "Search query. Supports boolean operators, phrases, and prefix matching."
+      },
       { "name": "limit", "type": "int", "required": false, "description": "Results per page (1–100). Default 20." },
       { "name": "offset", "type": "int", "required": false, "description": "Pagination offset. Default 0." },
-      { "name": "collection", "type": "string", "required": false, "description": "Filter by ATProto collection NSID." },
-      { "name": "type", "type": "string", "required": false, "description": "Filter by record type: repo, issue, pull, profile, string." },
+      {
+        "name": "collection",
+        "type": "string",
+        "required": false,
+        "description": "Filter by ATProto collection NSID."
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "required": false,
+        "description": "Filter by record type: repo, issue, pull, profile, string."
+      },
       { "name": "author", "type": "string", "required": false, "description": "Filter by author handle or DID." },
       { "name": "repo", "type": "string", "required": false, "description": "Filter by repository name." },
       { "name": "language", "type": "string", "required": false, "description": "Filter by programming language." },
@@ -46,9 +81,7 @@
     "method": "GET",
     "summary": "Fetch a single indexed document by its stable ID.",
     "details": "The document ID has the format did|collection|rkey. Deleted documents return 404.",
-    "pathParams": [
-      { "name": "id", "type": "string", "description": "Stable document ID (did|collection|rkey)." }
-    ]
+    "pathParams": [{ "name": "id", "type": "string", "description": "Stable document ID (did|collection|rkey)." }]
   },
   {
     "page": "actors",
@@ -56,18 +89,14 @@
     "method": "GET",
     "summary": "Tangled actor profile with optional Bluesky social data.",
     "details": "Resolves handle to DID, fetches sh.tangled.actor.profile from the actor's PDS. If the profile record has bluesky:true, Bluesky display name and avatar are also returned.",
-    "pathParams": [
-      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
-    ]
+    "pathParams": [{ "name": "handle", "type": "string", "description": "Tangled handle or DID." }]
   },
   {
     "page": "actors",
     "route": "/actors/{handle}/repos",
     "method": "GET",
     "summary": "List all sh.tangled.repo records for an actor.",
-    "pathParams": [
-      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
-    ]
+    "pathParams": [{ "name": "handle", "type": "string", "description": "Tangled handle or DID." }]
   },
   {
     "page": "actors",
@@ -89,7 +118,12 @@
       { "name": "repo", "type": "string", "description": "Repository name." }
     ],
     "queryParams": [
-      { "name": "ref", "type": "string", "required": false, "description": "Branch, tag, or commit SHA. Defaults to default branch." },
+      {
+        "name": "ref",
+        "type": "string",
+        "required": false,
+        "description": "Branch, tag, or commit SHA. Defaults to default branch."
+      },
       { "name": "path", "type": "string", "required": false, "description": "Subdirectory path within the tree." }
     ]
   },
@@ -118,9 +152,19 @@
     ],
     "queryParams": [
       { "name": "ref", "type": "string", "required": false, "description": "Branch, tag, or commit SHA." },
-      { "name": "path", "type": "string", "required": false, "description": "Limit log to commits touching this path." },
+      {
+        "name": "path",
+        "type": "string",
+        "required": false,
+        "description": "Limit log to commits touching this path."
+      },
       { "name": "limit", "type": "int", "required": false, "description": "Max commits to return." },
-      { "name": "cursor", "type": "string", "required": false, "description": "Pagination cursor from a previous response." }
+      {
+        "name": "cursor",
+        "type": "string",
+        "required": false,
+        "description": "Pagination cursor from a previous response."
+      }
     ]
   },
   {
@@ -222,36 +266,28 @@
     "route": "/actors/{handle}/issues",
     "method": "GET",
     "summary": "All issues authored by an actor, pre-joined with state.",
-    "pathParams": [
-      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
-    ]
+    "pathParams": [{ "name": "handle", "type": "string", "description": "Tangled handle or DID." }]
   },
   {
     "page": "actors",
     "route": "/actors/{handle}/pulls",
     "method": "GET",
     "summary": "All pull requests authored by an actor, pre-joined with status.",
-    "pathParams": [
-      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
-    ]
+    "pathParams": [{ "name": "handle", "type": "string", "description": "Tangled handle or DID." }]
   },
   {
     "page": "actors",
     "route": "/actors/{handle}/following",
     "method": "GET",
     "summary": "sh.tangled.graph.follow records for an actor.",
-    "pathParams": [
-      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
-    ]
+    "pathParams": [{ "name": "handle", "type": "string", "description": "Tangled handle or DID." }]
   },
   {
     "page": "actors",
     "route": "/actors/{handle}/strings",
     "method": "GET",
     "summary": "sh.tangled.string records posted by an actor.",
-    "pathParams": [
-      { "name": "handle", "type": "string", "description": "Tangled handle or DID." }
-    ]
+    "pathParams": [{ "name": "handle", "type": "string", "description": "Tangled handle or DID." }]
   },
   {
     "page": "issues",
@@ -313,9 +349,7 @@
     "method": "GET",
     "summary": "Fetch a DID document for did:plc or did:web identifiers.",
     "details": "did:plc resolves via plc.directory. did:web resolves via https://{host}/.well-known/did.json. Other DID methods return 400.",
-    "pathParams": [
-      { "name": "did", "type": "string", "description": "A did:plc:… or did:web:… identifier." }
-    ]
+    "pathParams": [{ "name": "did", "type": "string", "description": "A did:plc:… or did:web:… identifier." }]
   },
   {
     "page": "activity",
@@ -326,8 +360,18 @@
     "queryParams": [
       { "name": "limit", "type": "int", "required": false, "description": "Results per page (1–200). Default 50." },
       { "name": "offset", "type": "int", "required": false, "description": "Pagination offset. Default 0." },
-      { "name": "collection", "type": "string", "required": false, "description": "Filter by ATProto collection NSID." },
-      { "name": "operation", "type": "string", "required": false, "description": "Filter by operation: create, update, delete." },
+      {
+        "name": "collection",
+        "type": "string",
+        "required": false,
+        "description": "Filter by ATProto collection NSID."
+      },
+      {
+        "name": "operation",
+        "type": "string",
+        "required": false,
+        "description": "Filter by operation: create, update, delete."
+      },
       { "name": "did", "type": "string", "required": false, "description": "Filter by actor DID." }
     ]
   },
@@ -344,9 +388,7 @@
     "method": "GET",
     "summary": "Social summary for an actor: follower count via Constellation.",
     "details": "Best-effort — if Constellation is unavailable follower_count is 0 rather than an error.",
-    "pathParams": [
-      { "name": "did", "type": "string", "description": "ATProto DID, e.g. did:plc:abc." }
-    ]
+    "pathParams": [{ "name": "did", "type": "string", "description": "ATProto DID, e.g. did:plc:abc." }]
   },
   {
     "page": "profiles",
@@ -356,7 +398,12 @@
     "details": "Used by the mobile client for star counts (source: sh.tangled.graph.star) and follower counts (source: sh.tangled.graph.follow).",
     "queryParams": [
       { "name": "subject", "type": "string", "required": true, "description": "AT URI or DID being linked to." },
-      { "name": "source", "type": "string", "required": true, "description": "Collection NSID of the backlink records." }
+      {
+        "name": "source",
+        "type": "string",
+        "required": true,
+        "description": "Collection NSID of the backlink records."
+      }
     ]
   },
   {
@@ -387,9 +434,7 @@
     "method": "GET",
     "summary": "Proxy a GET request to the Bluesky public API.",
     "details": "Forwards to https://public.api.bsky.app/xrpc/{nsid}. No authentication is forwarded; only public endpoints are accessible.",
-    "pathParams": [
-      { "name": "nsid", "type": "string", "description": "XRPC NSID to call on the Bluesky public API." }
-    ]
+    "pathParams": [{ "name": "nsid", "type": "string", "description": "XRPC NSID to call on the Bluesky public API." }]
   },
   {
     "page": "health",
@@ -403,6 +448,6 @@
     "route": "/readyz",
     "method": "GET",
     "summary": "Readiness probe. Checks database reachability.",
-    "details": "Executes a test query against the Turso/SQLite database. Returns 503 if the database cannot be reached."
+    "details": "Checks database reachability."
   }
 ]

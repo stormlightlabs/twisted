@@ -1,223 +1,108 @@
 ---
 title: API Service Reference
-updated: 2026-03-24
+updated: 2026-03-26
 ---
 
-Twister is a Go service that indexes Tangled content and serves a search API. It connects to the AT Protocol ecosystem via Tap (firehose consumer), XRPC (direct record lookups), and Constellation (backlink queries), storing indexed data in Turso/libSQL with FTS5 full-text search.
+Twisted is a Go service that indexes Tangled content, serves search, and caches
+recent activity. It uses PostgreSQL for the primary runtime and retains a
+temporary local SQLite fallback behind `--local`.
 
-## Architecture
+## Runtime Modes
 
-The service is a single Go binary with multiple subcommands, each running a different runtime mode. All modes share the same database and configuration layer.
-
-**Runtime modes:**
-
-| Command       | Purpose                                                             |
-| ------------- | ------------------------------------------------------------------- |
-| `api` (serve) | HTTP search API server                                              |
-| `indexer`     | Consumes Tap firehose events, normalizes and indexes records        |
-| `backfill`    | Discovers users from seed files, registers them with Tap            |
-| `enrich`      | Backfills missing metadata (repo names, handles, web URLs) via XRPC |
-| `reindex`     | Re-syncs all documents into the FTS index                           |
-| `healthcheck` | One-shot liveness probe for container orchestration                 |
-
-The `embed-worker` and `reembed` commands exist as stubs for the upcoming semantic search pipeline (Nomic Embed Text v1.5 deployed via Railway template).
-
-All commands accept a `--local` flag that switches to a local SQLite file and text-format logging for development.
+| Command | Purpose |
+| --- | --- |
+| `api` | HTTP API server |
+| `indexer` | Tap consumer and index writer |
+| `backfill` | register repos with Tap |
+| `enrich` | fill missing repo names, handles, and web URLs |
+| `reindex` | re-upsert documents and finalize the search index |
+| `healthcheck` | one-shot config and process probe |
 
 ## HTTP API
 
-The API server binds to `:8080` by default (configurable via `HTTP_BIND_ADDR`). CORS is open (`*` origin, GET/OPTIONS).
+- `GET /healthz` — liveness probe
+- `GET /readyz` — readiness probe, checks database reachability
+- `GET /search` — keyword search
+- `GET /documents/{id}` — fetch one indexed document
+- `GET /admin/status` — cursor and queue state when admin routes are enabled
 
-### Search
+The API also serves the built-in search/docs site from `/` and `/docs*`.
 
-**`GET /search`** — Main search endpoint. Routes to keyword, semantic, or hybrid based on `mode` parameter.
+## Search
 
-**`GET /search/keyword`** — Full-text search via FTS5 with BM25 scoring.
+Keyword search is implemented with PostgreSQL full-text search.
 
-Parameters:
+- weighted fields: title, author handle, repo name, summary, body, tags
+- query parser: `websearch_to_tsquery('simple', ...)`
+- ranking: `ts_rank_cd`
+- snippets: `ts_headline`
 
-- `q` (required) — Query string
-- `limit` (1–100, default 20) — Results per page
-- `offset` (default 0) — Pagination offset
-- `collection` — Filter by AT Protocol collection NSID
-- `type` — Filter by record type (repo, issue, pull, profile, string)
-- `author` — Filter by handle or DID
-- `repo` — Filter by repo name or DID
-- `language` — Filter by primary language
-- `from`, `to` — Date range (ISO 8601)
-- `state` — Filter issues/PRs by state (open, closed, merged)
-- `mode` — Search mode (keyword, semantic, hybrid)
-
-Response includes query metadata, total count, and an array of results each containing: ID, collection, record type, title, summary, body snippet (with `<mark>` highlights), score, repo name, author handle, DID, AT-URI, web URL, and timestamps.
-
-**`GET /documents/{id}`** — Fetch a single document by stable ID.
-
-### Health
-
-- **`GET /healthz`** — Liveness probe, always 200
-- **`GET /readyz`** — Readiness probe, pings database
-
-### Admin
-
-When `ENABLE_ADMIN_ENDPOINTS=true` with a configured `ADMIN_AUTH_TOKEN`:
-
-- **`GET /admin/status`** — Tap cursor, JetStream cursor, document count, and
-  read-through queue status
-- **`GET /admin/indexing/jobs`** — List queue rows, filtered by `status`,
-  `source`, or `document`
-- **`GET /admin/indexing/audit`** — List append-only audit rows, filtered by
-  `source`, `decision`, or `document`
-- **`POST /admin/indexing/enqueue`** — Queue a single record by explicit body
-- **`POST /admin/reindex`** — Trigger FTS re-sync
-
-### Smoke Checks
-
-Smoke checks for the API surface live in `packages/scripts/api/`.
-
-From the repo root:
-
-```sh
-uv run --project packages/scripts/api twister-api-smoke
-```
-
-If `ADMIN_AUTH_TOKEN` is present in the environment, the smoke script can also
-verify `GET /admin/status`.
-
-### Static Content
-
-The API also serves a search site with live search and API documentation at `/` and `/docs*`, built with Alpine.js (no build step, embedded in `internal/view/`).
+Response shape stays the same as the previous FTS5 API. Ranking and snippet
+details are allowed to differ from the SQLite-era implementation.
 
 ## Database
 
-Turso (libSQL) with the following tables:
+Primary backend: PostgreSQL.
 
-**documents** — Core search index. Each record gets a stable ID of `did|collection|rkey`. Stores title, body, summary, metadata (repo name, author handle, web URL, language, tags), and timestamps. Soft-deleted via `deleted_at`.
+Main tables:
 
-**documents_fts** — FTS5 virtual table for full-text search over title, body, summary, repo name, author handle, and tags. Uses `unicode61` tokenizer with tuned BM25 weights (title weighted highest at 2.5, then author handle at 2.0, summary at 1.5).
+- `documents`
+- `sync_state`
+- `identity_handles`
+- `record_state`
+- `indexing_jobs`
+- `indexing_audit`
+- `jetstream_events`
 
-**sync_state** — Cursor tracking for the Tap consumer. Stores consumer name, current cursor, high water mark, and last update time. Enables crash-safe resume.
-
-**identity_handles** — DID-to-handle cache. Updated from Tap identity events and XRPC lookups.
-
-**record_state** — Issue and PR state cache (open/closed/merged). Keyed by subject AT-URI.
-
-**indexing_jobs** — Durable read-through/admin queue with status, lease owner,
-lease expiry, retry counters, and terminal states (`failed`, `dead_letter`).
-
-**indexing_audit** — Append-only record of enqueue decisions, retries, skips,
-completions, and dead letters.
-
-**document_embeddings** — Vector storage (768-dim F32_BLOB with DiskANN cosine index). Schema ready but not yet populated.
-
-**embedding_jobs** — Async embedding job queue. Schema ready but worker not yet active.
-
-## Indexing Pipeline
-
-The indexer connects to Tap via WebSocket, consuming AT Protocol record events in real-time. For each event:
-
-1. Filter against the configured collection allowlist (supports wildcards like `sh.tangled.*`)
-2. Route to the appropriate normalizer based on collection
-3. Normalize into a document (extract title, body, summary, metadata)
-4. Optionally enrich via XRPC (resolve author handle, repo name, web URL)
-5. Upsert into the database (auto-syncs FTS)
-6. Persist the Tap cursor and then acknowledge the event
-
-The indexer resumes from its last cursor on restart and replays idempotently.
-It logs status every 30 seconds and uses exponential backoff (1s–5s) for
-transient failures.
-
-Read-through indexing is `missing` by default. Only allowed collections can be
-queued, detail reads queue single focal records, and bulk list handlers no
-longer enqueue whole collections.
-
-## Record Normalizers
-
-Each AT Protocol collection has a dedicated normalizer that extracts searchable content:
-
-| Collection                      | Record Type   | Searchable               | Content                     |
-| ------------------------------- | ------------- | ------------------------ | --------------------------- |
-| `sh.tangled.repo`               | repo          | Yes (if named)           | Name, description, topics   |
-| `sh.tangled.repo.issue`         | issue         | Yes                      | Title, body, repo reference |
-| `sh.tangled.repo.pull`          | pull          | Yes                      | Title, body, target branch  |
-| `sh.tangled.repo.issue.comment` | issue_comment | Yes (if has body)        | Comment body                |
-| `sh.tangled.repo.pull.comment`  | pull_comment  | Yes (if has body)        | Comment body                |
-| `sh.tangled.string`             | string        | Yes (if has content)     | Filename, contents          |
-| `sh.tangled.actor.profile`      | profile       | Yes (if has description) | Profile description         |
-| `sh.tangled.graph.follow`       | follow        | No                       | Graph edge only             |
-
-State records (`sh.tangled.repo.issue.state`, `sh.tangled.repo.pull.status`) update the `record_state` table rather than creating documents.
-
-## XRPC Client
-
-The built-in XRPC client provides typed access to AT Protocol endpoints with caching (1-hour TTL for DID docs and repo names):
-
-- DID resolution via PLC Directory (`did:plc:`) or `.well-known/did.json` (`did:web:`)
-- Identity resolution (PDS endpoint + handle from DID document)
-- Record fetching (`com.atproto.repo.getRecord`, `com.atproto.repo.listRecords`)
-- Repo name resolution from `sh.tangled.repo` records
-- Web URL construction for Tangled entities
-
-## Backfill
-
-The backfill command now defaults to `--source lightrail`: it calls
-`com.atproto.sync.listReposByCollection`, dedupes returned DIDs, and batch
-submits them to Tap. `--source graph` keeps the older seed-file follow and
-collaborator crawl for targeted fallback runs.
+`documents` stores a generated weighted `tsvector` column plus a GIN index for
+keyword search.
 
 ## Configuration
 
-All configuration is via environment variables (with `.env` file support):
+Primary env vars:
 
-| Variable                   | Default                 | Purpose                                         |
-| -------------------------- | ----------------------- | ----------------------------------------------- |
-| `TURSO_DATABASE_URL`       | —                       | Database connection (required unless `--local`) |
-| `TURSO_AUTH_TOKEN`         | —                       | Auth token (required for remote)                |
-| `TAP_URL`                  | —                       | Tap WebSocket URL                               |
-| `TAP_AUTH_PASSWORD`        | —                       | Tap admin password                              |
-| `INDEXED_COLLECTIONS`      | all                     | Collection allowlist (CSV, supports wildcards)  |
-| `READ_THROUGH_MODE`        | missing                 | `off`, `missing`, or `broad`                    |
-| `READ_THROUGH_COLLECTIONS` | `INDEXED_COLLECTIONS`   | Read-through allowlist                          |
-| `READ_THROUGH_MAX_ATTEMPTS`| 5                       | Retries before `dead_letter`                    |
-| `HTTP_BIND_ADDR`           | `:8080`                 | API server bind address                         |
-| `INDEXER_HEALTH_ADDR`      | `:9090`                 | Indexer health probe address                    |
-| `LOG_LEVEL`                | info                    | debug/info/warn/error                           |
-| `LOG_FORMAT`               | json                    | json or text                                    |
-| `ENABLE_ADMIN_ENDPOINTS`   | false                   | Enable admin routes                             |
-| `ADMIN_AUTH_TOKEN`         | —                       | Bearer token for admin                          |
-| `ENABLE_INGEST_ENRICHMENT` | true                    | XRPC enrichment at ingest time                  |
-| `PLC_DIRECTORY_URL`        | `https://plc.directory` | PLC Directory                                   |
-| `XRPC_TIMEOUT`             | 15s                     | XRPC HTTP timeout                               |
+- `DATABASE_URL`
+- `HTTP_BIND_ADDR`
+- `INDEXER_HEALTH_ADDR`
+- `TAP_URL`
+- `TAP_AUTH_PASSWORD`
+- `INDEXED_COLLECTIONS`
+- `READ_THROUGH_MODE`
+- `READ_THROUGH_COLLECTIONS`
+- `READ_THROUGH_MAX_ATTEMPTS`
+- `ENABLE_ADMIN_ENDPOINTS`
+- `ADMIN_AUTH_TOKEN`
 
-Recommended production practice is to use explicit search-relevant collection
-lists for `INDEXED_COLLECTIONS` and `READ_THROUGH_COLLECTIONS`, not
-`sh.tangled.*`, and to leave `sh.tangled.graph.follow` out of both.
+Default local database URL:
+
+```sh
+postgresql://localhost/${USER}_dev?sslmode=disable
+```
+
+`--local` is deprecated and switches to the legacy SQLite fallback at
+`packages/api/twister-dev.db`.
+
+## Local Operation
+
+Start local Postgres with the repo compose file:
+
+```sh
+just db-up
+just api-dev
+just api-run-indexer
+```
+
+That dev compose file also runs Tap locally at `ws://localhost:2480/channel`.
+
+Use `just api-dev sqlite` only when you need the temporary SQLite rollback path.
 
 ## Deployment
 
-Deployed on Railway with three services:
+Production uses:
 
-- **api** — HTTP server (port 8080, health at `/readyz`)
-- **indexer** — Tap consumer (health at `:9090/health`)
-- **tap** — Tap instance (external dependency)
+- Coolify Application with `docker-compose.prod.yaml`
+- separate Coolify-managed PostgreSQL resource
+- private Tap service from the pinned Indigo image
+- built-in Coolify Traefik for the public `api` domain
 
-All services share the same Turso database. The API and indexer are separate deployments of the same binary with different subcommands.
-
-## Experimental Local DB
-
-The local development database lives at `packages/api/twister-dev.db` when the
-API runs with `--local`.
-
-Operational rules:
-
-1. Stop the API before backup or restore.
-2. Copy `twister-dev.db` and any matching `-wal` or `-shm` files together.
-3. Prefer restore-or-rebuild over repair if the file becomes suspect.
-4. Let the DB grow during active experiments, then compact or delete it later.
-
-Useful local inspection:
-
-```sh
-cd packages/api
-du -h twister-dev.db*
-ls -lh twister-dev.db*
-```
+See `docs/reference/deployment-walkthrough.md` for the full production flow.

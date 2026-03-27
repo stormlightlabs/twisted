@@ -41,13 +41,22 @@ app-cap-android:
 api-build:
     just --justfile packages/api/justfile build
 
-# Run API. Usage: just api-dev [mode], mode: local|remote (default local)
+# Run API. Usage: just api-dev [mode], mode: local|remote|sqlite (default local)
 api-dev mode="local":
     just --justfile packages/api/justfile run-api {{mode}}
 
-# Run indexer. Usage: just api-run-indexer [mode], mode: local|remote (default local)
+# Run indexer. Usage: just api-run-indexer [mode], mode: local|remote|sqlite (default local)
 api-run-indexer mode="local":
     just --justfile packages/api/justfile run-indexer {{mode}}
+
+db-up:
+    docker compose -f docker-compose.dev.yaml up -d postgres tap
+
+db-down:
+    docker compose -f docker-compose.dev.yaml down
+
+db-psql:
+    psql "postgresql://localhost/${USER:-postgres}_dev?sslmode=disable"
 
 api-test:
     just --justfile packages/api/justfile test

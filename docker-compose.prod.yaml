@@ -1,0 +1,60 @@
+services:
+  api:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    command: ["twister", "api"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      HTTP_BIND_ADDR: ${HTTP_BIND_ADDR:-:8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      SEARCH_DEFAULT_LIMIT: ${SEARCH_DEFAULT_LIMIT:-20}
+      SEARCH_MAX_LIMIT: ${SEARCH_MAX_LIMIT:-100}
+      SEARCH_DEFAULT_MODE: ${SEARCH_DEFAULT_MODE:-keyword}
+      READ_THROUGH_MODE: ${READ_THROUGH_MODE:-missing}
+      READ_THROUGH_COLLECTIONS: ${READ_THROUGH_COLLECTIONS:-}
+      READ_THROUGH_MAX_ATTEMPTS: ${READ_THROUGH_MAX_ATTEMPTS:-5}
+      INDEXED_COLLECTIONS: ${INDEXED_COLLECTIONS:-}
+      ENABLE_ADMIN_ENDPOINTS: ${ENABLE_ADMIN_ENDPOINTS:-false}
+      ADMIN_AUTH_TOKEN: ${ADMIN_AUTH_TOKEN:-}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-}
+      OAUTH_REDIRECT_URIS: ${OAUTH_REDIRECT_URIS:-}
+    expose:
+      - "8080"
+
+  indexer:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    command: ["twister", "indexer"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      INDEXER_HEALTH_ADDR: ${INDEXER_HEALTH_ADDR:-:9090}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      TAP_URL: ${TAP_URL:-ws://tap:2480/channel}
+      TAP_AUTH_PASSWORD: ${TAP_AUTH_PASSWORD:?TAP_AUTH_PASSWORD is required}
+      INDEXED_COLLECTIONS: ${INDEXED_COLLECTIONS:?INDEXED_COLLECTIONS is required}
+      ENABLE_INGEST_ENRICHMENT: ${ENABLE_INGEST_ENRICHMENT:-true}
+    expose:
+      - "9090"
+
+  tap:
+    image: ghcr.io/bluesky-social/indigo/tap:sha-4f47add43060c27e8a37d9d76482ecddf001fcd8
+    restart: unless-stopped
+    environment:
+      TAP_BIND: :2480
+      TAP_DATABASE_URL: ${TAP_DATABASE_URL:-sqlite:///data/tap.db}
+      TAP_ADMIN_PASSWORD: ${TAP_AUTH_PASSWORD:?TAP_AUTH_PASSWORD is required}
+      TAP_LOG_LEVEL: ${TAP_LOG_LEVEL:-info}
+      TAP_COLLECTION_FILTERS: ${TAP_COLLECTION_FILTERS:-}
+    volumes:
+      - tap-data:/data
+    expose:
+      - "2480"
+
+volumes:
+  tap-data:

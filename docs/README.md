@@ -2,31 +2,25 @@
 
 ## Reference
 
-Completed work — architecture, APIs, and data models as built.
-
-- [`reference/api.md`](reference/api.md) — Go search API service
+- [`reference/api.md`](reference/api.md) — API runtime, config, and data model
+- [`reference/deployment-walkthrough.md`](reference/deployment-walkthrough.md) — Coolify + Postgres deploy guide
+- [`reference/metrics.md`](reference/metrics.md) — rollout checks for API, indexer, and Postgres
+- [`reference/resync.md`](reference/resync.md) — backfill and rebuild recovery playbook
 - [`reference/app.md`](reference/app.md) — Ionic Vue mobile app
-- [`reference/deployment-walkthrough.md`](reference/deployment-walkthrough.md) — Railway deployment guide
 - [`reference/lexicons.md`](reference/lexicons.md) — Tangled AT Protocol record types
-- [`reference/metrics.md`](reference/metrics.md) — Railway and Turso usage checks after deploy
-- [`reference/resync.md`](reference/resync.md) — Backfill and repo-resync recovery playbook
 
 ## Specs
 
-Forward-looking designs for remaining work.
+- [`specs/data-sources.md`](specs/data-sources.md) — upstream systems and API sources
+- [`specs/search.md`](specs/search.md) — current search/indexing direction
+- [`specs/app-features.md`](specs/app-features.md) — remaining mobile app features
 
-- [`specs/data-sources.md`](specs/data-sources.md) — Constellation, Tangled XRPC, Tap, AT Protocol, Bluesky OAuth
-- [`specs/search.md`](specs/search.md) — Search stabilization, indexing, activity cache, and later ranking work
-- [`specs/app-features.md`](specs/app-features.md) — Remaining mobile app features
+## ADRs
 
-## ADR Research
-
-Focused option analysis for pending architectural decisions.
-
-- [`adr/pg.md`](adr/pg.md) — PostgreSQL as a production backend option for Twister search
-- [`adr/turso.md`](adr/turso.md) — Turso/libSQL as a production backend option for Twister search
-- [`adr/storage.md`](adr/storage.md) — Accepted production storage decision for Twister search
+- [`adr/storage.md`](adr/storage.md) — accepted Postgres + Coolify storage decision
+- [`adr/pg.md`](adr/pg.md) — PostgreSQL research and tradeoffs
+- [`adr/turso.md`](adr/turso.md) — superseded Turso research kept for history
 
 ## Roadmap
 
-- [`roadmap.md`](roadmap.md) — All remaining milestones and tasks
+- [`roadmap.md`](roadmap.md) — current milestone list
