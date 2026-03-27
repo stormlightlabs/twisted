@@ -26,6 +26,7 @@ type Runner struct {
 	resolver  handleResolver
 	follows   followFetcher
 	profiles  profileFetcher
+	repos     repoFetcher
 	lightrail lightrailRepoLister
 	log       *slog.Logger
 }
@@ -36,6 +37,7 @@ func NewRunner(store discoveryStore, tap tapAdmin, xrpcClient *xrpc.Client, log 
 		NewXRPCHandleResolver(xrpcClient),
 		NewXRPCFollowFetcher(xrpcClient),
 		NewXRPCProfileFetcher(xrpcClient),
+		NewXRPCRepoFetcher(xrpcClient),
 		NewHTTPLightrailClient(),
 		log,
 	)
@@ -43,7 +45,7 @@ func NewRunner(store discoveryStore, tap tapAdmin, xrpcClient *xrpc.Client, log 
 
 func NewRunnerWithDeps(
 	store discoveryStore, tap tapAdmin, resolver handleResolver,
-	follows followFetcher, profiles profileFetcher, lightrail lightrailRepoLister,
+	follows followFetcher, profiles profileFetcher, repos repoFetcher, lightrail lightrailRepoLister,
 	log *slog.Logger,
 ) *Runner {
 	if log == nil {
@@ -54,7 +56,7 @@ func NewRunnerWithDeps(
 	}
 	return &Runner{
 		store: store, tap: tap, resolver: resolver, follows: follows,
-		profiles: profiles, lightrail: lightrail, log: log,
+		profiles: profiles, repos: repos, lightrail: lightrail, log: log,
 	}
 }
 
@@ -167,8 +169,8 @@ func (r *Runner) runGraph(ctx context.Context, opts Options) error {
 		slog.Int("submit_failures", submitFailures),
 	)
 
-	if err := r.indexProfiles(ctx, discovered, seedHandles, opts.Concurrency); err != nil {
-		return fmt.Errorf("index profiles: %w", err)
+	if err := r.bootstrapProfilesAndRepos(ctx, discovered, seedHandles, opts.Concurrency); err != nil {
+		return fmt.Errorf("bootstrap profiles and repos: %w", err)
 	}
 
 	return nil
@@ -218,6 +220,11 @@ func (r *Runner) runLightrail(ctx context.Context, opts Options) error {
 		slog.Int("submitted", submitted),
 		slog.Int("submit_failures", submitFailures),
 	)
+
+	if err := r.bootstrapProfilesAndRepos(ctx, discovered, nil, opts.Concurrency); err != nil {
+		return fmt.Errorf("bootstrap profiles and repos: %w", err)
+	}
+
 	return nil
 }
 
@@ -448,18 +455,20 @@ func normalizeDIDs(dids []string) []string {
 	return normalized
 }
 
-// indexProfiles fetches sh.tangled.actor.profile records via XRPC for each
-// discovered user, persists the DID→handle mapping, and upserts a searchable
-// profile document.
-func (r *Runner) indexProfiles(ctx context.Context, users []DiscoveredUser, seedHandles map[string]string, concurrency int) error {
+// bootstrapProfilesAndRepos fetches actor profiles and repo records via XRPC
+// for each discovered user, persists DID→handle mappings, and upserts
+// searchable bootstrap documents.
+func (r *Runner) bootstrapProfilesAndRepos(ctx context.Context, users []DiscoveredUser, seedHandles map[string]string, concurrency int) error {
 	if concurrency <= 0 {
 		concurrency = 5
 	}
 
 	type result struct {
-		did     string
-		profile *ProfileRecord
-		err     error
+		did        string
+		profile    *ProfileRecord
+		repos      []RepoRecord
+		profileErr error
+		repoErr    error
 	}
 
 	jobs := make(chan string)
@@ -470,8 +479,14 @@ func (r *Runner) indexProfiles(ctx context.Context, users []DiscoveredUser, seed
 		go func() {
 			defer wg.Done()
 			for did := range jobs {
-				pr, err := r.profiles.FetchProfile(ctx, did)
-				results <- result{did: did, profile: pr, err: err}
+				res := result{did: did}
+				if r.profiles != nil {
+					res.profile, res.profileErr = r.profiles.FetchProfile(ctx, did)
+				}
+				if r.repos != nil {
+					res.repos, res.repoErr = r.repos.ListRepos(ctx, did)
+				}
+				results <- res
 			}
 		}()
 	}
@@ -485,20 +500,30 @@ func (r *Runner) indexProfiles(ctx context.Context, users []DiscoveredUser, seed
 		close(results)
 	}()
 
-	indexed := 0
+	profilesIndexed := 0
+	reposIndexed := 0
 	identities := 0
 	failures := 0
 	for res := range results {
-		if res.err != nil {
+		if res.profileErr != nil {
 			failures++
 			r.log.Warn("profile fetch failed",
 				slog.String("did", res.did),
-				slog.String("error", res.err.Error()),
+				slog.String("error", res.profileErr.Error()),
 			)
-			continue
+		}
+		if res.repoErr != nil {
+			failures++
+			r.log.Warn("repo list failed",
+				slog.String("did", res.did),
+				slog.String("error", res.repoErr.Error()),
+			)
 		}
 
-		handle := res.profile.Handle
+		handle := ""
+		if res.profile != nil {
+			handle = res.profile.Handle
+		}
 		if h, ok := seedHandles[res.did]; ok && h != "" {
 			handle = h
 		}
@@ -515,52 +540,39 @@ func (r *Runner) indexProfiles(ctx context.Context, users []DiscoveredUser, seed
 			}
 		}
 
-		if res.profile.Record == nil {
-			continue
-		}
-
-		description, _ := res.profile.Record["description"].(string)
-		location, _ := res.profile.Record["location"].(string)
-		summary := description
-		if location != "" {
-			if summary != "" {
-				summary = summary + " · " + location
+		doc := bootstrapProfileDocument(res.did, res.profile, handle)
+		if doc != nil {
+			if err := r.store.UpsertDocument(ctx, doc); err != nil {
+				r.log.Warn("upsert profile document failed",
+					slog.String("did", res.did),
+					slog.String("error", err.Error()),
+				)
 			} else {
-				summary = location
+				profilesIndexed++
 			}
 		}
-		if len(summary) > 200 {
-			summary = summary[:200]
-		}
 
-		doc := &store.Document{
-			ID:           fmt.Sprintf("%s|%s|self", res.did, profileCollection),
-			DID:          res.did,
-			Collection:   profileCollection,
-			RKey:         "self",
-			ATURI:        fmt.Sprintf("at://%s/%s/self", res.did, profileCollection),
-			CID:          res.profile.CID,
-			RecordType:   "profile",
-			Title:        handle,
-			Body:         description,
-			Summary:      summary,
-			AuthorHandle: handle,
-			TagsJSON:     "[]",
+		for _, repo := range res.repos {
+			doc := bootstrapRepoDocument(res.did, handle, repo)
+			if doc == nil {
+				continue
+			}
+			if err := r.store.UpsertDocument(ctx, doc); err != nil {
+				r.log.Warn("upsert repo document failed",
+					slog.String("did", res.did),
+					slog.String("rkey", repo.RKey),
+					slog.String("error", err.Error()),
+				)
+				continue
+			}
+			reposIndexed++
 		}
-
-		if err := r.store.UpsertDocument(ctx, doc); err != nil {
-			r.log.Warn("upsert profile document failed",
-				slog.String("did", res.did),
-				slog.String("error", err.Error()),
-			)
-			continue
-		}
-		indexed++
 	}
 
-	r.log.Info("profile indexing complete",
+	r.log.Info("bootstrap indexing complete",
 		slog.Int("identities_stored", identities),
-		slog.Int("profiles_indexed", indexed),
+		slog.Int("profiles_indexed", profilesIndexed),
+		slog.Int("repos_indexed", reposIndexed),
 		slog.Int("failures", failures),
 	)
 	return nil

@@ -95,6 +95,17 @@ func (f *fakeProfileFetcher) FetchProfile(_ context.Context, did string) (*Profi
 	return &ProfileRecord{}, nil
 }
 
+type fakeRepoFetcher struct {
+	repos map[string][]RepoRecord
+}
+
+func (f *fakeRepoFetcher) ListRepos(_ context.Context, did string) ([]RepoRecord, error) {
+	if repos, ok := f.repos[did]; ok {
+		return repos, nil
+	}
+	return nil, nil
+}
+
 type fakeLightrailRepoLister struct {
 	dids        []string
 	err         error
@@ -130,6 +141,7 @@ func TestRunner_DiscoveryAndSubmit(t *testing.T) {
 	r := NewRunnerWithDeps(
 		st, tap, resolver, follows,
 		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeRepoFetcher{},
 		&fakeLightrailRepoLister{}, log,
 	)
 
@@ -167,6 +179,7 @@ func TestRunner_DryRunSkipsMutations(t *testing.T) {
 	r := NewRunnerWithDeps(
 		st, tap, resolver, follows,
 		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeRepoFetcher{},
 		&fakeLightrailRepoLister{}, log,
 	)
 
@@ -203,6 +216,7 @@ func TestRunner_SkipsInProgressBackfills(t *testing.T) {
 	r := NewRunnerWithDeps(
 		st, tap, resolver, follows,
 		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeRepoFetcher{},
 		&fakeLightrailRepoLister{}, log,
 	)
 
@@ -239,6 +253,7 @@ func TestRunner_ContinuesWhenRepoStatusFails(t *testing.T) {
 	r := NewRunnerWithDeps(
 		st, tap, resolver, follows,
 		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeRepoFetcher{},
 		&fakeLightrailRepoLister{}, log,
 	)
 
@@ -296,6 +311,7 @@ func TestRunner_FallsBackToSingleRepoSubmissionOnBatchFailure(t *testing.T) {
 	r := NewRunnerWithDeps(
 		st, tap, resolver, follows,
 		&fakeProfileFetcher{profiles: map[string]*ProfileRecord{}},
+		&fakeRepoFetcher{},
 		&fakeLightrailRepoLister{}, log,
 	)
 
@@ -346,7 +362,7 @@ func TestRunner_IndexesProfilesAndHandles(t *testing.T) {
 	}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := NewRunnerWithDeps(
-		st, tap, resolver, follows, profiles, &fakeLightrailRepoLister{}, log,
+		st, tap, resolver, follows, profiles, &fakeRepoFetcher{}, &fakeLightrailRepoLister{}, log,
 	)
 
 	dir := t.TempDir()
@@ -395,7 +411,7 @@ func TestRunner_LightrailDryRunSkipsTapAndProfileIndexing(t *testing.T) {
 	lightrail := &fakeLightrailRepoLister{dids: []string{"did:plc:b", "did:plc:a"}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := NewRunnerWithDeps(
-		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, &fakeProfileFetcher{},
+		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, &fakeProfileFetcher{}, &fakeRepoFetcher{},
 		lightrail, log,
 	)
 
@@ -432,7 +448,7 @@ func TestRunner_LightrailSubmitsWithoutRepoStatusChecks(t *testing.T) {
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r := NewRunnerWithDeps(
-		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, &fakeProfileFetcher{},
+		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, &fakeProfileFetcher{}, &fakeRepoFetcher{},
 		lightrail, log,
 	)
 
@@ -448,5 +464,122 @@ func TestRunner_LightrailSubmitsWithoutRepoStatusChecks(t *testing.T) {
 	}
 	if len(tap.added[0]) != 2 {
 		t.Fatalf("expected deduped DIDs, got %#v", tap.added)
+	}
+}
+
+func TestRunner_LightrailIndexesProfiles(t *testing.T) {
+	st := &fakeStore{collaborators: map[string][]string{}}
+	tap := &fakeTapAdmin{}
+	lightrail := &fakeLightrailRepoLister{
+		dids: []string{"did:plc:xg2vq45muivyy3xwatcehspu"},
+	}
+	profiles := &fakeProfileFetcher{profiles: map[string]*ProfileRecord{
+		"did:plc:xg2vq45muivyy3xwatcehspu": {
+			Record: map[string]any{
+				"description": "Twisted maintainer",
+				"location":    "Chicago",
+			},
+			CID:    "bafydesert123",
+			Handle: "desertthunder.dev",
+		},
+	}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := NewRunnerWithDeps(
+		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, profiles, &fakeRepoFetcher{}, lightrail, log,
+	)
+
+	err := r.Run(context.Background(), Options{
+		Source:      SourceLightrail,
+		BatchSize:   10,
+		Concurrency: 1,
+		Collections: []string{"sh.tangled.repo"},
+	})
+	if err != nil {
+		t.Fatalf("run lightrail backfill: %v", err)
+	}
+	if st.identities["did:plc:xg2vq45muivyy3xwatcehspu"] != "desertthunder.dev" {
+		t.Fatalf("expected identity handle to be stored, got %#v", st.identities)
+	}
+	if len(st.documents) != 1 {
+		t.Fatalf("expected one profile document, got %d", len(st.documents))
+	}
+	doc := st.documents[0]
+	if doc.RecordType != "profile" {
+		t.Fatalf("expected profile document, got %q", doc.RecordType)
+	}
+	if doc.AuthorHandle != "desertthunder.dev" {
+		t.Fatalf("expected author_handle desertthunder.dev, got %q", doc.AuthorHandle)
+	}
+	if doc.Title != "desertthunder.dev" {
+		t.Fatalf("expected title desertthunder.dev, got %q", doc.Title)
+	}
+}
+
+func TestRunner_LightrailIndexesReposDirectly(t *testing.T) {
+	st := &fakeStore{collaborators: map[string][]string{}}
+	tap := &fakeTapAdmin{}
+	lightrail := &fakeLightrailRepoLister{
+		dids: []string{"did:plc:xg2vq45muivyy3xwatcehspu"},
+	}
+	profiles := &fakeProfileFetcher{profiles: map[string]*ProfileRecord{
+		"did:plc:xg2vq45muivyy3xwatcehspu": {
+			Handle: "desertthunder.dev",
+			Record: map[string]any{
+				"description": "Twisted maintainer",
+			},
+			CID: "bafydesert123",
+		},
+	}}
+	repos := &fakeRepoFetcher{repos: map[string][]RepoRecord{
+		"did:plc:xg2vq45muivyy3xwatcehspu": {
+			{
+				RKey: "3mho6hukiei22",
+				CID:  "bafyreitwisted123",
+				Record: map[string]any{
+					"name":        "twisted",
+					"description": "A tangled mobile client",
+					"topics":      []any{"go", "search"},
+					"createdAt":   "2026-03-01T00:00:00Z",
+				},
+			},
+		},
+	}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	r := NewRunnerWithDeps(
+		st, tap, &fakeResolver{}, &fakeFollowFetcher{}, profiles, repos, lightrail, log,
+	)
+
+	err := r.Run(context.Background(), Options{
+		Source:      SourceLightrail,
+		BatchSize:   10,
+		Concurrency: 1,
+		Collections: []string{"sh.tangled.repo"},
+	})
+	if err != nil {
+		t.Fatalf("run lightrail backfill: %v", err)
+	}
+
+	if len(st.documents) != 2 {
+		t.Fatalf("expected profile and repo bootstrap documents, got %d", len(st.documents))
+	}
+
+	var foundRepo *store.Document
+	for _, doc := range st.documents {
+		if doc.RecordType == "repo" {
+			foundRepo = doc
+			break
+		}
+	}
+	if foundRepo == nil {
+		t.Fatal("expected repo bootstrap document")
+	}
+	if foundRepo.Title != "twisted" {
+		t.Fatalf("expected repo title twisted, got %q", foundRepo.Title)
+	}
+	if foundRepo.AuthorHandle != "desertthunder.dev" {
+		t.Fatalf("expected repo author_handle desertthunder.dev, got %q", foundRepo.AuthorHandle)
+	}
+	if foundRepo.WebURL == "" {
+		t.Fatal("expected repo web_url to be populated")
 	}
 }
