@@ -305,8 +305,8 @@ func TestRunner_CursorHighWaterMarkDoesNotRegress(t *testing.T) {
 	if st.syncCursor != "200" {
 		t.Fatalf("cursor regressed: got %q want 200", st.syncCursor)
 	}
-	if !r.shouldSkipEvent(150) {
-		t.Fatal("expected older event id to be skipped once a newer cursor is recorded")
+	if r.highWaterMark != 200 {
+		t.Fatalf("high-water mark: got %d want 200", r.highWaterMark)
 	}
 }
 
@@ -320,11 +320,8 @@ func TestRunner_InitializeCursorUsesHighWaterMark(t *testing.T) {
 		t.Fatalf("initialize cursor: %v", err)
 	}
 
-	if !r.shouldSkipEvent(150) {
-		t.Fatal("expected stored cursor to act as skip high-water mark")
-	}
-	if r.shouldSkipEvent(151) {
-		t.Fatal("did not expect events above the high-water mark to be skipped")
+	if r.highWaterMark != 150 {
+		t.Fatalf("high-water mark: got %d want 150", r.highWaterMark)
 	}
 }
 
@@ -398,29 +395,6 @@ func TestAllowlistMatching(t *testing.T) {
 	}
 	if policy.Allows(store.IndexSourceTap, "app.bsky.feed.post") {
 		t.Fatal("unexpected match")
-	}
-}
-
-func TestRunner_InitializeCursorResume(t *testing.T) {
-	st := newFakeStore()
-	st.initialSync = &store.SyncState{ConsumerName: "indexer-tap-v1", Cursor: "150"}
-	tap := &fakeTapClient{}
-	r := newRunnerForTest(st, tap, "sh.tangled.*")
-
-	if err := r.initializeCursor(context.Background()); err != nil {
-		t.Fatalf("initialize cursor: %v", err)
-	}
-	if r.highWaterMark != 150 {
-		t.Fatalf("high-water mark: got %d want 150", r.highWaterMark)
-	}
-	if !r.shouldSkipEvent(149) {
-		t.Fatalf("expected event 149 to be skipped")
-	}
-	if !r.shouldSkipEvent(150) {
-		t.Fatalf("expected event 150 to be skipped")
-	}
-	if r.shouldSkipEvent(151) {
-		t.Fatalf("expected event 151 to be processed")
 	}
 }
 

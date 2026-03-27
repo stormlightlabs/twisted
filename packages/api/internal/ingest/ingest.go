@@ -90,21 +90,6 @@ func (r *Runner) Run(ctx context.Context) error {
 			continue
 		}
 
-		if r.shouldSkipEvent(event.ID) {
-			if err := r.tap.AckEvent(ctx, event.ID); err != nil {
-				r.log.Warn("tap ack skipped event failed",
-					slog.Int64("event_id", event.ID),
-					slog.String("error", err.Error()),
-				)
-				continue
-			}
-			r.statusMu.Lock()
-			highWaterMark := r.highWaterMark
-			r.statusMu.Unlock()
-			r.log.Debug("skipped previously-processed event", slog.Int64("event_id", event.ID), slog.Int64("resume_cursor", highWaterMark))
-			continue
-		}
-
 		if err := r.processWithRetry(ctx, event); err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -137,14 +122,8 @@ func (r *Runner) initializeCursor(ctx context.Context) error {
 	r.highWaterMark = cursor
 	r.lastCursor = state.Cursor
 	r.statusMu.Unlock()
-	r.log.Info("indexer cursor resume enabled", slog.Int64("resume_cursor", cursor))
+	r.log.Info("indexer cursor state loaded", slog.Int64("cursor", cursor))
 	return nil
-}
-
-func (r *Runner) shouldSkipEvent(eventID int64) bool {
-	r.statusMu.Lock()
-	defer r.statusMu.Unlock()
-	return r.highWaterMark > 0 && eventID <= r.highWaterMark
 }
 
 func (r *Runner) processWithRetry(ctx context.Context, event normalize.TapRecordEvent) error {
