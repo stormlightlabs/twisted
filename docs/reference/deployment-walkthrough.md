@@ -113,3 +113,16 @@ VITE_TWISTER_API_BASE_URL=https://<your-api-domain>
 
 - PostgreSQL restore is the rollback primitive
 - keep `--local` only as a temporary development fallback
+
+## Post-Deploy Checklist
+
+After a fresh deploy or indexer recovery:
+
+1. confirm `migrate` exited successfully
+2. confirm `api` returns `200` from `/readyz`
+3. confirm `indexer` returns `200` from `/health`
+4. in the `indexer` container run the following
+    1. run `twister backfill`
+    2. run `twister enrich`
+    3. run `twister reindex`
+5. watch `indexer` logs and confirm the Tap cursor keeps moving forward

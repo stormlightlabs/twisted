@@ -16,6 +16,7 @@ import (
 const (
 	jetstreamConsumerName   = "jetstream-cache-v1"
 	jetstreamReconnectDelay = 5 * time.Second
+	jetstreamMaxReadBytes   = 8 << 20
 	// persist cursor every N events
 	jetstreamCursorInterval = 50
 )
@@ -66,6 +67,7 @@ func (s *Server) consumeJetstream(ctx context.Context) error {
 		return fmt.Errorf("jetstream dial: %w", err)
 	}
 	defer conn.CloseNow()
+	conn.SetReadLimit(jetstreamMaxReadBytes)
 
 	s.log.Info("jetstream consumer connected", slog.Int64("cursor_us", cursorUS))
 
