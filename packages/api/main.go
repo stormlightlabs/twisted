@@ -47,6 +47,7 @@ func main() {
 	root.AddCommand(
 		newAPICmd(&local),
 		newIndexerCmd(&local),
+		newMigrateCmd(&local),
 		newBackfillCmd(&local),
 		newReindexCmd(&local),
 		newEnrichCmd(&local),
@@ -88,10 +89,6 @@ func newAPICmd(local *bool) *cobra.Command {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
-
-			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
-				return fmt.Errorf("migrate database: %w", err)
-			}
 
 			st := store.New(cfg.DatabaseURL, db)
 			searchRepo := search.NewRepository(cfg.DatabaseURL, db)
@@ -146,10 +143,6 @@ func newIndexerCmd(local *bool) *cobra.Command {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
-
-			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
-				return fmt.Errorf("migrate database: %w", err)
-			}
 
 			st := store.New(cfg.DatabaseURL, db)
 			registry := normalize.NewRegistry()
@@ -207,6 +200,34 @@ func newIndexerCmd(local *bool) *cobra.Command {
 	}
 }
 
+func newMigrateCmd(local *bool) *cobra.Command {
+	return &cobra.Command{
+		Use:   "migrate",
+		Short: "Apply database schema migrations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(config.LoadOptions{Local: *local})
+			if err != nil {
+				return fmt.Errorf("config: %w", err)
+			}
+			log := observability.NewLogger(cfg)
+			log.Info("starting migrate", slog.String("service", "migrate"), slog.String("version", version))
+
+			db, err := store.Open(cfg.DatabaseURL)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer db.Close()
+
+			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
+				return fmt.Errorf("migrate database: %w", err)
+			}
+
+			log.Info("migrate finished")
+			return nil
+		},
+	}
+}
+
 func newBackfillCmd(local *bool) *cobra.Command {
 	var opts backfill.Options
 
@@ -230,10 +251,6 @@ func newBackfillCmd(local *bool) *cobra.Command {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
-
-			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
-				return fmt.Errorf("migrate database: %w", err)
-			}
 
 			tapAdmin, err := backfill.NewHTTPTapAdmin(cfg.TapURL, cfg.TapAuthPassword)
 			if err != nil {
@@ -299,10 +316,6 @@ func newReindexCmd(local *bool) *cobra.Command {
 			}
 			defer db.Close()
 
-			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
-				return fmt.Errorf("migrate database: %w", err)
-			}
-
 			ctx, cancel := baseContext()
 			defer cancel()
 
@@ -346,10 +359,6 @@ func newEnrichCmd(local *bool) *cobra.Command {
 				return fmt.Errorf("open database: %w", err)
 			}
 			defer db.Close()
-
-			if err := store.Migrate(db, cfg.DatabaseURL); err != nil {
-				return fmt.Errorf("migrate database: %w", err)
-			}
 
 			xrpcClient := xrpc.NewClient(
 				xrpc.WithPLCDirectory(cfg.PLCDirectoryURL),

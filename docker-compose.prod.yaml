@@ -1,4 +1,39 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-twisted}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-twisted}
+      POSTGRES_DB: ${POSTGRES_DB:-twisted}
+    volumes:
+      - twisted-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h localhost -p 5432 -U ${POSTGRES_USER:-twisted} -d ${POSTGRES_DB:-twisted}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - "5432"
+
+  migrate:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    command: ["twister", "migrate"]
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-twisted}:${POSTGRES_PASSWORD:-twisted}@postgres:5432/${POSTGRES_DB:-twisted}?sslmode=disable}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: ./packages/api
@@ -6,7 +41,7 @@ services:
     command: ["twister", "api"]
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-twisted}:${POSTGRES_PASSWORD:-twisted}@postgres:5432/${POSTGRES_DB:-twisted}?sslmode=disable}
       HTTP_BIND_ADDR: ${HTTP_BIND_ADDR:-:8080}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-json}
@@ -21,6 +56,9 @@ services:
       ADMIN_AUTH_TOKEN: ${ADMIN_AUTH_TOKEN:-}
       OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-}
       OAUTH_REDIRECT_URIS: ${OAUTH_REDIRECT_URIS:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     expose:
       - "8080"
 
@@ -31,7 +69,7 @@ services:
     command: ["twister", "indexer"]
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-twisted}:${POSTGRES_PASSWORD:-twisted}@postgres:5432/${POSTGRES_DB:-twisted}?sslmode=disable}
       INDEXER_HEALTH_ADDR: ${INDEXER_HEALTH_ADDR:-:9090}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-json}
@@ -39,6 +77,11 @@ services:
       TAP_AUTH_PASSWORD: ${TAP_AUTH_PASSWORD:?TAP_AUTH_PASSWORD is required}
       INDEXED_COLLECTIONS: ${INDEXED_COLLECTIONS:?INDEXED_COLLECTIONS is required}
       ENABLE_INGEST_ENRICHMENT: ${ENABLE_INGEST_ENRICHMENT:-true}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      tap:
+        condition: service_started
     expose:
       - "9090"
 
@@ -56,5 +99,32 @@ services:
     expose:
       - "2480"
 
+  llama-embeddings:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    environment:
+      HF_HOME: /models/hf-cache
+      LLAMA_CACHE: /models
+    command:
+      - --hf-repo
+      - ${LLAMA_MODEL_REPO:-nomic-ai/nomic-embed-text-v1.5-GGUF}
+      - --hf-file
+      - ${LLAMA_MODEL_FILE:-nomic-embed-text-v1.5.Q8_0.gguf}
+      - --embeddings
+      - --pooling
+      - mean
+      - --ctx-size
+      - ${LLAMA_CONTEXT_SIZE:-2048}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    volumes:
+      - twisted-llama:/models
+    expose:
+      - "8080"
+
 volumes:
+  twisted-postgres:
   tap-data:
+  twisted-llama:

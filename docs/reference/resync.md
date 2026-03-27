@@ -3,16 +3,20 @@ title: Backfill & Resync Playbook
 updated: 2026-03-26
 ---
 
-Twisted has three recovery tools. Choose based on what broke.
+Twisted has four recovery tools. Choose based on what broke.
 
 | Situation | Recovery path |
 | --- | --- |
 | Search results wrong but documents exist | `twister reindex` |
 | Documents missing because Tap never delivered them | `twister backfill` |
 | Documents exist but derived metadata is empty or stale | `twister enrich` |
-| Full database loss or migration to a fresh PostgreSQL instance | backfill, enrich, reindex |
+| Full database loss or migration to a fresh PostgreSQL instance | migrate, backfill, enrich, reindex |
 
 ## Commands
+
+### `twister migrate`
+
+Applies the embedded schema migrations for the configured database.
 
 ### `twister indexer`
 
@@ -89,7 +93,7 @@ twister reindex
 Use this after restoring to a fresh database or moving to a new PostgreSQL
 instance.
 
-1. start `api` once so migrations run
+1. run `twister migrate`
 2. start `indexer`
 3. run `twister backfill`
 4. run `twister enrich`

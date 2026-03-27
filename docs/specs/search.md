@@ -10,8 +10,9 @@ small set of rebuild tools.
 
 - primary storage: PostgreSQL
 - local default URL: `postgresql://localhost/${USER}_dev?sslmode=disable`
-- production deploy target: Coolify application plus managed PostgreSQL
+- production deploy target: `docker-compose.prod.yaml` on a VPS or Coolify host
 - legacy fallback: local SQLite behind `--local`
+- `llama-embeddings` is deployed only as future embedding groundwork
 
 ## Goals
 

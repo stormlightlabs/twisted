@@ -56,6 +56,18 @@ Improve keyword search quality without external dependencies.
 - [ ] Structured metrics: ingestion rate, search latency, embedding throughput
 - [ ] Dashboard or log-based monitoring
 
+## API: Embedding Adapter
+
+**Depends on:** API: Search Stabilization
+
+- [ ] Add an embedding provider interface in the API
+- [ ] Add a `llama.cpp` HTTP adapter targeting `llama-embeddings`
+- [ ] Add PostgreSQL embedding schema and jobs using `pgvector`
+- [ ] Define source-code chunking and repo re-embed triggers
+- [ ] Add `embed` and `reembed` operational commands
+- [ ] Add queue-depth, latency, and throughput metrics for embeddings
+- [ ] Keep semantic or hybrid retrieval behind a non-default search mode
+
 ## App: Search & Discovery
 
 Wire the Explore tab to the search API and add activity feed.

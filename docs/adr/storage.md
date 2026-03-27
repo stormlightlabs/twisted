@@ -7,15 +7,16 @@ status: accepted
 ## Decision
 
 Twisted will use PostgreSQL as the primary database backend for search,
-indexing, queue state, and activity cache. The production deploy target is a
-Coolify application for `api`, `indexer`, and `tap` plus a separate
-Coolify-managed PostgreSQL instance.
+indexing, queue state, and activity cache. The production deploy target is one
+Compose stack for `postgres`, `migrate`, `api`, `indexer`, `tap`, and
+`llama-embeddings`. Coolify can host that stack, but the Compose file remains
+the source of truth.
 
 ## Why
 
 - PostgreSQL is the better fit for long-running multi-service deployment.
-- Coolify gives the project a straightforward Git-to-deploy path with built-in
-  Traefik and a managed database resource.
+- Coolify still gives the project a straightforward Git-to-deploy path with
+  built-in Traefik when we want it.
 - The current service shape already wants two long-lived processes writing to
   one shared database.
 - A local PostgreSQL workflow keeps development closer to production than the
@@ -28,6 +29,7 @@ Coolify-managed PostgreSQL instance.
 - one mainstream database for local and remote environments
 - simpler production backups and restore story
 - easier operational model for `api` and `indexer`
+- explicit migration ownership through a one-shot `migrate` command
 - no dependency on Turso-specific SQLite extension behavior
 
 ### Negative
@@ -53,7 +55,7 @@ expected to match the previous FTS5 implementation.
 1. add PostgreSQL connection/config support and local defaults
 2. add a primary PostgreSQL migration set
 3. move search and store implementations to PostgreSQL
-4. deploy `api`, `indexer`, and `tap` from `docker-compose.prod.yaml`
+4. deploy the Compose stack from `docker-compose.prod.yaml`
 5. rebuild data through `backfill`, `enrich`, and `reindex`
 6. cut traffic over only after smoke checks pass
 

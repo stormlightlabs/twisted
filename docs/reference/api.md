@@ -13,6 +13,7 @@ temporary local SQLite fallback behind `--local`.
 | --- | --- |
 | `api` | HTTP API server |
 | `indexer` | Tap consumer and index writer |
+| `migrate` | apply embedded SQL migrations |
 | `backfill` | register repos with Tap |
 | `enrich` | fill missing repo names, handles, and web URLs |
 | `reindex` | re-upsert documents and finalize the search index |
@@ -57,6 +58,9 @@ Main tables:
 `documents` stores a generated weighted `tsvector` column plus a GIN index for
 keyword search.
 
+No embedding tables are active yet. `llama-embeddings` is deployed only as
+infra groundwork for a later semantic-search milestone.
+
 ## Configuration
 
 Primary env vars:
@@ -88,11 +92,15 @@ Start local Postgres with the repo compose file:
 
 ```sh
 just db-up
+just api-build
+DATABASE_URL="postgresql://localhost/${USER}_dev?sslmode=disable" \
+  ./packages/api/twister migrate
 just api-dev
 just api-run-indexer
 ```
 
 That dev compose file also runs Tap locally at `ws://localhost:2480/channel`.
+`api` and `indexer` no longer auto-apply schema changes on startup.
 
 Use `just api-dev sqlite` only when you need the temporary SQLite rollback path.
 
@@ -100,9 +108,9 @@ Use `just api-dev sqlite` only when you need the temporary SQLite rollback path.
 
 Production uses:
 
-- Coolify Application with `docker-compose.prod.yaml`
-- separate Coolify-managed PostgreSQL resource
-- private Tap service from the pinned Indigo image
-- built-in Coolify Traefik for the public `api` domain
+- `docker-compose.prod.yaml` as the VPS stack source of truth
+- in-stack PostgreSQL on `pgvector/pgvector:pg17`
+- a one-shot `migrate` service before long-lived services start
+- private Tap and llama.cpp embedding services on the internal Compose network
 
 See `docs/reference/deployment-walkthrough.md` for the full production flow.

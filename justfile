@@ -49,6 +49,24 @@ api-dev mode="local":
 api-run-indexer mode="local":
     just --justfile packages/api/justfile run-indexer {{mode}}
 
+vps-up:
+    docker compose -f docker-compose.prod.yaml up -d postgres tap
+    docker compose -f docker-compose.prod.yaml up --build migrate --exit-code-from migrate
+    docker compose -f docker-compose.prod.yaml up -d --build api indexer llama-embeddings
+
+vps-down:
+    docker compose -f docker-compose.prod.yaml down
+
+vps-migrate:
+    docker compose -f docker-compose.prod.yaml up -d postgres
+    docker compose -f docker-compose.prod.yaml up --build migrate --exit-code-from migrate
+
+vps-reset:
+    docker compose -f docker-compose.prod.yaml down -v
+    docker compose -f docker-compose.prod.yaml up -d postgres
+    docker compose -f docker-compose.prod.yaml up --build migrate --exit-code-from migrate
+    docker compose -f docker-compose.prod.yaml up -d --build tap api indexer llama-embeddings
+
 db-up:
     docker compose -f docker-compose.dev.yaml up -d postgres tap
 

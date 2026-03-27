@@ -9,6 +9,8 @@
 //
 //	cd /Users/owais/Projects/Twisted
 //	just db-up
+//	just api-build
+//	DATABASE_URL=postgresql://localhost/${USER}_dev?sslmode=disable ./packages/api/twister migrate
 //	just api-dev
 //	just api-run-indexer
 //
@@ -54,6 +56,7 @@
 //
 //	twister api
 //	twister indexer
+//	twister migrate
 //	twister backfill
 //	twister reindex
 //	twister enrich
@@ -61,6 +64,9 @@
 //
 // # Deployment
 //
-// Production uses Coolify for the `api`, `indexer`, and `tap` services plus a
-// separate Coolify-managed PostgreSQL resource. See docs/reference/deployment-walkthrough.md.
+// Production uses docker-compose.prod.yaml as the source-of-truth VPS stack:
+// PostgreSQL, migrate, api, indexer, tap, and llama-embeddings.
+//
+// Semantic search is still deferred. The llama.cpp service is present only as
+// operational groundwork for a later embedding adapter.
 package main

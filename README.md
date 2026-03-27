@@ -42,6 +42,14 @@ Start the local database:
 just db-up
 ```
 
+Bootstrap the schema once:
+
+```bash
+just api-build
+DATABASE_URL="postgresql://localhost/${USER}_dev?sslmode=disable" \
+  ./packages/api/twister migrate
+```
+
 Run the mobile app:
 
 ```bash
@@ -79,9 +87,11 @@ If `ADMIN_AUTH_TOKEN` is present, the smoke script also checks admin status.
 
 ## Deployment
 
-Production deployment now uses Coolify plus a separate Coolify-managed
-PostgreSQL instance. The backend services are defined in
-`docker-compose.prod.yaml`.
+`docker-compose.prod.yaml` is now the source-of-truth VPS stack. It runs
+`postgres`, `migrate`, `api`, `indexer`, `tap`, and `llama-embeddings`.
+
+The llama.cpp service is only deployment groundwork for a later embedding
+adapter. Search remains keyword-only for now.
 
 See [`docs/reference/deployment-walkthrough.md`](docs/reference/deployment-walkthrough.md)
 for the full setup, bootstrap, backup, and cutover flow.
