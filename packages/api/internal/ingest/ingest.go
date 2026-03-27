@@ -37,9 +37,9 @@ type Runner struct {
 	processor    *idx.Processor
 	consumerName string
 	log          *slog.Logger
-	resumeCursor int64
 
 	statusMu      sync.Mutex
+	highWaterMark int64
 	lastCursor    string
 	processedTick int64
 }
@@ -98,7 +98,10 @@ func (r *Runner) Run(ctx context.Context) error {
 				)
 				continue
 			}
-			r.log.Debug("skipped previously-processed event", slog.Int64("event_id", event.ID), slog.Int64("resume_cursor", r.resumeCursor))
+			r.statusMu.Lock()
+			highWaterMark := r.highWaterMark
+			r.statusMu.Unlock()
+			r.log.Debug("skipped previously-processed event", slog.Int64("event_id", event.ID), slog.Int64("resume_cursor", highWaterMark))
 			continue
 		}
 
@@ -130,8 +133,8 @@ func (r *Runner) initializeCursor(ctx context.Context) error {
 		return nil
 	}
 
-	r.resumeCursor = cursor
 	r.statusMu.Lock()
+	r.highWaterMark = cursor
 	r.lastCursor = state.Cursor
 	r.statusMu.Unlock()
 	r.log.Info("indexer cursor resume enabled", slog.Int64("resume_cursor", cursor))
@@ -139,7 +142,9 @@ func (r *Runner) initializeCursor(ctx context.Context) error {
 }
 
 func (r *Runner) shouldSkipEvent(eventID int64) bool {
-	return r.resumeCursor > 0 && eventID <= r.resumeCursor
+	r.statusMu.Lock()
+	defer r.statusMu.Unlock()
+	return r.highWaterMark > 0 && eventID <= r.highWaterMark
 }
 
 func (r *Runner) processWithRetry(ctx context.Context, event normalize.TapRecordEvent) error {
@@ -227,14 +232,17 @@ func (r *Runner) processRecordEvent(ctx context.Context, event normalize.TapReco
 }
 
 func (r *Runner) advanceCursorAndAck(ctx context.Context, eventID int64) error {
-	cursor := fmt.Sprintf("%d", eventID)
-	if err := r.persistCursorWithRetry(ctx, cursor, eventID); err != nil {
-		return err
+	cursorID, shouldPersist := r.nextCursor(eventID)
+	cursor := fmt.Sprintf("%d", cursorID)
+	if shouldPersist {
+		if err := r.persistCursorWithRetry(ctx, cursor, eventID); err != nil {
+			return err
+		}
 	}
 	if err := r.tap.AckEvent(ctx, eventID); err != nil {
 		return err
 	}
-	r.markProcessed(cursor)
+	r.markProcessed(cursorID)
 	return nil
 }
 
@@ -293,9 +301,21 @@ func (r *Runner) runStatusLogger(ctx context.Context) {
 	}
 }
 
-func (r *Runner) markProcessed(cursor string) {
+func (r *Runner) nextCursor(eventID int64) (int64, bool) {
 	r.statusMu.Lock()
-	r.lastCursor = cursor
+	defer r.statusMu.Unlock()
+	if eventID <= r.highWaterMark {
+		return r.highWaterMark, false
+	}
+	return eventID, true
+}
+
+func (r *Runner) markProcessed(cursor int64) {
+	r.statusMu.Lock()
+	if cursor > r.highWaterMark {
+		r.highWaterMark = cursor
+	}
+	r.lastCursor = fmt.Sprintf("%d", r.highWaterMark)
 	r.processedTick++
 	r.statusMu.Unlock()
 }

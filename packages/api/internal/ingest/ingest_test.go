@@ -270,6 +270,64 @@ func TestRunner_ProcessCreateAndDelete(t *testing.T) {
 	}
 }
 
+func TestRunner_CursorHighWaterMarkDoesNotRegress(t *testing.T) {
+	st := newFakeStore()
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	newer := normalize.TapRecordEvent{
+		ID:   200,
+		Type: "identity",
+		Identity: &normalize.TapIdentity{
+			DID:    "did:plc:newer",
+			Handle: "newer.tangled.org",
+		},
+	}
+	if err := r.processEvent(context.Background(), newer); err != nil {
+		t.Fatalf("process newer event: %v", err)
+	}
+	if st.syncCursor != "200" {
+		t.Fatalf("cursor after newer event: got %q want 200", st.syncCursor)
+	}
+
+	older := normalize.TapRecordEvent{
+		ID:   150,
+		Type: "identity",
+		Identity: &normalize.TapIdentity{
+			DID:    "did:plc:older",
+			Handle: "older.tangled.org",
+		},
+	}
+	if err := r.processEvent(context.Background(), older); err != nil {
+		t.Fatalf("process older event: %v", err)
+	}
+
+	if st.syncCursor != "200" {
+		t.Fatalf("cursor regressed: got %q want 200", st.syncCursor)
+	}
+	if !r.shouldSkipEvent(150) {
+		t.Fatal("expected older event id to be skipped once a newer cursor is recorded")
+	}
+}
+
+func TestRunner_InitializeCursorUsesHighWaterMark(t *testing.T) {
+	st := newFakeStore()
+	st.initialSync = &store.SyncState{ConsumerName: "indexer-tap-v1", Cursor: "150"}
+	tap := &fakeTapClient{}
+	r := newRunnerForTest(st, tap, "sh.tangled.*")
+
+	if err := r.initializeCursor(context.Background()); err != nil {
+		t.Fatalf("initialize cursor: %v", err)
+	}
+
+	if !r.shouldSkipEvent(150) {
+		t.Fatal("expected stored cursor to act as skip high-water mark")
+	}
+	if r.shouldSkipEvent(151) {
+		t.Fatal("did not expect events above the high-water mark to be skipped")
+	}
+}
+
 func TestRunner_ProcessStateEvent(t *testing.T) {
 	st := newFakeStore()
 	tap := &fakeTapClient{}
@@ -352,8 +410,8 @@ func TestRunner_InitializeCursorResume(t *testing.T) {
 	if err := r.initializeCursor(context.Background()); err != nil {
 		t.Fatalf("initialize cursor: %v", err)
 	}
-	if r.resumeCursor != 150 {
-		t.Fatalf("resume cursor: got %d want 150", r.resumeCursor)
+	if r.highWaterMark != 150 {
+		t.Fatalf("high-water mark: got %d want 150", r.highWaterMark)
 	}
 	if !r.shouldSkipEvent(149) {
 		t.Fatalf("expected event 149 to be skipped")
