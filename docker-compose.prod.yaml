@@ -21,9 +21,7 @@ services:
       - "5432"
 
   migrate:
-    build:
-      context: ./packages/api
-      dockerfile: Dockerfile
+    image: ${TWISTER_IMAGE:-twisted-api:latest}
     command: ["twister", "migrate"]
     restart: "no"
     environment:
@@ -35,6 +33,7 @@ services:
         condition: service_healthy
 
   api:
+    image: ${TWISTER_IMAGE:-twisted-api:latest}
     build:
       context: ./packages/api
       dockerfile: Dockerfile
@@ -63,9 +62,7 @@ services:
       - "8080"
 
   indexer:
-    build:
-      context: ./packages/api
-      dockerfile: Dockerfile
+    image: ${TWISTER_IMAGE:-twisted-api:latest}
     command: ["twister", "indexer"]
     restart: unless-stopped
     environment:
