@@ -182,6 +182,99 @@ describe('BobbinClient', () => {
 		expect(archive.searchParams.get('format')).toBe('zip')
 	})
 
+	test('uses Bobbin repository record identifiers for proxied blob queries', async () => {
+		const fetch = fetchMock().mockResolvedValue(
+			jsonResponse({ path: 'README.md', ref: 'HEAD', content: '# Tempest', encoding: 'utf-8', size: 9 }),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.getRepositoryBlob(repoUri, 'HEAD', 'README.md')).resolves.toMatchObject({
+			path: 'README.md',
+			content: '# Tempest',
+		})
+		const url = new URL(String(fetch.mock.calls[0][0]))
+		expect(url.searchParams.get('repo')).toBe(repoUri)
+	})
+
+	test('fetches profile avatars as CORS blobs for COEP-safe object URLs', async () => {
+		const fetch = fetchMock().mockResolvedValue(
+			new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'content-type': 'image/png' } }),
+		)
+		const client = new BobbinClient({ fetch })
+
+		const blob = await client.getProfileAvatar('https://pds.example', 'did:plc:person', 'bafk-avatar')
+
+		expect(blob.type).toBe('image/png')
+		const [input, init] = fetch.mock.calls[0]
+		const url = new URL(String(input))
+		expect(url.pathname).toBe('/xrpc/com.atproto.sync.getBlob')
+		expect(url.searchParams.get('did')).toBe('did:plc:person')
+		expect(url.searchParams.get('cid')).toBe('bafk-avatar')
+		expect(init).toMatchObject({ credentials: 'omit', mode: 'cors', referrerPolicy: 'no-referrer' })
+	})
+
+	test('normalizes branch pages and advances an offset cursor once', async () => {
+		const fetch = fetchMock().mockResolvedValue(
+			jsonResponse({
+				branches: [
+					{
+						reference: { name: 'main', hash: 'a'.repeat(40) },
+						commit: {
+							Author: { Name: 'Ada', Email: 'ada@example.com', When: '2026-08-01T00:00:00Z' },
+							Message: 'First',
+						},
+						is_default: true,
+					},
+					{ reference: { name: 'next', hash: 'b'.repeat(40) } },
+				],
+			}),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.listRepositoryBranches('did:plc:repo', { limit: 1 })).resolves.toEqual({
+			items: [
+				expect.objectContaining({
+					name: 'main',
+					hash: 'a'.repeat(40),
+					isDefault: true,
+					author: expect.objectContaining({ name: 'Ada' }),
+				}),
+			],
+			cursor: '1',
+		})
+		const url = new URL(String(fetch.mock.calls[0][0]))
+		expect(url.searchParams.get('limit')).toBe('2')
+	})
+
+	test('normalizes commit pages and derives the next page from the returned totals', async () => {
+		const hash = '0123456789abcdef0123456789abcdef01234567'
+		const parent = 'fedcba9876543210fedcba9876543210fedcba98'
+		const fetch = fetchMock().mockResolvedValue(
+			jsonResponse({
+				commits: [{ this: hash, parent, message: 'Ship it', author: { Name: 'Grace', When: '2026-08-01T00:00:00Z' } }],
+				ref: 'main',
+				total: 3,
+				page: 1,
+				per_page: 1,
+			}),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.getRepositoryLog('did:plc:repo', { ref: 'main', limit: 1 })).resolves.toEqual({
+			items: [
+				expect.objectContaining({
+					hash,
+					parents: [parent],
+					message: 'Ship it',
+					author: expect.objectContaining({ name: 'Grace' }),
+				}),
+			],
+			cursor: '2',
+			ref: 'main',
+			total: 3,
+		})
+	})
+
 	test('maps aborts separately from network failures', async () => {
 		const controller = new AbortController()
 		let requestSignal!: AbortSignal

@@ -215,6 +215,8 @@ languages, README, labels, counts, collaborators, and recent ref activity.
 
 ### T12 - Browse repository trees and blobs
 
+**Status:** Complete
+
 **What to build:** Add ref-aware directory navigation and safe text, binary,
 large-file, and missing-blob views.
 
@@ -222,14 +224,16 @@ large-file, and missing-blob views.
 
 **Acceptance criteria:**
 
-- [ ] Directory navigation preserves ref and path in a shareable URL.
-- [ ] Text has line numbers, anchors, wrap controls, and a tested size limit.
-- [ ] Binary and oversized files offer download or canonical links without unsafe rendering.
-- [ ] Tree and blob upstream failures retain repository navigation.
+- [x] Directory navigation preserves ref and path in a shareable URL.
+- [x] Text has line numbers, anchors, wrap controls, and a tested size limit.
+- [x] Binary and oversized files offer download or canonical links without unsafe rendering.
+- [x] Tree and blob upstream failures retain repository navigation.
 
 **Verification:** `bun run test:unit --run && bun run build`
 
 ### T13 - Browse branches, tags, commits, and ref updates
+
+**Status:** Complete
 
 **What to build:** Add paginated refs and commit history, path-filtered logs,
 commit details, and ref-update records.
@@ -238,10 +242,10 @@ commit details, and ref-update records.
 
 **Acceptance criteria:**
 
-- [ ] Branch and tag selection updates source and history routes.
-- [ ] Commit cursors append once and preserve order.
-- [ ] Author, time, hash, message, and changed-ref links remain readable on narrow screens.
-- [ ] Empty repositories and missing refs have explicit states.
+- [x] Branch and tag selection updates source and history routes.
+- [x] Commit cursors append once and preserve order.
+- [x] Author, time, hash, message, and changed-ref links remain readable on narrow screens.
+- [x] Empty repositories and missing refs have explicit states.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

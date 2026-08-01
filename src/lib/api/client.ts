@@ -32,8 +32,13 @@ import {
 	ShTangledRepo,
 	ShTangledRepoArchive,
 	ShTangledRepoArtifact,
+	ShTangledRepoBlob,
+	ShTangledRepoBranches,
+	ShTangledRepoCompare,
 	ShTangledRepoCountIssues,
 	ShTangledRepoCountPulls,
+	ShTangledRepoDiff,
+	ShTangledRepoGetDefaultBranch,
 	ShTangledRepoGetRepoByRepoDid,
 	ShTangledRepoGetRepos,
 	ShTangledRepoGetRepo,
@@ -41,6 +46,7 @@ import {
 	ShTangledRepoIssueListStatesBy,
 	ShTangledRepoIssueState,
 	ShTangledRepoLanguages,
+	ShTangledRepoLog,
 	ShTangledRepoListArtifactsBy,
 	ShTangledRepoListCollaborators,
 	ShTangledRepoListCollaboratorsBy,
@@ -51,6 +57,7 @@ import {
 	ShTangledRepoPullListStatusesBy,
 	ShTangledRepoPullStatus,
 	ShTangledRepoTree,
+	ShTangledRepoTags,
 	ShTangledSearchQuery,
 	ShTangledSpindleListMembersBy,
 } from '@atcute/tangled'
@@ -59,6 +66,7 @@ import {
 	bobbinKnotListKeysSchema,
 	bobbinKnotOwnerSchema,
 	bobbinKnotVersionSchema,
+	bobbinRepoBlobSchema,
 	DEFAULT_BOBBIN_SERVICE,
 } from './contracts'
 import type { BobbinCoverage } from './contracts'
@@ -111,11 +119,65 @@ export interface ActorActivityOptions extends ListReposOptions {
 	status?: 'open' | 'closed' | 'merged'
 }
 
-export interface RepositoryCounts {
-	issues: number
-	pulls: number
-	stars: number
+export type RepositoryCounts = { issues: number; pulls: number; stars: number }
+
+export const MAX_TEXT_BLOB_BYTES = 512 * 1024
+export const MAX_RENDERED_PATCH_BYTES = 512 * 1024
+
+export type RepositoryPatch =
+	| { kind: 'patch'; bytes: number; text: string; contentType?: string; filename?: string }
+	| { kind: 'too-large'; bytes?: number; contentType?: string; filename?: string }
+
+export type RepositoryArchiveFormat = Extract<ShTangledRepoArchive.$params['format'], 'tar.gz' | 'zip'>
+
+export type RepositoryArchiveOptions = RequestOptions & {
+	format?: RepositoryArchiveFormat
+	ifModifiedSince?: string
+	ifNoneMatch?: string
+	prefix?: string
+	range?: string
+	ref?: string
 }
+
+export type RepositoryDownload = {
+	body: ReadableStream<Uint8Array> | null
+	cacheControl?: string
+	contentLength?: number
+	contentRange?: string
+	contentType?: string
+	etag?: string
+	filename?: string
+	lastModified?: string
+	status: number
+}
+
+export type RepositorySignature = { email?: string; name: string; when?: string }
+
+export type RepositoryBranch = {
+	author?: RepositorySignature
+	hash: string
+	isDefault: boolean
+	message?: string
+	name: string
+	when?: string
+}
+
+export type RepositoryTag = { hash: string; message?: string; name: string; tagger?: RepositorySignature }
+
+export type RepositoryCommit = {
+	author?: RepositorySignature
+	committer?: RepositorySignature
+	hash: string
+	message: string
+	parents: readonly string[]
+	tree?: string
+}
+
+export type RepositoryLogPage = CursorPage<RepositoryCommit> & { ref: string; total?: number }
+
+export type RepositoryRefOptions = RequestOptions & { cursor?: string; limit?: number }
+
+export type RepositoryLogOptions = RepositoryRefOptions & { path?: string; ref: string }
 
 type ActorDid = ShTangledRepoListIssuesBy.$params['subject']
 
@@ -171,12 +233,14 @@ interface BobbinSearchResponse {
 export class BobbinClient {
 	readonly service: string
 	readonly #cache: RequestCache
+	readonly #fetch: typeof globalThis.fetch
 	readonly #rpc: Client
 
 	constructor(options: BobbinClientOptions = {}) {
 		this.service = normalizeBobbinService(options.service ?? DEFAULT_BOBBIN_SERVICE)
 		this.#cache = options.cache ?? new RequestCache()
-		this.#rpc = new Client({ handler: simpleFetchHandler({ service: this.service, fetch: options.fetch }) })
+		this.#fetch = options.fetch ?? globalThis.fetch
+		this.#rpc = new Client({ handler: simpleFetchHandler({ service: this.service, fetch: this.#fetch }) })
 	}
 
 	/** Returns Bobbin's current Hydrant ingestion coverage. */
@@ -214,6 +278,44 @@ export class BobbinClient {
 			ShTangledActorProfile.mainSchema,
 			'actor profile',
 		)
+	}
+
+	/** Fetches a public profile image through CORS so it can be displayed under COEP. */
+	async getProfileAvatar(pds: string, did: string, cid: string, options: RequestOptions = {}): Promise<Blob> {
+		let url: URL
+		try {
+			url = new URL('/xrpc/com.atproto.sync.getBlob', pds)
+		} catch (error) {
+			throw new BobbinError('invalid-request', 'The profile image address is invalid', { cause: error })
+		}
+		if (url.protocol !== 'https:') throw new BobbinError('invalid-request', 'Profile images must use HTTPS')
+		url.searchParams.set('did', did)
+		url.searchParams.set('cid', cid)
+
+		try {
+			const response = await this.#fetch(url, {
+				credentials: 'omit',
+				mode: 'cors',
+				referrerPolicy: 'no-referrer',
+				signal: options.signal,
+			})
+			if (!response.ok) {
+				throw new BobbinError(
+					response.status === 404 ? 'not-found' : 'service-unavailable',
+					'The profile image is unavailable',
+					{ status: response.status },
+				)
+			}
+			const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase()
+			if (!contentType?.startsWith('image/')) {
+				throw new BobbinError('malformed-response', 'The profile image has an unsupported format')
+			}
+			const blob = await response.blob()
+			if (blob.size > 5 * 1024 * 1024) throw new BobbinError('malformed-response', 'The profile image is too large')
+			return blob
+		} catch (error) {
+			throw errorFromException(error)
+		}
 	}
 
 	/** Fetches and validates one Tangled repository record. */
@@ -361,14 +463,101 @@ export class BobbinClient {
 		)
 	}
 
-	getRepositoryTree(repo: ShTangledRepoTree.$params['repo'], options: RequestOptions = {}) {
-		return this.#cached(
-			'sh.tangled.repo.tree',
-			{ repo, ref: 'HEAD', path: '' },
-			options,
-			STALE_TIMES.record,
-			(signal) => this.#rpc.call(ShTangledRepoTree, { params: { repo, ref: 'HEAD', path: '' }, signal }),
+	getRepositoryTree(
+		repo: ShTangledRepoTree.$params['repo'],
+		params: { path?: string; ref?: string } = {},
+		options: RequestOptions = {},
+	) {
+		const request = { repo, ref: params.ref ?? 'HEAD', path: params.path ?? '' }
+		return this.#cached('sh.tangled.repo.tree', request, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledRepoTree, { params: request, signal }),
 		)
+	}
+
+	getRepositoryBlob(
+		repo: string,
+		ref: ShTangledRepoBlob.$params['ref'],
+		path: ShTangledRepoBlob.$params['path'],
+		options: RequestOptions = {},
+	) {
+		const params = { repo, ref, path, raw: false }
+		return this.#cached('sh.tangled.repo.blob', params, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(bobbinRepoBlobSchema, { params, signal }),
+		)
+	}
+
+	getRepositoryDefaultBranch(repo: string, options: RequestOptions = {}) {
+		return this.#cached('sh.tangled.repo.getDefaultBranch', { repo }, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledRepoGetDefaultBranch, { params: { repo }, signal }),
+		)
+	}
+
+	async listRepositoryBranches(
+		repo: string,
+		options: RepositoryRefOptions = {},
+	): Promise<CursorPage<RepositoryBranch>> {
+		const limit = clampPageSize(options.limit)
+		const cursor = parseOffsetCursor(options.cursor)
+		const params = { repo, cursor: cursor ? String(cursor) : undefined, limit: limit + 1 }
+		const blob = await this.#cached('sh.tangled.repo.branches', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoBranches, { as: 'blob', params, signal }),
+		)
+		const branches = parseBranches(await parseJsonBlob(blob, 'branches'))
+		return { items: branches.slice(0, limit), cursor: branches.length > limit ? String(cursor + limit) : undefined }
+	}
+
+	async listRepositoryTags(repo: string, options: RepositoryRefOptions = {}): Promise<CursorPage<RepositoryTag>> {
+		const limit = clampPageSize(options.limit)
+		const cursor = parseOffsetCursor(options.cursor)
+		const params = { repo, cursor: cursor ? String(cursor) : undefined, limit: limit + 1 }
+		const blob = await this.#cached('sh.tangled.repo.tags', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoTags, { as: 'blob', params, signal }),
+		)
+		const tags = parseTags(await parseJsonBlob(blob, 'tags'))
+		return { items: tags.slice(0, limit), cursor: tags.length > limit ? String(cursor + limit) : undefined }
+	}
+
+	async getRepositoryLog(repo: string, options: RepositoryLogOptions): Promise<RepositoryLogPage> {
+		const limit = Math.min(100, Math.max(1, options.limit ?? 20))
+		const page = Math.max(1, Number.parseInt(options.cursor ?? '1', 10) || 1)
+		const params = { repo, ref: options.ref, path: options.path ?? '', cursor: String(page), limit }
+		const blob = await this.#cached('sh.tangled.repo.log', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoLog, { as: 'blob', params, signal }),
+		)
+		return parseRepositoryLog(await parseJsonBlob(blob, 'commit history'), options.ref, page, limit)
+	}
+
+	getRepositoryDiff(repo: string, ref: string, options: RequestOptions = {}): Promise<RepositoryPatch> {
+		const params = { repo, ref }
+		if (!is(ShTangledRepoDiff.mainSchema.params, params)) {
+			return Promise.reject(new BobbinError('invalid-request', 'The repository revision is invalid'))
+		}
+		return this.#getRepositoryPatch(this.repositoryDiffUrl(repo, ref), options)
+	}
+
+	getRepositoryCompare(repo: string, base: string, head: string, options: RequestOptions = {}): Promise<RepositoryPatch> {
+		const params = { repo, rev1: base, rev2: head }
+		if (!is(ShTangledRepoCompare.mainSchema.params, params)) {
+			return Promise.reject(new BobbinError('invalid-request', 'The comparison revisions are invalid'))
+		}
+		return this.#getRepositoryPatch(this.repositoryCompareUrl(repo, base, head), options)
+	}
+
+	repositoryDiffUrl(repo: string, ref: string): string {
+		return this.#repositoryQueryUrl('sh.tangled.repo.diff', { repo, ref })
+	}
+
+	repositoryCompareUrl(repo: string, base: string, head: string): string {
+		return this.#repositoryQueryUrl('sh.tangled.repo.compare', { repo, rev1: base, rev2: head })
+	}
+
+	repositoryBlobUrl(repo: string, ref: string, path: string): string {
+		const url = new URL('/xrpc/sh.tangled.repo.blob', this.service)
+		url.searchParams.set('repo', repo)
+		url.searchParams.set('ref', ref)
+		url.searchParams.set('path', path)
+		url.searchParams.set('raw', 'true')
+		return url.href
 	}
 
 	async listRepositoryCollaborators(subject: ActorDid, options: RequestOptions = {}) {
@@ -413,13 +602,43 @@ export class BobbinClient {
 
 	repositoryArchiveUrl(
 		repo: ShTangledRepoArchive.$params['repo'],
-		format: Extract<ShTangledRepoArchive.$params['format'], 'tar.gz' | 'zip'> = 'tar.gz',
+		format: RepositoryArchiveFormat = 'tar.gz',
+		ref = 'HEAD',
+		prefix?: string,
 	): string {
-		const url = new URL('/xrpc/sh.tangled.repo.archive', this.service)
-		url.searchParams.set('repo', repo)
-		url.searchParams.set('ref', 'HEAD')
-		url.searchParams.set('format', format)
-		return url.href
+		return this.#repositoryQueryUrl('sh.tangled.repo.archive', { repo, ref, format, prefix })
+	}
+
+	async getRepositoryArchive(repo: string, options: RepositoryArchiveOptions = {}): Promise<RepositoryDownload> {
+		const params = {
+			repo,
+			ref: options.ref ?? 'HEAD',
+			format: options.format ?? 'tar.gz',
+			prefix: options.prefix,
+		}
+		if (!is(ShTangledRepoArchive.mainSchema.params, params)) {
+			throw new BobbinError('invalid-request', 'The archive request is invalid')
+		}
+
+		const headers = new Headers()
+		if (options.range) headers.set('range', options.range)
+		if (options.ifNoneMatch) headers.set('if-none-match', options.ifNoneMatch)
+		if (options.ifModifiedSince) headers.set('if-modified-since', options.ifModifiedSince)
+
+		try {
+			const response = await this.#fetch(this.repositoryArchiveUrl(repo, params.format, params.ref, params.prefix), {
+				headers,
+				signal: options.signal,
+				cache: options.cache === 'reload' ? 'reload' : 'default',
+				credentials: 'omit',
+				mode: 'cors',
+				referrerPolicy: 'no-referrer',
+			})
+			if (!response.ok && response.status !== 304) throw await responseError(response)
+			return downloadMetadata(response)
+		} catch (error) {
+			throw errorFromException(error)
+		}
 	}
 
 	/**
@@ -534,6 +753,57 @@ export class BobbinClient {
 			throw errorFromException(error)
 		}
 	}
+
+	async #getRepositoryPatch(url: string, options: RequestOptions): Promise<RepositoryPatch> {
+		try {
+			const response = await this.#fetch(url, {
+				headers: { accept: 'text/x-diff, text/plain;q=0.9, application/octet-stream;q=0.5' },
+				signal: options.signal,
+				cache: options.cache === 'reload' ? 'reload' : 'default',
+				credentials: 'omit',
+				mode: 'cors',
+				referrerPolicy: 'no-referrer',
+			})
+			if (!response.ok) throw await responseError(response)
+
+			const metadata = downloadMetadata(response)
+			if (metadata.contentLength !== undefined && metadata.contentLength > MAX_RENDERED_PATCH_BYTES) {
+				await response.body?.cancel()
+				return {
+					kind: 'too-large',
+					bytes: metadata.contentLength,
+					contentType: metadata.contentType,
+					filename: metadata.filename,
+				}
+			}
+
+			const reader = response.body?.getReader()
+			if (!reader) return { kind: 'patch', bytes: 0, text: '', contentType: metadata.contentType }
+			const decoder = new TextDecoder()
+			let bytes = 0
+			let text = ''
+			for (;;) {
+				const { done, value } = await reader.read()
+				if (done) break
+				bytes += value.byteLength
+				if (bytes > MAX_RENDERED_PATCH_BYTES) {
+					await reader.cancel()
+					return { kind: 'too-large', bytes, contentType: metadata.contentType, filename: metadata.filename }
+				}
+				text += decoder.decode(value, { stream: true })
+			}
+			text += decoder.decode()
+			return { kind: 'patch', bytes, text, contentType: metadata.contentType, filename: metadata.filename }
+		} catch (error) {
+			throw errorFromException(error)
+		}
+	}
+
+	#repositoryQueryUrl(nsid: string, params: Record<string, string | undefined>): string {
+		const url = new URL(`/xrpc/${nsid}`, this.service)
+		for (const [name, value] of Object.entries(params)) if (value !== undefined) url.searchParams.set(name, value)
+		return url.href
+	}
 }
 
 /** Creates a Bobbin boundary with the default service and browser fetch. */
@@ -585,6 +855,195 @@ function normalizeProfilePlaceholders(value: unknown): unknown {
 		}
 	}
 	return profile
+}
+
+async function parseJsonBlob(blob: Blob, context: string): Promise<unknown> {
+	try {
+		const text = await readBlobText(blob)
+		return JSON.parse(text) as unknown
+	} catch (error) {
+		throw new BobbinError('malformed-response', `Bobbin returned invalid ${context}`, { cause: error })
+	}
+}
+
+function readBlobText(blob: Blob): Promise<string> {
+	if (typeof blob.text === 'function') return blob.text()
+	if (typeof FileReader === 'undefined') return new Response(blob).text()
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader()
+		reader.addEventListener('load', () => resolve(String(reader.result ?? '')), { once: true })
+		reader.addEventListener('error', () => reject(reader.error), { once: true })
+		reader.readAsText(blob)
+	})
+}
+
+function parseBranches(value: unknown): RepositoryBranch[] {
+	const root = responseRecord(value, 'branches')
+	const items = root.branches ?? []
+	if (!Array.isArray(items)) throw malformed('branches')
+	return items.map((item) => {
+		const branch = responseRecord(item, 'branch')
+		const reference = optionalRecord(branch.reference)
+		const commit = optionalRecord(branch.commit)
+		const author = parseSignature(branch.author ?? commit?.Author ?? commit?.author)
+		return {
+			name: requiredString(branch.name ?? reference?.name, 'branch name'),
+			hash: requiredString(branch.hash ?? reference?.hash, 'branch hash'),
+			isDefault: branch.isDefault === true || branch.is_default === true,
+			message: optionalString(branch.message ?? commit?.Message ?? commit?.message),
+			author,
+			when: optionalString(branch.when) ?? author?.when,
+		}
+	})
+}
+
+function parseTags(value: unknown): RepositoryTag[] {
+	const root = responseRecord(value, 'tags')
+	const items = root.tags ?? []
+	if (!Array.isArray(items)) throw malformed('tags')
+	return items.map((item) => {
+		const tag = responseRecord(item, 'tag')
+		const details = optionalRecord(tag.tag)
+		return {
+			name: requiredString(tag.name ?? details?.Name ?? details?.name, 'tag name'),
+			hash: requiredString(tag.hash, 'tag hash'),
+			message: optionalString(tag.message ?? details?.Message ?? details?.message)?.trim(),
+			tagger: parseSignature(details?.Tagger ?? details?.tagger ?? tag.tagger),
+		}
+	})
+}
+
+function parseRepositoryLog(value: unknown, expectedRef: string, page: number, limit: number): RepositoryLogPage {
+	const root = responseRecord(value, 'commit history')
+	const items = root.commits ?? []
+	if (!Array.isArray(items)) throw malformed('commit history')
+	const commits = items.map((item) => {
+		const commit = responseRecord(item, 'commit')
+		const hash = optionalString(commit.this) ?? hashString(commit.hash)
+		if (!hash) throw malformed('commit hash')
+		const parents = Array.isArray(commit.parent_hashes)
+			? commit.parent_hashes.flatMap((parent) => (hashString(parent) ? [hashString(parent)!] : []))
+			: optionalString(commit.parent)
+				? [commit.parent as string]
+				: []
+		return {
+			hash,
+			message: optionalString(commit.message)?.trim() ?? '',
+			author: parseSignature(commit.author ?? commit.Author),
+			committer: parseSignature(commit.committer ?? commit.Committer),
+			parents,
+			tree: optionalString(commit.tree),
+		}
+	})
+	const actualPage = positiveInteger(root.page) ?? page
+	const pageSize = positiveInteger(root.per_page) ?? limit
+	const total = positiveInteger(root.total)
+	const cursor = total !== undefined && actualPage * pageSize < total ? String(actualPage + 1) : undefined
+	return { items: commits, cursor, ref: optionalString(root.ref) ?? expectedRef, total }
+}
+
+function parseSignature(value: unknown): RepositorySignature | undefined {
+	const signature = optionalRecord(value)
+	if (!signature) return undefined
+	const name = optionalString(signature.name ?? signature.Name)
+	if (!name) return undefined
+	return {
+		name,
+		email: optionalString(signature.email ?? signature.Email),
+		when: optionalString(signature.when ?? signature.When),
+	}
+}
+
+function hashString(value: unknown): string | undefined {
+	if (typeof value === 'string' && /^[a-f\d]{40}$/i.test(value)) return value
+	if (
+		Array.isArray(value) &&
+		value.length === 20 &&
+		value.every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255)
+	) {
+		return value.map((byte) => (byte as number).toString(16).padStart(2, '0')).join('')
+	}
+	return undefined
+}
+
+function clampPageSize(value: number | undefined): number {
+	return Math.min(99, Math.max(1, value ?? 20))
+}
+
+function parseOffsetCursor(value: string | undefined): number {
+	const cursor = Number.parseInt(value ?? '0', 10)
+	return Number.isInteger(cursor) && cursor >= 0 ? cursor : 0
+}
+
+function responseRecord(value: unknown, context: string): Record<string, unknown> {
+	const record = optionalRecord(value)
+	if (!record) throw malformed(context)
+	return record
+}
+
+function optionalRecord(value: unknown): Record<string, unknown> | undefined {
+	return typeof value === 'object' && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: undefined
+}
+
+function requiredString(value: unknown, context: string): string {
+	const text = optionalString(value)
+	if (!text) throw malformed(context)
+	return text
+}
+
+function optionalString(value: unknown): string | undefined {
+	return typeof value === 'string' ? value : undefined
+}
+
+function positiveInteger(value: unknown): number | undefined {
+	return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined
+}
+
+function malformed(context: string): BobbinError {
+	return new BobbinError('malformed-response', `Bobbin returned invalid ${context}`)
+}
+
+async function responseError(response: Response): Promise<BobbinError> {
+	let data: { error: string; message?: string } = { error: response.statusText || 'Request failed' }
+	try {
+		const value = (await response.json()) as { error?: unknown; message?: unknown }
+		if (typeof value.error === 'string') data.error = value.error
+		if (typeof value.message === 'string') data.message = value.message
+	} catch {
+		// Non-JSON upstream errors still retain their HTTP status and status text.
+	}
+	return errorFromResponse({ status: response.status, headers: response.headers, data })
+}
+
+function downloadMetadata(response: Response): RepositoryDownload {
+	const lengthHeader = response.headers.get('content-length')
+	const length = lengthHeader === null ? Number.NaN : Number(lengthHeader)
+	return {
+		body: response.body,
+		status: response.status,
+		contentLength: Number.isSafeInteger(length) && length >= 0 ? length : undefined,
+		contentRange: response.headers.get('content-range') ?? undefined,
+		contentType: response.headers.get('content-type') ?? undefined,
+		cacheControl: response.headers.get('cache-control') ?? undefined,
+		etag: response.headers.get('etag') ?? undefined,
+		lastModified: response.headers.get('last-modified') ?? undefined,
+		filename: contentDispositionFilename(response.headers.get('content-disposition')),
+	}
+}
+
+function contentDispositionFilename(value: string | null): string | undefined {
+	if (!value) return undefined
+	const encoded = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(value)?.[1]
+	if (encoded) {
+		try {
+			return decodeURIComponent(encoded.trim())
+		} catch {
+			return encoded.trim()
+		}
+	}
+	return /filename\s*=\s*"([^"]+)"/i.exec(value)?.[1] ?? /filename\s*=\s*([^;]+)/i.exec(value)?.[1]?.trim()
 }
 
 /**

@@ -83,7 +83,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/source',
 		name: 'repository-source',
-		component: domainPage,
+		component: () => import('@/views/RepositorySourcePage.vue'),
 		meta: {
 			title: 'Source',
 			section: 'Code',
@@ -97,7 +97,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/commits',
 		name: 'repository-commits',
-		component: domainPage,
+		component: () => import('@/views/RepositoryHistoryPage.vue'),
 		meta: {
 			title: 'Commit history',
 			section: 'Code',
@@ -111,7 +111,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/commits/:hash',
 		name: 'repository-commit',
-		component: domainPage,
+		component: () => import('@/views/RepositoryCommitPage.vue'),
 		meta: {
 			title: 'Commit',
 			section: 'Code',
@@ -125,7 +125,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/branches',
 		name: 'repository-branches',
-		component: domainPage,
+		component: () => import('@/views/RepositoryRefsPage.vue'),
 		meta: {
 			title: 'Branches',
 			section: 'Code',
@@ -139,7 +139,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/tags',
 		name: 'repository-tags',
-		component: domainPage,
+		component: () => import('@/views/RepositoryRefsPage.vue'),
 		meta: {
 			title: 'Tags',
 			section: 'Code',
@@ -153,7 +153,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/diff/:ref',
 		name: 'repository-diff',
-		component: domainPage,
+		component: () => import('@/views/RepositoryDiffPage.vue'),
 		meta: {
 			title: 'Diff',
 			section: 'Code',
@@ -167,7 +167,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/compare',
 		name: 'repository-compare',
-		component: domainPage,
+		component: () => import('@/views/RepositoryDiffPage.vue'),
 		meta: {
 			title: 'Compare revisions',
 			section: 'Code',

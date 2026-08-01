@@ -19,10 +19,10 @@ export const links = {
 	}),
 	repositories: { name: 'repositories' } satisfies RouteLocationRaw,
 	repository: (repo: string): RouteLocationRaw => ({ name: 'repository', params: { repo } }),
-	source: (repo: string, ref?: string, path?: string): RouteLocationRaw => ({
+	source: (repo: string, ref?: string, path?: string, view?: 'blob'): RouteLocationRaw => ({
 		name: 'repository-source',
 		params: { repo },
-		query: { ref, path },
+		query: { ref, path, view },
 	}),
 	commits: (repo: string, ref?: string, path?: string): RouteLocationRaw => ({
 		name: 'repository-commits',

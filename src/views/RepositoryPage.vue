@@ -206,6 +206,7 @@ const repositoryRequest = useRouteRequest(repo, (identifier, signal, attempt) =>
 const repository = computed(() => repositoryRequest.data.value)
 const ownerDid = computed(() => parseAtUri(repo.value)?.authority)
 const repositoryDid = computed(() => repository.value?.value.repoDid ?? '')
+const repositoryUri = computed(() => repository.value?.uri ?? '')
 const repositoryName = computed(() => {
 	const name = repository.value?.value.name?.trim()
 	return name || parseAtUri(repo.value)?.rkey || 'Repository'
@@ -214,8 +215,8 @@ const canonicalUrl = computed(() => (repositoryDid.value ? `https://tangled.org/
 const cloneUrl = canonicalUrl
 const websiteUrl = computed(() => safeWebUrl(repository.value?.value.website))
 const sourceUrl = computed(() => safeWebUrl(repository.value?.value.source))
-const archiveTarUrl = computed(() => getClient().repositoryArchiveUrl(repositoryDid.value, 'tar.gz'))
-const archiveZipUrl = computed(() => getClient().repositoryArchiveUrl(repositoryDid.value, 'zip'))
+const archiveTarUrl = computed(() => getClient().repositoryArchiveUrl(repositoryUri.value, 'tar.gz'))
+const archiveZipUrl = computed(() => getClient().repositoryArchiveUrl(repositoryUri.value, 'zip'))
 const didCopyLabel = ref('Copy repository DID')
 const cloneCopyLabel = ref('Copy HTTPS clone URL')
 
@@ -228,13 +229,15 @@ const countsRequest = useRouteRequest(repositoryDid, (did, signal, attempt) =>
 		: Promise.resolve(undefined),
 )
 const languagesRequest = useRouteRequest(
-	repositoryDid,
-	(did, signal, attempt) =>
-		did ? getClient().getRepositoryLanguages(did, { signal, cache: attempt.cache }) : Promise.resolve(undefined),
+	repositoryUri,
+	(uri, signal, attempt) =>
+		uri ? getClient().getRepositoryLanguages(uri, { signal, cache: attempt.cache }) : Promise.resolve(undefined),
 	{ isEmpty: (data) => !data?.languages.length },
 )
-const treeRequest = useRouteRequest(repositoryDid, (did, signal, attempt) =>
-	did ? getClient().getRepositoryTree(did, { signal, cache: attempt.cache }) : Promise.resolve(undefined),
+const treeRequest = useRouteRequest(repositoryUri, (uri, signal, attempt) =>
+	uri
+		? getClient().getRepositoryTree(uri, { ref: 'HEAD' }, { signal, cache: attempt.cache })
+		: Promise.resolve(undefined),
 )
 const collaboratorsRequest = useRouteRequest(
 	repositoryDid,

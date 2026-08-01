@@ -1,15 +1,11 @@
-import { ShTangledKnotListKeys, ShTangledKnotVersion, ShTangledOwner } from '@atcute/tangled'
+import { ShTangledKnotListKeys, ShTangledKnotVersion, ShTangledOwner, ShTangledRepoBlob } from '@atcute/tangled'
 import * as v from '@atcute/lexicons/validations'
 
 /** The hosted Bobbin instance used unless a user configures another service. */
 export const DEFAULT_BOBBIN_SERVICE = 'https://api.tangled.org'
 
 /** Bobbin's Hydrant ingestion status, which is not yet published by atcute. */
-export interface BobbinCoverage {
-	ready: boolean
-	eventsProcessed: number
-	lastCursor: number
-}
+export type BobbinCoverage = { ready: boolean; eventsProcessed: number; lastCursor: number }
 
 /** The local coverage query schema retained until atcute publishes the lexicon. */
 export const bobbinCoverageSchema = v.query('sh.tangled.bobbin.getCoverage', {
@@ -36,4 +32,10 @@ export const bobbinKnotVersionSchema = v.query('sh.tangled.knot.version', {
 export const bobbinKnotListKeysSchema = v.query('sh.tangled.knot.listKeys', {
 	params: v.object({ ...ShTangledKnotListKeys.mainSchema.params.shape, knot: v.string() }),
 	output: ShTangledKnotListKeys.mainSchema.output,
+})
+
+/** Bobbin resolves a repository record AT-URI before proxying this query to its knot. */
+export const bobbinRepoBlobSchema = v.query('sh.tangled.repo.blob', {
+	params: v.object({ ...ShTangledRepoBlob.mainSchema.params.shape, repo: v.string() }),
+	output: ShTangledRepoBlob.mainSchema.output,
 })

@@ -114,8 +114,8 @@ Bobbin uses three identifiers that should remain distinct in application code:
 
 Single-record queries require a complete AT-URI. A handle or bare DID will not
 work in `actor.getProfile`, `repo.getRepo`, `repo.getIssue`, or `repo.getPull`.
-Git proxy calls also receive the repository record AT-URI from Twisted; Bobbin
-resolves its knot and rewrites the parameter for the knot API.
+Git proxy calls also receive the repository record AT-URI from Twisted. Bobbin
+resolves the record and forwards the matching repository to its knot.
 
 ## Common response shapes
 
@@ -222,9 +222,9 @@ by descending relevance.
 
 ## Git data proxied to knots
 
-Bobbin resolves the repo record, finds its knot, and streams these calls from
-that knot. It does not cache the response. For Twisted, `repo` is the repo
-record AT-URI.
+Bobbin resolves the repository record, finds its knot, and streams these calls
+from that knot. It does not cache the response. For Twisted, `repo` is the
+repository record AT-URI.
 
 | NSID                               | Required parameters    | Optional parameters                       |
 | ---------------------------------- | ---------------------- | ----------------------------------------- |
@@ -245,6 +245,10 @@ Several git endpoints declare `*/*` output. Call atcute with `as: 'blob'`,
 `as: 'bytes'`, or `as: 'stream'` instead of relying on JSON parsing. Bobbin
 forwards range and cache validators and preserves response metadata including
 `Content-Type`, `ETag`, `Last-Modified`, and `Content-Range`.
+
+The current knot responses use numeric offsets for branch and tag pages and a
+numeric page cursor for commit history. Twisted keeps those details inside its
+API boundary and exposes the next cursor as an opaque string to the views.
 
 Bobbin also proxies `sh.tangled.repo.listSecrets`, but Twisted has no user-facing
 need for secret configuration and must not call it.

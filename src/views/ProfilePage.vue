@@ -12,7 +12,10 @@
 
 				<template v-if="identityRequest.data.value">
 					<header class="profile-identity">
-						<div class="profile-identity__avatar" aria-hidden="true">{{ initial }}</div>
+						<div class="profile-identity__avatar">
+							<img v-if="avatarUrl" :alt="`${displayHandle}'s avatar`" :src="avatarUrl" />
+							<span v-else aria-hidden="true">{{ initial }}</span>
+						</div>
 						<div>
 							<p class="section-label">Public profile</p>
 							<h1>{{ displayHandle }}</h1>
@@ -37,7 +40,6 @@
 							noun="profile details"
 							@retry="profileRequest.retry" />
 						<div v-if="profile" class="profile-details">
-							<img v-if="avatarUrl" :alt="`${displayHandle}'s avatar`" :src="avatarUrl" />
 							<div>
 								<p v-if="profile.description" class="profile-details__bio">{{ profile.description }}</p>
 								<dl v-if="profile.location || profile.pronouns">
@@ -84,7 +86,7 @@ import PinnedRepositories from '@/features/profiles/PinnedRepositories.vue'
 import { useRouteRequest } from '@/lib/requests'
 import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -113,19 +115,29 @@ const initial = computed(() =>
 	identityRequest.data.value?.handle === 'handle.invalid' ? '?' : displayHandle.value.slice(1, 2).toUpperCase(),
 )
 const safeLinks = computed(() => (profile.value?.links ?? []).filter((link) => /^https?:\/\//i.test(link)))
-const avatarUrl = computed(() => {
+const avatarCid = computed(() => {
 	const avatar = profile.value?.avatar
-	const cid = avatar && 'ref' in avatar ? avatar.ref.$link : avatar && 'cid' in avatar ? avatar.cid : undefined
-	if (!cid || !identityRequest.data.value) return undefined
-	try {
-		const url = new URL('/xrpc/com.atproto.sync.getBlob', identityRequest.data.value.pds)
-		if (url.protocol !== 'https:') return undefined
-		url.searchParams.set('did', identityRequest.data.value.did)
-		url.searchParams.set('cid', cid)
-		return url.href
-	} catch {
-		return undefined
-	}
+	return avatar && 'ref' in avatar ? avatar.ref.$link : avatar && 'cid' in avatar ? avatar.cid : undefined
+})
+const avatarRequestKey = computed(() =>
+	JSON.stringify([identityRequest.data.value?.pds, identityRequest.data.value?.did, avatarCid.value]),
+)
+const avatarRequest = useRouteRequest(avatarRequestKey, async (_key, signal) => {
+	const currentIdentity = identityRequest.data.value
+	const cid = avatarCid.value
+	if (!currentIdentity || !cid) return undefined
+	return getClient().getProfileAvatar(currentIdentity.pds, currentIdentity.did, cid, { signal })
+})
+const avatarUrl = ref<string>()
+watch(
+	() => avatarRequest.data.value,
+	(blob) => {
+		if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value)
+		avatarUrl.value = blob ? URL.createObjectURL(blob) : undefined
+	},
+)
+onBeforeUnmount(() => {
+	if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value)
 })
 
 function linkLabel(link: string): string {
@@ -160,6 +172,12 @@ function linkLabel(link: string): string {
 	font-family: var(--font-display);
 	font-size: clamp(2rem, 7vw, 3.5rem);
 	font-weight: 800;
+	overflow: hidden;
+}
+.profile-identity__avatar img {
+	inline-size: 100%;
+	block-size: 100%;
+	object-fit: cover;
 }
 .profile-identity h1 {
 	margin: 0;
@@ -197,15 +215,8 @@ function linkLabel(link: string): string {
 	gap: var(--space-4);
 }
 .profile-details {
-	display: grid;
-	grid-template-columns: auto minmax(0, 1fr);
+	display: block;
 	gap: var(--space-5);
-}
-.profile-details img {
-	inline-size: 7rem;
-	aspect-ratio: 1;
-	border-radius: var(--radius-md);
-	object-fit: cover;
 }
 .profile-details__bio {
 	max-inline-size: 42rem;
@@ -239,13 +250,5 @@ function linkLabel(link: string): string {
 	margin: 0;
 	padding: 0;
 	list-style: none;
-}
-@media (max-width: 520px) {
-	.profile-details {
-		grid-template-columns: 1fr;
-	}
-	.profile-details img {
-		inline-size: 5rem;
-	}
 }
 </style>

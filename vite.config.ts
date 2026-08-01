@@ -6,6 +6,7 @@ import { defineConfig } from 'vitest/config'
 const config = defineConfig({
 	plugins: [vue()],
 	resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+	optimizeDeps: { exclude: ['satteri', '@bruits/satteri-wasm32-wasi'] },
 	build: { target: 'esnext' },
 	server: { headers: { 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Opener-Policy': 'same-origin' } },
 	preview: { headers: { 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Opener-Policy': 'same-origin' } },

@@ -2,7 +2,7 @@ import type { BobbinClient } from '@/lib/api'
 import { BOBBIN_CLIENT_PROVIDER, BobbinError } from '@/lib/api'
 import ProfilePage from '@/views/ProfilePage.vue'
 import { flushPromises } from '@vue/test-utils'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { mountIonicRoute } from './support/mount'
 
 const actorDid = 'did:plc:person'
@@ -34,6 +34,14 @@ function routes() {
 }
 
 describe('ProfilePage', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'URL',
+			Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:profile-avatar'), revokeObjectURL: vi.fn() }),
+		)
+	})
+	afterEach(() => vi.unstubAllGlobals())
+
 	test('renders verified identity and metadata while preserving pinned repository order', async () => {
 		const first = repository('First pinned', 'did:plc:first')
 		const second = repository('Second pinned', 'did:plc:second')
@@ -82,6 +90,40 @@ describe('ProfilePage', () => {
 		await flushPromises()
 		expect(wrapper.text()).toContain('Owned later')
 		expect(client.listRepos).toHaveBeenCalledTimes(2)
+	})
+
+	test('renders an avatar from a fetched blob instead of a blocked cross-origin URL', async () => {
+		const client = {
+			resolveIdentity: vi
+				.fn()
+				.mockResolvedValue({ did: actorDid, handle: 'person.example', pds: 'https://pds.example', signing_key: 'key' }),
+			getProfile: vi
+				.fn()
+				.mockResolvedValue({
+					uri: `at://${actorDid}/sh.tangled.actor.profile/self`,
+					value: {
+						$type: 'sh.tangled.actor.profile',
+						bluesky: false,
+						avatar: { ref: { $link: 'bafk-avatar' }, mimeType: 'image/png', size: 4 },
+					},
+				}),
+			getProfileAvatar: vi.fn().mockResolvedValue(new Blob(['avatar'], { type: 'image/png' })),
+			listRepos: vi.fn().mockResolvedValue({ items: [] }),
+		} as unknown as BobbinClient
+		const wrapper = await mountIonicRoute(ProfilePage, '/profiles/person.example', routes(), {
+			[BOBBIN_CLIENT_PROVIDER]: () => client,
+			navManager: { handleNavigateBack: vi.fn() },
+		})
+		await flushPromises()
+		await flushPromises()
+
+		expect(client.getProfileAvatar).toHaveBeenCalledWith(
+			'https://pds.example',
+			actorDid,
+			'bafk-avatar',
+			expect.any(Object),
+		)
+		expect(wrapper.get('.profile-identity__avatar img').attributes('src')).toBe('blob:profile-avatar')
 	})
 
 	test('keeps repositories visible when profile details fail', async () => {
