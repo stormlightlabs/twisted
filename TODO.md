@@ -66,6 +66,8 @@ with runtime record validation, abort support, pagination, and typed errors.
 
 ### T04 - Build the Base16 theme engine
 
+**Status:** Complete
+
 **What to build:** Map validated Base16 schemes to semantic Ionic and app CSS
 tokens, with bundled defaults, JSON import, selection, and persistence.
 
@@ -73,14 +75,16 @@ tokens, with bundled defaults, JSON import, selection, and persistence.
 
 **Acceptance criteria:**
 
-- [ ] Invalid or incomplete schemes cannot replace the active theme.
-- [ ] A reviewed default recovers from absent or corrupt persisted data.
-- [ ] Bundled light and dark schemes meet WCAG AA for application-owned controls.
-- [ ] Unit tests cover parsing, token mapping, persistence, and recovery.
+- [x] Invalid or incomplete schemes cannot replace the active theme.
+- [x] A reviewed default recovers from absent or corrupt persisted data.
+- [x] Bundled light and dark schemes meet WCAG AA for application-owned controls.
+- [x] Unit tests cover parsing, token mapping, persistence, and recovery.
 
 **Verification:** `bun run test:unit --run && bun run build`
 
 ### T05 - Replace the starter screen with the application shell
+
+**Status:** Complete
 
 **What to build:** Add responsive navigation, route layouts, settings, back
 behavior, safe areas, and stable deep-link routing for every specified domain.
@@ -89,10 +93,10 @@ behavior, safe areas, and stable deep-link routing for every specified domain.
 
 **Acceptance criteria:**
 
-- [ ] Desktop, narrow web, standalone PWA, and native-sized layouts remain usable.
-- [ ] Routes safely encode handles, DIDs, AT-URIs, refs, and paths.
-- [ ] Unknown routes and unsupported identifiers have useful recovery links.
-- [ ] Theme and API-service settings persist independently.
+- [x] Desktop, narrow web, standalone PWA, and native-sized layouts remain usable.
+- [x] Routes safely encode handles, DIDs, AT-URIs, refs, and paths.
+- [x] Unknown routes and unsupported identifiers have useful recovery links.
+- [x] Theme and API-service settings persist independently.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

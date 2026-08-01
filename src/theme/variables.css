@@ -1,2 +1,205 @@
-/* For information on how to create your own theme, please refer to:
-http://ionicframework.com/docs/theming/ */
+:root {
+	--app-background: #212337;
+	--app-surface: #323449;
+	--app-surface-raised: #3b4261;
+	--app-border: #a1abe0;
+	--app-text: #ebfafa;
+	--app-text-muted: #a1abe0;
+	--app-accent: #39ddfd;
+	--app-accent-contrast: #212337;
+	--app-danger: #f16c75;
+	--app-warning: #f7c67f;
+	--app-success: #37f499;
+	--app-focus: #04d1f9;
+
+	--font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--font-display: ui-rounded, 'SF Pro Rounded', 'Segoe UI', var(--font-body);
+	--text-xs: 0.75rem;
+	--text-sm: 0.875rem;
+	--text-base: 1rem;
+	--text-lg: 1.125rem;
+	--text-xl: 1.35rem;
+	--text-2xl: 1.75rem;
+
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.5rem;
+	--space-6: 2rem;
+	--space-8: 3rem;
+	--space-10: 4rem;
+	--space-12: 6rem;
+	--radius-sm: 0.5rem;
+	--radius-md: 0.875rem;
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+
+	--ion-font-family: var(--font-body);
+	--ion-background-color: var(--app-background);
+	--ion-text-color: var(--app-text);
+	--ion-toolbar-background: var(--app-surface);
+	--ion-toolbar-color: var(--app-text);
+	--ion-item-background: var(--app-surface);
+	--ion-card-background: var(--app-surface);
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	font-family: var(--font-body);
+	background: var(--app-background);
+}
+
+body {
+	color: var(--app-text);
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}
+
+a {
+	color: var(--app-accent);
+	text-underline-offset: 0.2em;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+	outline: 3px solid var(--app-focus);
+	outline-offset: 3px;
+}
+
+ion-split-pane {
+	--border: 1px solid var(--app-border);
+}
+
+ion-menu {
+	--width: 17.5rem;
+	--min-width: 17.5rem;
+	--max-width: 17.5rem;
+}
+
+ion-toolbar {
+	--border-color: var(--app-border);
+	--min-height: 3.5rem;
+	padding-inline-start: var(--safe-left);
+	padding-inline-end: var(--safe-right);
+}
+
+ion-title {
+	font-family: var(--font-display);
+	font-weight: 750;
+}
+
+.page-frame {
+	inline-size: min(100%, 84rem);
+	margin-inline: auto;
+	padding: clamp(var(--space-6), 5vw, var(--space-10)) max(var(--space-5), var(--safe-right))
+		calc(var(--space-12) + var(--safe-bottom)) max(var(--space-5), var(--safe-left));
+}
+
+.page-frame--narrow {
+	max-inline-size: 64rem;
+}
+
+.section-label {
+	margin: 0 0 var(--space-3);
+	color: var(--app-accent);
+	font-size: var(--text-sm);
+	font-weight: 700;
+}
+
+.route-notice {
+	max-inline-size: 42rem;
+	border-inline-start: 3px solid var(--app-accent);
+	padding: var(--space-3) var(--space-5);
+}
+
+.route-notice p {
+	margin: var(--space-1) 0 0;
+	color: var(--app-text-muted);
+	line-height: 1.55;
+}
+
+.recovery-state {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-4);
+	max-inline-size: 44rem;
+	border: 1px solid var(--app-border);
+	border-radius: var(--radius-md);
+	padding: var(--space-5);
+	background: var(--app-surface);
+}
+
+.recovery-state > ion-icon {
+	flex: 0 0 auto;
+	color: var(--app-warning);
+	font-size: 1.5rem;
+}
+
+.recovery-state h2,
+.recovery-state p {
+	margin: 0;
+}
+
+.recovery-state p {
+	margin-block-start: var(--space-2);
+	color: var(--app-text-muted);
+	line-height: 1.55;
+}
+
+.recovery-state__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-4);
+	margin-block-start: var(--space-4);
+}
+
+.skip-link {
+	position: fixed;
+	z-index: 100;
+	inset-block-start: var(--space-2);
+	inset-inline-start: var(--space-2);
+	padding: var(--space-3) var(--space-4);
+	color: var(--app-accent-contrast);
+	background: var(--app-accent);
+	transform: translateY(-160%);
+}
+
+.skip-link:focus {
+	transform: translateY(0);
+}
+
+.sr-only {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+	}
+}

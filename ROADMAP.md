@@ -50,9 +50,11 @@ the complete web/PWA experience; it does not reduce the product scope.
 
 The repository is an Ionic Vue app using Vue 3, TypeScript, Vite 5, Vue Router,
 Ionic 8, Capacitor 8, Vitest, Cypress, and ESLint. It has a typed Bobbin read
-boundary, shared unit and browser-test fixtures, and live Hurl contract checks.
-The interface is still a foundation screen without product navigation.
-Capacitor has a starter app identifier and no checked-in Android or iOS project.
+boundary, shared unit and browser-test fixtures, live Hurl contract checks, a
+Base16 theme engine, and the responsive application shell. Every planned domain
+has a stable deep-link route; later feature tickets replace the shell's route
+notices with live data. Capacitor has a starter app identifier and no checked-in
+Android or iOS project.
 
 The API contract is documented in [docs/api.md](docs/api.md). Bobbin is a new,
 read-only XRPC AppView whose hosted instance is `https://api.tangled.org`.
@@ -142,6 +144,9 @@ logging in. A user can:
   Components consume semantic tokens rather than palette slots.
 - Ship a small set of reviewed light and dark schemes, support user-imported
   Base16 JSON, validate imports, and persist the selected scheme locally.
+- The bundled set starts with Eldritch and includes Catppuccin, Nord, Atom One,
+  Dracula, Gruvbox, Rosé Pine, Tokyo Night, and Solarized variants. Palette data
+  follows the Base16 contract and the maintained Tinted Theming scheme collection.
 - Fall back to a reviewed default when persisted data is absent or invalid.
 - Use responsive Ionic layouts, native safe-area insets, platform back behavior,
   and touch targets of at least 44 by 44 CSS pixels.

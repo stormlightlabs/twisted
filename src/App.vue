@@ -1,9 +1,38 @@
 <template>
 	<ion-app>
-		<ion-router-outlet />
+		<a class="skip-link" href="#page-content">Skip to content</a>
+		<ion-split-pane content-id="main-content" when="(min-width: 960px)">
+			<app-menu />
+			<ion-router-outlet id="main-content" />
+		</ion-split-pane>
 	</ion-app>
 </template>
 
 <script setup lang="ts">
-import { IonApp, IonRouterOutlet } from '@ionic/vue'
+import { App as CapacitorApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
+import { IonApp, IonRouterOutlet, IonSplitPane } from '@ionic/vue'
+import { onBeforeUnmount, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import AppMenu from './components/AppMenu.vue'
+
+const router = useRouter()
+let removeBackListener: (() => Promise<void>) | undefined
+
+onMounted(async () => {
+	if (!Capacitor.isNativePlatform()) return
+
+	const listener = await CapacitorApp.addListener('backButton', () => {
+		if (typeof router.options.history.state.back === 'string') {
+			router.back()
+		} else if (router.currentRoute.value.path !== '/') {
+			void router.replace('/')
+		} else {
+			void CapacitorApp.exitApp()
+		}
+	})
+	removeBackListener = () => listener.remove()
+})
+
+onBeforeUnmount(() => void removeBackListener?.())
 </script>
