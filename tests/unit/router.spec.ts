@@ -1,5 +1,5 @@
-import router from '@/router'
-import { links } from '@/router/links'
+import router from '@/lib/router'
+import { links } from '@/lib/router/links'
 import { describe, expect, test } from 'vitest'
 
 describe('application routes', () => {

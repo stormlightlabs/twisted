@@ -17,7 +17,7 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppMenu from './components/AppMenu.vue'
 import MobileTabBar from './components/MobileTabBar.vue'
-import { links } from './router/links'
+import { links } from './lib/router/links'
 
 const router = useRouter()
 const route = useRoute()

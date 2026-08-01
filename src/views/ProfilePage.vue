@@ -22,6 +22,10 @@
 							</p>
 						</div>
 					</header>
+					<nav class="profile-links" aria-label="Profile views">
+						<router-link :to="links.actorActivity(actor, 'comments')">Browse public activity</router-link>
+						<router-link :to="links.actorRelationships(actor)">Browse relationships</router-link>
+					</nav>
 
 					<section class="profile-section" aria-labelledby="about-heading">
 						<p class="section-label">About</p>
@@ -72,12 +76,13 @@
 </template>
 
 <script setup lang="ts">
-import { useBobbinClientProvider } from '@/api'
+import { useBobbinClientProvider } from '@/lib/api'
 import PageHeader from '@/components/PageHeader.vue'
 import RequestState from '@/components/RequestState.vue'
 import OwnedRepositories from '@/features/profiles/OwnedRepositories.vue'
 import PinnedRepositories from '@/features/profiles/PinnedRepositories.vue'
-import { useRouteRequest } from '@/requests'
+import { useRouteRequest } from '@/lib/requests'
+import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
@@ -172,6 +177,20 @@ function linkLabel(link: string): string {
 }
 .profile-identity__warning {
 	color: var(--app-warning);
+}
+.profile-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+}
+.profile-links a {
+	display: inline-flex;
+	align-items: center;
+	min-block-size: 44px;
+	border: 1px solid var(--app-border);
+	border-radius: var(--radius-sm);
+	padding-inline: var(--space-4);
+	text-decoration: none;
 }
 .profile-section {
 	display: grid;

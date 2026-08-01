@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 import { safeCanonicalTangledUrl } from '@/content'
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import { IonIcon } from '@ionic/vue'
 import { copyOutline, openOutline } from 'ionicons/icons'
 import { computed, ref } from 'vue'

@@ -1,6 +1,6 @@
 import type { InjectionKey } from 'vue'
 import { inject } from 'vue'
-import { useBobbinService } from '@/settings/service'
+import { useBobbinService } from '@/lib/settings/service'
 import { createBobbinClient } from './client'
 import type { BobbinClient } from './client'
 

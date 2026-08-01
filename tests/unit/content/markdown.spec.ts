@@ -1,4 +1,4 @@
-import router from '@/router'
+import router from '@/lib/router'
 import { renderMarkdown } from '@/content'
 import { describe, expect, test } from 'vitest'
 

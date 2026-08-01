@@ -179,6 +179,8 @@ repositories, owned repositories, links, and independently loading sections.
 
 ### T10 - Build actor activity dashboards
 
+**Status:** Complete
+
 **What to build:** Expose every actor-oriented `*By` query as typed, paginated
 activity sections linked to their subject records.
 
@@ -186,14 +188,16 @@ activity sections linked to their subject records.
 
 **Acceptance criteria:**
 
-- [ ] Comments, reactions, stars, issues, pulls, states, statuses, and ref updates are covered.
-- [ ] Collaborator, label, pipeline, artifact, knot, and spindle authorings are covered.
-- [ ] Filters supported by issue and pull `*By` endpoints are available.
-- [ ] One section's failure does not block other activity sections.
+- [x] Comments, reactions, stars, issues, pulls, states, statuses, and ref updates are covered.
+- [x] Collaborator, label, pipeline, artifact, knot, and spindle authorings are covered.
+- [x] Filters supported by issue and pull `*By` endpoints are available.
+- [x] One section's failure does not block other activity sections.
 
 **Verification:** `bun run test:unit --run && bun run build`
 
 ### T11 - Build repository overview pages
+
+**Status:** Complete
 
 **What to build:** Render repository identity, topics, links, knot, spindle,
 languages, README, labels, counts, collaborators, and recent ref activity.
@@ -202,10 +206,10 @@ languages, README, labels, counts, collaborators, and recent ref activity.
 
 **Acceptance criteria:**
 
-- [ ] Repo record AT-URI and repo DID remain visibly distinct and copyable.
-- [ ] README Markdown is sanitized and absent README data has a compact empty state.
-- [ ] Overview sections load independently and link to their full views.
-- [ ] Canonical Tangled and clone/download actions are unambiguous and read-only.
+- [x] Repo record AT-URI and repo DID remain visibly distinct and copyable.
+- [x] README Markdown is sanitized and absent README data has a compact empty state.
+- [x] Overview sections load independently and link to their full views.
+- [x] Canonical Tangled and clone/download actions are unambiguous and read-only.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

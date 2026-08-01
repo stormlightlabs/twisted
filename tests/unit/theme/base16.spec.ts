@@ -8,7 +8,7 @@ import {
 	mapSchemeToTokens,
 	parseBase16Scheme,
 	useTheme,
-} from '@/theme'
+} from '@/lib/theme'
 import { describe, expect, test } from 'vitest'
 
 const eldritch = BUNDLED_SCHEMES.find(({ id }) => id === DEFAULT_SCHEME_ID)!

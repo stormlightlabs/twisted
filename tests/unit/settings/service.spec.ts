@@ -1,6 +1,6 @@
-import { DEFAULT_BOBBIN_SERVICE } from '@/api'
-import { SERVICE_STORAGE_KEY, loadBobbinService, saveBobbinService } from '@/settings/service'
-import { THEME_STORAGE_KEY } from '@/theme'
+import { DEFAULT_BOBBIN_SERVICE } from '@/lib/api'
+import { SERVICE_STORAGE_KEY, loadBobbinService, saveBobbinService } from '@/lib/settings/service'
+import { THEME_STORAGE_KEY } from '@/lib/theme'
 import { describe, expect, test, vi } from 'vitest'
 
 describe('Bobbin service persistence', () => {

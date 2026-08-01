@@ -1,5 +1,5 @@
-import type { BobbinClient } from '@/api'
-import { BOBBIN_CLIENT_PROVIDER } from '@/api'
+import type { BobbinClient } from '@/lib/api'
+import { BOBBIN_CLIENT_PROVIDER } from '@/lib/api'
 import SearchPage from '@/views/SearchPage.vue'
 import { flushPromises } from '@vue/test-utils'
 import { describe, expect, test, vi } from 'vitest'

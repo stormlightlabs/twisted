@@ -27,10 +27,10 @@
 </template>
 
 <script setup lang="ts">
-import type { BobbinError, ValidatedRecordView } from '@/api'
-import { errorFromException, useBobbinClientProvider } from '@/api'
+import type { BobbinError, ValidatedRecordView } from '@/lib/api'
+import { errorFromException, useBobbinClientProvider } from '@/lib/api'
 import RequestState from '@/components/RequestState.vue'
-import { useRouteRequest } from '@/requests'
+import { useRouteRequest } from '@/lib/requests'
 import type { ShTangledRepo } from '@atcute/tangled'
 import { computed, ref } from 'vue'
 import RepositoryCard from './RepositoryCard.vue'

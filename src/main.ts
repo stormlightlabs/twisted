@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import App from './App.vue'
-import router from './router'
+import router from './lib/router'
 
 import { IonicVue } from '@ionic/vue'
 
@@ -25,10 +25,10 @@ import '@ionic/vue/css/flex-utils.css'
 import '@ionic/vue/css/display.css'
 
 /* Theme variables */
-import './theme/variables.css'
-import { initializeTheme } from './theme'
-import { initializeBobbinService } from './settings/service'
-import { initializeRecentActivity, rememberRecentRoute } from './activity/recent'
+import './lib/theme/variables.css'
+import { initializeTheme } from './lib/theme'
+import { initializeBobbinService } from './lib/settings/service'
+import { initializeRecentActivity, rememberRecentRoute } from './lib/activity/recent'
 
 initializeTheme()
 initializeBobbinService()

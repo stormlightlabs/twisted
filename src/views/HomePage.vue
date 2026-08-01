@@ -75,10 +75,10 @@
 </template>
 
 <script setup lang="ts">
-import { recentDestinationLink, useRecentActivity } from '@/activity/recent'
-import type { RecentDestinationKind } from '@/activity/recent'
+import { recentDestinationLink, useRecentActivity } from '@/lib/activity/recent'
+import type { RecentDestinationKind } from '@/lib/activity/recent'
 import PageHeader from '@/components/PageHeader.vue'
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
 import { arrowForwardOutline, gitBranchOutline, personOutline, searchOutline, timeOutline } from 'ionicons/icons'
 import { ref } from 'vue'

@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import type { BobbinCoverage } from '@/api'
+import type { BobbinCoverage } from '@/lib/api'
 import { IonIcon } from '@ionic/vue'
 import { hourglassOutline } from 'ionicons/icons'
 

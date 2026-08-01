@@ -1,7 +1,7 @@
 <template>
 	<router-link class="repo-card" :to="links.repository(repository.uri)">
 		<div>
-			<strong>{{ repository.value.name || 'Untitled repository' }}</strong>
+			<strong>{{ repositoryName(repository) }}</strong>
 			<span>{{ repository.value.knot.replace(/^https?:\/\//, '') }}</span>
 		</div>
 		<p v-if="repository.value.description">{{ repository.value.description }}</p>
@@ -13,12 +13,19 @@
 </template>
 
 <script setup lang="ts">
-import type { ValidatedRecordView } from '@/api'
-import { links } from '@/router/links'
+import type { ValidatedRecordView } from '@/lib/api'
+import { links } from '@/lib/router/links'
 import type { ShTangledRepo } from '@atcute/tangled'
 import type { DeepReadonly } from 'vue'
 
 defineProps<{ repository: DeepReadonly<ValidatedRecordView<ShTangledRepo.Main>> }>()
+
+function repositoryName(repository: DeepReadonly<ValidatedRecordView<ShTangledRepo.Main>>): string {
+	const name = repository.value.name?.trim()
+	if (name) return name
+	const recordKey = repository.uri.split('/').at(-1)
+	return recordKey && !/^3[a-z0-9]{12}$/i.test(recordKey) ? recordKey : 'Repository'
+}
 </script>
 
 <style scoped>

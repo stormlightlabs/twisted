@@ -10,6 +10,7 @@ const config = defineConfig({
 	server: { headers: { 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Opener-Policy': 'same-origin' } },
 	preview: { headers: { 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Opener-Policy': 'same-origin' } },
 	test: {
+		watch: false,
 		clearMocks: true,
 		globals: true,
 		environment: 'jsdom',

@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
 import { arrowForwardOutline, searchOutline } from 'ionicons/icons'
 import { ref } from 'vue'
@@ -268,16 +268,6 @@ function search(): void {
 	background: var(--app-surface);
 	overflow: hidden;
 	transform: rotate(1.2deg);
-}
-
-.public-trail::before {
-	position: absolute;
-	z-index: -1;
-	inset-block: 5.5rem 4rem;
-	inset-inline-start: 3.05rem;
-	inline-size: 1px;
-	background: var(--app-border);
-	content: '';
 }
 
 .public-trail__topline {

@@ -10,11 +10,12 @@ interface ThemePreferences {
 	imports: Base16Scheme[]
 }
 
-type ThemeStorage = Pick<Storage, 'getItem' | 'setItem'>
+type ThemeReader = Pick<Storage, 'getItem'>
+type ThemeStorage = Pick<Storage, 'setItem'>
 
 /** Reads preferences defensively and discards invalid imports or selections. */
 export function loadThemePreferences(
-	storage: ThemeStorage | undefined,
+	storage: ThemeReader | undefined,
 	bundled: readonly Base16Scheme[] = BUNDLED_SCHEMES,
 ): ThemePreferences {
 	const fallback = { selectedId: DEFAULT_SCHEME_ID, imports: [] }

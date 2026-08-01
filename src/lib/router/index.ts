@@ -1,23 +1,23 @@
 import { createRouter, createWebHistory } from '@ionic/vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import LandingPage from '../views/LandingPage.vue'
+import LandingPage from '@/views/LandingPage.vue'
 
-const domainPage = () => import('../views/DomainPage.vue')
+const domainPage = () => import('@/views/DomainPage.vue')
 
 const routes: RouteRecordRaw[] = [
 	{ path: '/', name: 'landing', component: LandingPage },
-	{ path: '/home', name: 'home', component: () => import('../views/HomePage.vue') },
-	{ path: '/search', name: 'search', component: () => import('../views/SearchPage.vue') },
+	{ path: '/home', name: 'home', component: () => import('@/views/HomePage.vue') },
+	{ path: '/search', name: 'search', component: () => import('@/views/SearchPage.vue') },
 	{
 		path: '/profiles',
 		name: 'profiles',
-		component: () => import('../views/ProfilesPage.vue'),
+		component: () => import('@/views/ProfilesPage.vue'),
 		meta: { title: 'People', section: 'Profiles', description: 'Find a Tangled profile by handle or DID.' },
 	},
 	{
 		path: '/profiles/:actor',
 		name: 'profile',
-		component: () => import('../views/ProfilePage.vue'),
+		component: () => import('@/views/ProfilePage.vue'),
 		meta: {
 			title: 'Profile',
 			section: 'People',
@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/profiles/:actor/activity/:activity?',
 		name: 'actor-activity',
-		component: domainPage,
+		component: () => import('@/views/ActorActivityPage.vue'),
 		meta: {
 			title: 'Actor activity',
 			section: 'People',
@@ -69,7 +69,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo',
 		name: 'repository',
-		component: domainPage,
+		component: () => import('@/views/RepositoryPage.vue'),
 		meta: {
 			title: 'Repository overview',
 			section: 'Code',
@@ -338,8 +338,8 @@ const routes: RouteRecordRaw[] = [
 			description: 'Inspect public service keys without exposing management controls.',
 		},
 	},
-	{ path: '/settings', name: 'settings', component: () => import('../views/SettingsPage.vue') },
-	{ path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../views/NotFoundPage.vue') },
+	{ path: '/settings', name: 'settings', component: () => import('@/views/SettingsPage.vue') },
+	{ path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundPage.vue') },
 ]
 
 /** The application router used by web history, deep links, and Ionic transitions. */

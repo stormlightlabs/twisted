@@ -1,4 +1,4 @@
-import { CursorGuard, RequestCache, createRequestKey } from '@/api'
+import { CursorGuard, RequestCache, createRequestKey } from '@/lib/api'
 import { describe, expect, test, vi } from 'vitest'
 
 function deferred<T>() {

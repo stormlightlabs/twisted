@@ -21,8 +21,9 @@ describe('Twisted foundation', () => {
 			await document.fonts.ready
 			expect(document.fonts.check('16px "Commissioner Variable"')).to.equal(true)
 			expect(document.fonts.check('16px "Azeret Mono Variable"')).to.equal(true)
+			expect(document.fonts.check('16px "Instrument Sans Variable"')).to.equal(true)
 		})
-		cy.get('h1').should('have.css', 'font-family').and('contain', 'Commissioner Variable')
+		cy.get('h1').should('have.css', 'font-family').and('contain', 'Instrument Sans Variable')
 		cy.get('.public-trail__number').first().should('have.css', 'font-family').and('contain', 'Azeret Mono Variable')
 	})
 

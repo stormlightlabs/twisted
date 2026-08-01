@@ -98,9 +98,9 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
-import { useBobbinService } from '@/settings/service'
-import { useTheme } from '@/theme'
-import type { Base16Slot } from '@/theme'
+import { useBobbinService } from '@/lib/settings/service'
+import { useTheme } from '@/lib/theme'
+import type { Base16Slot } from '@/lib/theme'
 import { IonContent, IonPage } from '@ionic/vue'
 import { ref } from 'vue'
 

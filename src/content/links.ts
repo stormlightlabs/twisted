@@ -1,4 +1,4 @@
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import type { RouteLocationRaw } from 'vue-router'
 
 export interface RecordLinkContext {

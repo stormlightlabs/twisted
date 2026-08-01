@@ -87,16 +87,16 @@
 </template>
 
 <script setup lang="ts">
-import type { BobbinError, SearchParams, ValidatedSearchHit } from '@/api'
-import { errorFromException, useBobbinClientProvider } from '@/api'
+import type { BobbinError, SearchParams, ValidatedSearchHit } from '@/lib/api'
+import { errorFromException, useBobbinClientProvider } from '@/lib/api'
 import CoverageNotice from '@/components/CoverageNotice.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RequestState from '@/components/RequestState.vue'
 import { localRecordLink } from '@/content/links'
 import { classifyIdentifier } from '@/features/discovery/identifiers'
 import { collectionName, recordExcerpt, recordTitle, searchableRecordSchemas } from '@/features/discovery/records'
-import { useRouteRequest } from '@/requests'
-import { links } from '@/router/links'
+import { useRouteRequest } from '@/lib/requests'
+import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

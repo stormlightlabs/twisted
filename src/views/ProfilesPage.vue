@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'

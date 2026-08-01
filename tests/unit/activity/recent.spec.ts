@@ -5,7 +5,7 @@ import {
 	loadRecentActivity,
 	rememberRecentRoute,
 	useRecentActivity,
-} from '@/activity/recent'
+} from '@/lib/activity/recent'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 

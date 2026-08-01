@@ -1,6 +1,6 @@
 import { readonly, ref } from 'vue'
-import { normalizeBobbinService } from '@/api'
-import { DEFAULT_BOBBIN_SERVICE } from '@/api/contracts'
+import { normalizeBobbinService } from '@/lib/api'
+import { DEFAULT_BOBBIN_SERVICE } from '@/lib/api/contracts'
 
 export const SERVICE_STORAGE_KEY = 'twisted.bobbin-service.v1'
 

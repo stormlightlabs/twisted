@@ -1,4 +1,4 @@
-import { BobbinError } from '@/api'
+import { BobbinError } from '@/lib/api'
 import CoverageNotice from '@/components/CoverageNotice.vue'
 import RequestState from '@/components/RequestState.vue'
 import { mount } from '@vue/test-utils'

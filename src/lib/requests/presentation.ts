@@ -1,4 +1,4 @@
-import type { BobbinError, BobbinErrorKind } from '@/api'
+import type { BobbinError, BobbinErrorKind } from '@/lib/api'
 
 export interface RequestErrorPresentation {
 	message: string

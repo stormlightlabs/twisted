@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import { IonIcon } from '@ionic/vue'
 import { gitBranchOutline, homeOutline, peopleOutline, searchOutline } from 'ionicons/icons'
 import { useRoute } from 'vue-router'

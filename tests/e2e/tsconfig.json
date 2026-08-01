@@ -1,0 +1,5 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": { "types": ["cypress", "vite/client"] },
+	"include": ["./**/*.ts"]
+}

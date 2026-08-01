@@ -4,14 +4,55 @@ import * as v from '@atcute/lexicons/validations'
 import { is } from '@atcute/lexicons'
 import { ComBadExampleIdentityResolveMiniDoc } from '@atcute/microcosm'
 import {
+	ShTangledFeedComment,
+	ShTangledFeedCountStars,
+	ShTangledFeedListCommentsBy,
+	ShTangledFeedListReactionsBy,
+	ShTangledFeedListStarsBy,
+	ShTangledFeedReaction,
+	ShTangledFeedStar,
+	ShTangledGitListRefUpdates,
+	ShTangledGitListRefUpdatesBy,
+	ShTangledGitRefUpdate,
+	ShTangledGraphFollow,
+	ShTangledGraphListFollowsBy,
+	ShTangledGraphListVouchesBy,
+	ShTangledGraphVouch,
+	ShTangledKnotListMembersBy,
+	ShTangledLabelDefinition,
+	ShTangledLabelListDefinitions,
+	ShTangledLabelListOpsBy,
+	ShTangledLabelOp,
+	ShTangledPipeline,
+	ShTangledPipelineListPipelinesBy,
+	ShTangledPipelineListStatusesBy,
+	ShTangledPipelineStatus,
 	ShTangledActorGetProfile,
 	ShTangledActorProfile,
 	ShTangledRepo,
+	ShTangledRepoArchive,
+	ShTangledRepoArtifact,
+	ShTangledRepoCountIssues,
+	ShTangledRepoCountPulls,
 	ShTangledRepoGetRepoByRepoDid,
 	ShTangledRepoGetRepos,
 	ShTangledRepoGetRepo,
+	ShTangledRepoIssue,
+	ShTangledRepoIssueListStatesBy,
+	ShTangledRepoIssueState,
+	ShTangledRepoLanguages,
+	ShTangledRepoListArtifactsBy,
+	ShTangledRepoListCollaborators,
+	ShTangledRepoListCollaboratorsBy,
+	ShTangledRepoListIssuesBy,
+	ShTangledRepoListPullsBy,
 	ShTangledRepoListRepos,
+	ShTangledRepoPull,
+	ShTangledRepoPullListStatusesBy,
+	ShTangledRepoPullStatus,
+	ShTangledRepoTree,
 	ShTangledSearchQuery,
+	ShTangledSpindleListMembersBy,
 } from '@atcute/tangled'
 import {
 	bobbinCoverageSchema,
@@ -36,6 +77,47 @@ export interface CursorPage<T> {
 	items: T[]
 	cursor?: string
 }
+
+export const actorActivityKinds = [
+	'comments',
+	'reactions',
+	'stars',
+	'follows',
+	'vouches',
+	'issues',
+	'pulls',
+	'issue-states',
+	'pull-statuses',
+	'ref-updates',
+	'collaborators',
+	'label-operations',
+	'pipelines',
+	'pipeline-statuses',
+	'artifacts',
+	'knot-memberships',
+	'spindle-memberships',
+] as const
+
+export type ActorActivityKind = (typeof actorActivityKinds)[number]
+
+export interface ActorActivityItem {
+	cid?: string
+	uri?: string
+	value: Record<string, unknown>
+}
+
+export interface ActorActivityOptions extends ListReposOptions {
+	state?: 'open' | 'closed'
+	status?: 'open' | 'closed' | 'merged'
+}
+
+export interface RepositoryCounts {
+	issues: number
+	pulls: number
+	stars: number
+}
+
+type ActorDid = ShTangledRepoListIssuesBy.$params['subject']
 
 /** Constructor options for a configurable, testable Bobbin boundary. */
 export interface BobbinClientOptions {
@@ -127,7 +209,11 @@ export class BobbinClient {
 			this.#rpc.call(ShTangledActorGetProfile, { params: { actor }, signal }),
 		)
 
-		return validateRecordView(view, ShTangledActorProfile.mainSchema, 'actor profile')
+		return validateRecordView(
+			{ ...view, value: normalizeProfilePlaceholders(view.value) },
+			ShTangledActorProfile.mainSchema,
+			'actor profile',
+		)
 	}
 
 	/** Fetches and validates one Tangled repository record. */
@@ -184,6 +270,156 @@ export class BobbinClient {
 			items: data.items.map((item) => validateRecordView(item, ShTangledRepo.mainSchema, 'repository list item')),
 			cursor: data.cursor,
 		}
+	}
+
+	/** Lists one actor-authored record family through its generated reverse-lookup schema. */
+	async listActorActivity(
+		kind: ActorActivityKind,
+		subject: ActorDid,
+		options: ActorActivityOptions = {},
+	): Promise<CursorPage<ActorActivityItem>> {
+		const params = { subject, cursor: options.cursor, limit: options.limit ?? 10, order: options.order ?? 'desc' }
+		switch (kind) {
+			case 'comments':
+				return this.#actorRecords(kind, params, options, ShTangledFeedComment.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledFeedListCommentsBy, { params, signal }),
+				)
+			case 'reactions':
+				return this.#actorRecords(kind, params, options, ShTangledFeedReaction.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledFeedListReactionsBy, { params, signal }),
+				)
+			case 'stars':
+				return this.#actorRecords(kind, params, options, ShTangledFeedStar.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledFeedListStarsBy, { params, signal }),
+				)
+			case 'follows':
+				return this.#actorRecords(kind, params, options, ShTangledGraphFollow.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledGraphListFollowsBy, { params, signal }),
+				)
+			case 'vouches':
+				return this.#actorRecords(kind, params, options, ShTangledGraphVouch.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledGraphListVouchesBy, { params, signal }),
+				)
+			case 'issues': {
+				const filtered = { ...params, state: options.state }
+				return this.#actorRecords(kind, filtered, options, ShTangledRepoIssue.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledRepoListIssuesBy, { params: filtered, signal }),
+				)
+			}
+			case 'pulls': {
+				const filtered = { ...params, status: options.status }
+				return this.#actorRecords(kind, filtered, options, ShTangledRepoPull.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledRepoListPullsBy, { params: filtered, signal }),
+				)
+			}
+			case 'issue-states':
+				return this.#actorRecords(kind, params, options, ShTangledRepoIssueState.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledRepoIssueListStatesBy, { params, signal }),
+				)
+			case 'pull-statuses':
+				return this.#actorRecords(kind, params, options, ShTangledRepoPullStatus.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledRepoPullListStatusesBy, { params, signal }),
+				)
+			case 'ref-updates':
+				return this.#actorRecords(kind, params, options, ShTangledGitRefUpdate.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledGitListRefUpdatesBy, { params, signal }),
+				)
+			case 'collaborators':
+				return this.#actorRecords(kind, params, options, undefined, (signal) =>
+					this.#rpc.call(ShTangledRepoListCollaboratorsBy, { params, signal }),
+				)
+			case 'label-operations':
+				return this.#actorRecords(kind, params, options, ShTangledLabelOp.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledLabelListOpsBy, { params, signal }),
+				)
+			case 'pipelines':
+				return this.#actorRecords(kind, params, options, ShTangledPipeline.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledPipelineListPipelinesBy, { params, signal }),
+				)
+			case 'pipeline-statuses':
+				return this.#actorRecords(kind, params, options, ShTangledPipelineStatus.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledPipelineListStatusesBy, { params, signal }),
+				)
+			case 'artifacts':
+				return this.#actorRecords(kind, params, options, ShTangledRepoArtifact.mainSchema, (signal) =>
+					this.#rpc.call(ShTangledRepoListArtifactsBy, { params, signal }),
+				)
+			case 'knot-memberships':
+				return this.#actorRecords(kind, params, options, undefined, (signal) =>
+					this.#rpc.call(ShTangledKnotListMembersBy, { params, signal }),
+				)
+			case 'spindle-memberships':
+				return this.#actorRecords(kind, params, options, undefined, (signal) =>
+					this.#rpc.call(ShTangledSpindleListMembersBy, { params, signal }),
+				)
+		}
+	}
+
+	getRepositoryLanguages(repo: ShTangledRepoLanguages.$params['repo'], options: RequestOptions = {}) {
+		return this.#cached('sh.tangled.repo.languages', { repo, ref: 'HEAD' }, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledRepoLanguages, { params: { repo, ref: 'HEAD' }, signal }),
+		)
+	}
+
+	getRepositoryTree(repo: ShTangledRepoTree.$params['repo'], options: RequestOptions = {}) {
+		return this.#cached(
+			'sh.tangled.repo.tree',
+			{ repo, ref: 'HEAD', path: '' },
+			options,
+			STALE_TIMES.record,
+			(signal) => this.#rpc.call(ShTangledRepoTree, { params: { repo, ref: 'HEAD', path: '' }, signal }),
+		)
+	}
+
+	async listRepositoryCollaborators(subject: ActorDid, options: RequestOptions = {}) {
+		const params = { subject, limit: 8, order: 'desc' as const }
+		return this.#cached('sh.tangled.repo.listCollaborators', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoListCollaborators, { params, signal }),
+		)
+	}
+
+	async listRepositoryLabels(subject: string, options: RequestOptions = {}) {
+		const params = { subject, limit: 12, order: 'asc' }
+		const data = await this.#cached('sh.tangled.label.listDefinitions', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledLabelListDefinitions, { params, signal }),
+		)
+		return data.items.map((item) => validateRecordView(item, ShTangledLabelDefinition.mainSchema, 'label definition'))
+	}
+
+	async listRepositoryRefUpdates(subject: ActorDid, options: RequestOptions = {}) {
+		const params = { subject, limit: 6, order: 'desc' as const }
+		const data = await this.#cached('sh.tangled.git.listRefUpdates', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledGitListRefUpdates, { params, signal }),
+		)
+		return data.items.map((item) => validateRecordView(item, ShTangledGitRefUpdate.mainSchema, 'ref update'))
+	}
+
+	async getRepositoryCounts(subject: ActorDid, options: RequestOptions = {}): Promise<RepositoryCounts> {
+		const request = (nsid: string, call: (signal: AbortSignal) => Promise<XrpcResponse<{ count: number }>>) =>
+			this.#cached(nsid, { subject }, options, STALE_TIMES.list, call)
+		const [stars, issues, pulls] = await Promise.all([
+			request('sh.tangled.feed.countStars', (signal) =>
+				this.#rpc.call(ShTangledFeedCountStars, { params: { subject }, signal }),
+			),
+			request('sh.tangled.repo.countIssues', (signal) =>
+				this.#rpc.call(ShTangledRepoCountIssues, { params: { subject }, signal }),
+			),
+			request('sh.tangled.repo.countPulls', (signal) =>
+				this.#rpc.call(ShTangledRepoCountPulls, { params: { subject }, signal }),
+			),
+		])
+		return { stars: stars.count, issues: issues.count, pulls: pulls.count }
+	}
+
+	repositoryArchiveUrl(
+		repo: ShTangledRepoArchive.$params['repo'],
+		format: Extract<ShTangledRepoArchive.$params['format'], 'tar.gz' | 'zip'> = 'tar.gz',
+	): string {
+		const url = new URL('/xrpc/sh.tangled.repo.archive', this.service)
+		url.searchParams.set('repo', repo)
+		url.searchParams.set('ref', 'HEAD')
+		url.searchParams.set('format', format)
+		return url.href
 	}
 
 	/**
@@ -262,6 +498,29 @@ export class BobbinClient {
 		}
 	}
 
+	async #actorRecords<const TSchema extends BaseSchema>(
+		kind: ActorActivityKind,
+		parameters: Record<string, unknown>,
+		options: RequestOptions,
+		schema: TSchema | undefined,
+		request: (
+			signal: AbortSignal,
+		) => Promise<XrpcResponse<{ items: readonly { uri?: string; cid?: string; value?: unknown }[]; cursor?: string }>>,
+	): Promise<CursorPage<ActorActivityItem>> {
+		const data = await this.#cached(`actor:${kind}`, parameters, options, STALE_TIMES.list, request)
+		return {
+			items: data.items.map((item) => ({
+				uri: item.uri,
+				cid: item.cid,
+				value:
+					schema && item.value !== undefined
+						? (validateEmbeddedRecord(schema, item.value, `${kind} activity`) as Record<string, unknown>)
+						: (item as Record<string, unknown>),
+			})),
+			cursor: data.cursor,
+		}
+	}
+
 	async #request<TResponse extends XrpcResponse<unknown>>(
 		request: () => Promise<TResponse>,
 	): Promise<SuccessData<TResponse>> {
@@ -313,6 +572,19 @@ function validateRecordView<const TSchema extends BaseSchema>(
 	context: string,
 ): ValidatedRecordView<InferInput<TSchema>> {
 	return { uri: view.uri, cid: view.cid, value: validateEmbeddedRecord(schema, view.value, context) }
+}
+
+/** Removes blank placeholders emitted by older profile writers before strict schema validation. */
+function normalizeProfilePlaceholders(value: unknown): unknown {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
+	const profile = { ...(value as Record<string, unknown>) }
+	for (const field of ['links', 'stats'] as const) {
+		const items = profile[field]
+		if (Array.isArray(items)) {
+			profile[field] = items.filter((item) => typeof item !== 'string' || item.trim().length > 0)
+		}
+	}
+	return profile
 }
 
 /**

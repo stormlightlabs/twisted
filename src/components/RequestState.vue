@@ -28,8 +28,8 @@
 </template>
 
 <script setup lang="ts">
-import type { BobbinError } from '@/api'
-import { presentRequestError } from '@/requests/presentation'
+import type { BobbinError } from '@/lib/api'
+import { presentRequestError } from '@/lib/requests/presentation'
 import { IonIcon } from '@ionic/vue'
 import { cloudOfflineOutline, fileTrayOutline, warningOutline } from 'ionicons/icons'
 import { computed } from 'vue'

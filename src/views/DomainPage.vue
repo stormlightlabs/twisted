@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
 import { warningOutline } from 'ionicons/icons'
 import { computed } from 'vue'

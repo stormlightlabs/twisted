@@ -1,5 +1,5 @@
-import type { BobbinClient } from '@/api'
-import { BOBBIN_CLIENT_PROVIDER, BobbinError } from '@/api'
+import type { BobbinClient } from '@/lib/api'
+import { BOBBIN_CLIENT_PROVIDER, BobbinError } from '@/lib/api'
 import ProfilePage from '@/views/ProfilePage.vue'
 import { flushPromises } from '@vue/test-utils'
 import { describe, expect, test, vi } from 'vitest'
@@ -23,6 +23,12 @@ function repository(name: string, repoDid: string) {
 function routes() {
 	return [
 		{ path: '/profiles/:actor', name: 'profile', component: ProfilePage },
+		{ path: '/profiles/:actor/activity/:activity?', name: 'actor-activity', component: { template: '<div />' } },
+		{
+			path: '/profiles/:actor/relationships/:relationship?',
+			name: 'actor-relationships',
+			component: { template: '<div />' },
+		},
 		{ path: '/repositories/:repo', name: 'repository', component: { template: '<div />' } },
 	]
 }

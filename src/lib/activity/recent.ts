@@ -1,6 +1,6 @@
 import { readonly, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, RouteLocationRaw } from 'vue-router'
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 
 export const RECENT_ACTIVITY_STORAGE_KEY = 'twisted.recent-activity.v1'
 const MAX_RECENT_DESTINATIONS = 8

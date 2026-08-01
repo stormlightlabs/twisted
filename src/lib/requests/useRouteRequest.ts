@@ -1,4 +1,4 @@
-import { BobbinError, errorFromException } from '@/api'
+import { BobbinError, errorFromException } from '@/lib/api'
 import { computed, onScopeDispose, readonly, ref, shallowRef, watch } from 'vue'
 import type { WatchSource } from 'vue'
 

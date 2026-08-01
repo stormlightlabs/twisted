@@ -1,5 +1,5 @@
-import { BobbinError } from '@/api'
-import { useRouteRequest } from '@/requests/useRouteRequest'
+import { BobbinError } from '@/lib/api'
+import { useRouteRequest } from '@/lib/requests/useRouteRequest'
 import { flushPromises } from '@vue/test-utils'
 import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -35,7 +35,10 @@ describe('useRouteRequest', () => {
 	})
 
 	test('preserves successful content when a refresh fails', async () => {
-		const load = vi.fn().mockResolvedValueOnce(['existing']).mockRejectedValueOnce(new BobbinError('network', 'Failed'))
+		const load = vi
+			.fn<[string, AbortSignal, { cache: 'default' | 'reload' }], Promise<string[]>>()
+			.mockResolvedValueOnce(['existing'])
+			.mockRejectedValueOnce(new BobbinError('network', 'Failed'))
 		const scope = effectScope()
 		const state = scope.run(() => useRouteRequest(ref('route'), load, { isEmpty: (items) => items.length === 0 }))!
 		await flushPromises()

@@ -23,9 +23,9 @@
 </template>
 
 <script setup lang="ts">
-import { useBobbinClientProvider } from '@/api'
+import { useBobbinClientProvider } from '@/lib/api'
 import RequestState from '@/components/RequestState.vue'
-import { useRouteRequest } from '@/requests'
+import { useRouteRequest } from '@/lib/requests'
 import { computed } from 'vue'
 import RepositoryCard from './RepositoryCard.vue'
 

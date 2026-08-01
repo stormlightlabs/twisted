@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { links } from '@/router/links'
+import { links } from '@/lib/router/links'
 import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonMenu, IonMenuToggle } from '@ionic/vue'
 import {
 	compassOutline,

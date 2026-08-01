@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { errorFromException, errorFromResponse } from '@/api'
+import { errorFromException, errorFromResponse } from '@/lib/api'
 
 describe('errorFromResponse', () => {
 	test.each([
