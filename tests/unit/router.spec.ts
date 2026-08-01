@@ -3,6 +3,11 @@ import { links } from '@/router/links'
 import { describe, expect, test } from 'vitest'
 
 describe('application routes', () => {
+	test('keeps the public landing page separate from the in-app home dashboard', () => {
+		expect(router.resolve(links.landing).path).toBe('/')
+		expect(router.resolve(links.home).path).toBe('/home')
+	})
+
 	test('encodes AT-URIs, refs, and paths without changing their values', () => {
 		const repo = 'at://did:plc:abc/sh.tangled.repo/3mho6hukiei22'
 		const resolved = router.resolve(links.source(repo, 'refs/heads/feature theme', 'src/a file.ts'))

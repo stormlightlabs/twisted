@@ -14,6 +14,5 @@ export async function mountIonicRoute(
 	const router = createRouter({ history: createMemoryHistory(), routes })
 	await router.push(path)
 	await router.isReady()
-
 	return mount(component, { global: { plugins: [IonicVue, router], provide } })
 }

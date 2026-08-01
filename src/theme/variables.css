@@ -14,6 +14,7 @@
 
 	--font-body: 'Commissioner Variable', Commissioner, ui-sans-serif, system-ui, sans-serif;
 	--font-display: var(--font-body);
+	--font-landing-display: 'Instrument Sans Variable', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
 	--font-mono: 'Azeret Mono Variable', 'Azeret Mono', ui-monospace, monospace;
 	--text-xs: 0.75rem;
 	--text-sm: 0.875rem;

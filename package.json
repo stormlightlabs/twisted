@@ -28,6 +28,7 @@
 		"@capacitor/status-bar": "8.0.3",
 		"@fontsource-variable/azeret-mono": "^5.3.0",
 		"@fontsource-variable/commissioner": "^5.3.0",
+		"@fontsource-variable/instrument-sans": "^5.3.0",
 		"@ionic/vue": "^8.0.0",
 		"@ionic/vue-router": "^8.0.0",
 		"dompurify": "3.4.12",

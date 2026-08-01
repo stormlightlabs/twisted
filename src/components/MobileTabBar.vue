@@ -20,7 +20,7 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const tabs = [
-	{ label: 'Home', to: links.home, activePath: '/', icon: homeOutline },
+	{ label: 'Home', to: links.home, activePath: '/home', icon: homeOutline },
 	{ label: 'Search', to: links.search(), activePath: '/search', icon: searchOutline },
 	{ label: 'People', to: links.profiles, activePath: '/profiles', icon: peopleOutline },
 	{ label: 'Repos', to: links.repositories, activePath: '/repositories', icon: gitBranchOutline },

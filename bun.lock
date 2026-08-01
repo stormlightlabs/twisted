@@ -17,6 +17,7 @@
         "@capacitor/status-bar": "8.0.3",
         "@fontsource-variable/azeret-mono": "^5.3.0",
         "@fontsource-variable/commissioner": "^5.3.0",
+        "@fontsource-variable/instrument-sans": "^5.3.0",
         "@ionic/vue": "^8.0.0",
         "@ionic/vue-router": "^8.0.0",
         "dompurify": "3.4.12",
@@ -181,6 +182,8 @@
     "@fontsource-variable/azeret-mono": ["@fontsource-variable/azeret-mono@5.3.0", "", {}, "sha512-nX76TwGHW53SoMMJoqb415uFqEQ3qnthL/bEeOOI2DjC7MntyIUVItQ45sVLe5+wG4gT0H5B7auAMa77p8Qc3Q=="],
 
     "@fontsource-variable/commissioner": ["@fontsource-variable/commissioner@5.3.0", "", {}, "sha512-0IEvi8SO1slc5Pc9tA4OtA01I8UiCcEq/uh12oNjfHuABU9Lnz61l2V8o2cMPUUo3BAo5MbISVK2I/DSpBRw7Q=="],
+
+    "@fontsource-variable/instrument-sans": ["@fontsource-variable/instrument-sans@5.3.0", "", {}, "sha512-u4gKbDBTNFGkg997tfQn3eHOhHuquWUFTRT/rwzuKtrxX5P2ekfs2x+LgBPP4P32+cC+vUwF1Cr+IdRoPQbrGw=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 

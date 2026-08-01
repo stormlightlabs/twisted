@@ -1,7 +1,7 @@
 <template>
 	<ion-menu content-id="main-content" type="overlay">
 		<ion-content class="app-menu">
-			<router-link :to="links.home" class="app-menu__brand" aria-label="Twisted home">
+			<router-link :to="links.landing" class="app-menu__brand" aria-label="Twisted landing page">
 				<span class="app-menu__mark" aria-hidden="true">
 					<img alt="" src="/favicon.png" />
 					<span>T</span>
@@ -54,7 +54,7 @@ const navigation = [
 	{
 		label: 'Explore',
 		items: [
-			{ label: 'Home', to: links.home, activePath: '/', icon: homeOutline },
+			{ label: 'Home', to: links.home, activePath: '/home', icon: homeOutline },
 			{ label: 'Search', to: links.search(), activePath: '/search', icon: searchOutline },
 			{ label: 'Profiles', to: links.profiles, activePath: '/profiles', icon: peopleOutline },
 			{ label: 'Repositories', to: links.repositories, activePath: '/repositories', icon: gitBranchOutline },

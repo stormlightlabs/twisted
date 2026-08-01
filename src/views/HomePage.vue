@@ -1,602 +1,316 @@
 <template>
 	<ion-page>
-		<page-header class="home-page__mobile-header" title="Twisted" />
+		<page-header title="Home" />
 		<ion-content :fullscreen="true">
-			<main id="page-content" class="home-page page-frame">
-				<section class="home-page__hero" aria-labelledby="home-heading">
-					<div class="home-page__pitch">
-						<p class="home-page__kicker"><span>Twisted</span> A Tangled client</p>
-						<h1 id="home-heading">See where the work leads.</h1>
-						<p class="home-page__lede">
-							Search public projects and profiles on Tangled, then follow the people, code, and conversations connected
-							to them.
-						</p>
+			<main id="page-content" class="dashboard page-frame">
+				<header class="dashboard__header">
+					<p class="section-label">Your Tangled home</p>
+					<h1>Pick up where you left off.</h1>
+					<p>Return to something you opened recently, or start a new search.</p>
 
-						<form class="home-page__search" role="search" @submit.prevent="search">
-							<label for="home-search">Search Tangled</label>
-							<div>
-								<ion-icon :icon="searchOutline" aria-hidden="true" />
-								<input
-									id="home-search"
-									v-model="query"
-									autocapitalize="off"
-									autocomplete="off"
-									placeholder="A person, project, topic, or link"
-									spellcheck="false" />
-								<button type="submit">Search</button>
-							</div>
-						</form>
+					<form class="dashboard__search" role="search" @submit.prevent="search">
+						<label for="dashboard-search">Search Tangled</label>
+						<div>
+							<ion-icon :icon="searchOutline" aria-hidden="true" />
+							<input
+								id="dashboard-search"
+								v-model="query"
+								autocomplete="off"
+								placeholder="A person, repository, topic, or link"
+								spellcheck="false" />
+							<button type="submit">Search</button>
+						</div>
+					</form>
+				</header>
 
-						<nav class="home-page__shortcuts" aria-label="Popular starting points">
-							<span>Or start with</span>
-							<router-link :to="links.profiles">a person</router-link>
-							<router-link :to="links.repositories">a repository</router-link>
-						</nav>
+				<section class="dashboard__recent" aria-labelledby="recent-heading">
+					<div class="dashboard__section-heading">
+						<div>
+							<p class="section-label">On this device</p>
+							<h2 id="recent-heading">Recently opened</h2>
+						</div>
+						<button v-if="recentDestinations.length" type="button" @click="clearRecentActivity">Clear history</button>
 					</div>
 
-					<aside class="public-trail" aria-labelledby="trail-heading">
-						<div class="public-trail__topline">
-							<p id="trail-heading">A public trail</p>
-							<span>Example</span>
-						</div>
-						<ol>
-							<li>
-								<router-link :to="links.profile('desertthunder.dev')">
-									<span class="public-trail__number">01</span>
-									<span><small>Person</small><strong>@desertthunder.dev</strong></span>
-									<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
-								</router-link>
-							</li>
-							<li>
-								<router-link :to="links.repository(twistedRepository)">
-									<span class="public-trail__number">02</span>
-									<span><small>Repository</small><strong>Twisted</strong></span>
-									<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
-								</router-link>
-							</li>
-							<li>
-								<router-link :to="links.search('twisted')">
-									<span class="public-trail__number">03</span>
-									<span><small>Related records</small><strong>Keep following</strong></span>
-									<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
-								</router-link>
-							</li>
-						</ol>
-						<div class="public-trail__mark" aria-hidden="true">
-							<img alt="" src="/favicon.png" />
-						</div>
-					</aside>
-				</section>
+					<ol v-if="recentDestinations.length" class="recent-list">
+						<li v-for="destination in recentDestinations" :key="`${destination.kind}:${destination.target}`">
+							<router-link :to="recentDestinationLink(destination)">
+								<ion-icon :icon="recentIcon(destination.kind)" aria-hidden="true" />
+								<span>
+									<small>{{ recentKind(destination.kind) }}</small>
+									<strong>{{ destination.label }}</strong>
+								</span>
+								<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
+							</router-link>
+						</li>
+					</ol>
 
-				<section class="home-page__browse" aria-labelledby="browse-heading">
-					<header>
-						<p>Pick up any thread</p>
-						<h2 id="browse-heading">Start anywhere. Keep your place.</h2>
-					</header>
-
-					<div class="home-page__path-list">
-						<router-link :to="links.profiles">
-							<span>01</span>
-							<strong>Meet the people</strong>
-							<small>Open a profile and see the public work connected to it.</small>
-							<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
-						</router-link>
-						<router-link :to="links.repositories">
-							<span>02</span>
-							<strong>Read the work</strong>
-							<small>Move through repositories, changes, issues, and discussions.</small>
-							<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
-						</router-link>
-						<router-link :to="links.infrastructure">
-							<span>03</span>
-							<strong>Understand the network</strong>
-							<small>See where public projects are hosted and run.</small>
-							<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
-						</router-link>
+					<div v-else class="dashboard__empty">
+						<ion-icon :icon="timeOutline" aria-hidden="true" />
+						<div>
+							<h3>Nothing to resume yet</h3>
+							<p>Profiles, repositories, and searches you open will appear here.</p>
+						</div>
 					</div>
 				</section>
 
-				<footer class="home-page__footer">
+				<section class="dashboard__explore" aria-labelledby="explore-heading">
 					<div>
-						<img alt="" src="/favicon.png" />
-						<p><strong>No account needed.</strong> Browse public Tangled work whenever you like.</p>
+						<p class="section-label">Explore</p>
+						<h2 id="explore-heading">Choose a starting point</h2>
 					</div>
-					<router-link :to="links.search()"
-						>Open search <ion-icon :icon="arrowForwardOutline" aria-hidden="true"
-					/></router-link>
-				</footer>
+					<nav aria-label="Explore Tangled">
+						<router-link :to="links.profiles"><strong>People</strong><span>Find a public profile</span></router-link>
+						<router-link :to="links.repositories"
+							><strong>Repositories</strong><span>Open public work</span></router-link
+						>
+						<router-link :to="links.infrastructure"
+							><strong>Tangled network</strong><span>Browse public services</span></router-link
+						>
+					</nav>
+				</section>
 			</main>
 		</ion-content>
 	</ion-page>
 </template>
 
 <script setup lang="ts">
+import { recentDestinationLink, useRecentActivity } from '@/activity/recent'
+import type { RecentDestinationKind } from '@/activity/recent'
 import PageHeader from '@/components/PageHeader.vue'
 import { links } from '@/router/links'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
-import { arrowForwardOutline, searchOutline } from 'ionicons/icons'
+import { arrowForwardOutline, gitBranchOutline, personOutline, searchOutline, timeOutline } from 'ionicons/icons'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-const twistedRepository = 'at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.repo/3mho6hukiei22'
-const query = ref('')
 const router = useRouter()
+const query = ref('')
+const { recentDestinations, clearRecentActivity } = useRecentActivity()
 
 function search(): void {
 	const value = query.value.trim()
 	void router.push(links.search(value || undefined))
 }
+
+function recentIcon(kind: RecentDestinationKind): string {
+	if (kind === 'person') return personOutline
+	if (kind === 'repository') return gitBranchOutline
+	return searchOutline
+}
+
+function recentKind(kind: RecentDestinationKind): string {
+	if (kind === 'person') return 'Person'
+	if (kind === 'repository') return 'Repository'
+	return 'Search'
+}
 </script>
 
 <style scoped>
-.home-page__mobile-header {
-	display: none;
-}
-
-.home-page {
+.dashboard {
 	display: grid;
-	gap: clamp(5rem, 9vw, 9rem);
-	padding-block-start: clamp(var(--space-8), 7vh, 5.5rem);
+	gap: clamp(var(--space-10), 7vw, var(--space-12));
 }
-
-.home-page__hero {
-	display: grid;
-	grid-template-columns: minmax(0, 1.1fr) minmax(22rem, 0.9fr);
-	align-items: center;
-	gap: clamp(var(--space-8), 6vw, var(--space-12));
-	min-block-size: min(45rem, calc(100vh - 8rem));
+.dashboard__header {
+	max-inline-size: 54rem;
 }
-
-.home-page__pitch {
-	max-inline-size: 47rem;
-}
-
-.home-page__kicker {
-	display: flex;
-	align-items: center;
-	gap: var(--space-3);
-	margin: 0 0 var(--space-5);
-	color: var(--app-text-muted);
-	font-size: var(--text-sm);
-	font-weight: 650;
-}
-
-.home-page__kicker span {
-	border-inline-end: 1px solid var(--app-border);
-	padding-inline-end: var(--space-3);
-	color: var(--app-accent);
-	font-family: var(--font-display);
-	font-weight: 800;
-}
-
-.home-page__pitch h1 {
-	max-inline-size: 9ch;
+.dashboard__header h1 {
+	max-inline-size: 11ch;
 	margin: 0;
 	font-family: var(--font-display);
-	font-size: clamp(3.75rem, 7.6vw, 7.5rem);
-	font-weight: 790;
-	letter-spacing: -0.072em;
-	line-height: 0.86;
+	font-size: clamp(3rem, 6vw, 5.5rem);
+	letter-spacing: -0.06em;
+	line-height: 0.95;
 	text-wrap: balance;
 }
-
-.home-page__lede {
+.dashboard__header > p:last-of-type {
 	max-inline-size: 38rem;
-	margin: var(--space-6) 0 0;
 	color: var(--app-text-muted);
-	font-size: clamp(var(--text-lg), 2vw, 1.45rem);
-	line-height: 1.55;
-	text-wrap: pretty;
+	font-size: var(--text-lg);
+	line-height: 1.6;
 }
-
-.home-page__search {
+.dashboard__search {
 	display: grid;
 	gap: var(--space-2);
-	max-inline-size: 43rem;
+	max-inline-size: 46rem;
 	margin-block-start: var(--space-8);
 }
-
-.home-page__search label {
+.dashboard__search label {
 	font-size: var(--text-sm);
 	font-weight: 700;
 }
-
-.home-page__search > div {
+.dashboard__search > div {
 	display: grid;
 	grid-template-columns: auto 1fr auto;
 	align-items: center;
-	min-block-size: 4.25rem;
+	min-block-size: 3.75rem;
 	border: 1px solid var(--app-border);
 	border-radius: var(--radius-md);
 	background: var(--app-surface);
 	overflow: hidden;
-	transition:
-		border-color 160ms ease-out,
-		box-shadow 160ms ease-out;
 }
-
-.home-page__search > div:focus-within {
-	border-color: var(--app-focus);
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-focus) 24%, transparent);
-}
-
-.home-page__search ion-icon {
+.dashboard__search ion-icon {
 	margin-inline-start: var(--space-4);
 	color: var(--app-text-muted);
-	font-size: 1.25rem;
+	font-size: 1.2rem;
 }
-
-.home-page__search input {
+.dashboard__search input {
 	min-inline-size: 0;
 	block-size: 100%;
-	min-block-size: 3.5rem;
 	border: 0;
 	padding-inline: var(--space-3);
 	color: var(--app-text);
 	background: transparent;
-	font: inherit;
 	outline: 0;
 }
-
-.home-page__search button {
-	min-block-size: 3.25rem;
+.dashboard__search button {
+	min-block-size: 44px;
 	margin-inline-end: var(--space-2);
 	border: 0;
 	border-radius: var(--radius-sm);
 	padding-inline: var(--space-5);
 	color: var(--app-accent-contrast);
 	background: var(--app-accent);
-	font: inherit;
-	font-weight: 780;
+	font-weight: 750;
 	cursor: pointer;
 }
-
-.home-page__shortcuts {
+.dashboard__recent {
+	display: grid;
+	gap: var(--space-5);
+}
+.dashboard__section-heading {
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--space-2) var(--space-4);
-	margin-block-start: var(--space-4);
-	font-size: var(--text-sm);
-}
-
-.home-page__shortcuts span {
-	color: var(--app-text-muted);
-}
-
-.public-trail {
-	position: relative;
-	isolation: isolate;
-	min-block-size: 32rem;
-	border: 1px solid var(--app-border);
-	border-radius: 1.5rem;
-	padding: var(--space-5);
-	background: var(--app-surface);
-	overflow: hidden;
-	transform: rotate(1.2deg);
-}
-
-.public-trail::before {
-	position: absolute;
-	z-index: -1;
-	inset-block: 5.5rem 4rem;
-	inset-inline-start: 3.05rem;
-	inline-size: 1px;
-	background: var(--app-border);
-	content: '';
-}
-
-.public-trail__topline {
-	display: flex;
-	align-items: center;
+	align-items: end;
 	justify-content: space-between;
-	gap: var(--space-4);
+	gap: var(--space-5);
 	border-block-end: 1px solid var(--app-border);
 	padding-block-end: var(--space-4);
 }
-
-.public-trail__topline p {
+.dashboard__section-heading h2,
+.dashboard__explore h2 {
 	margin: 0;
 	font-family: var(--font-display);
-	font-weight: 750;
+	font-size: var(--text-2xl);
 }
-
-.public-trail__topline > span {
-	color: var(--app-text-muted);
-	font-size: var(--text-xs);
+.dashboard__section-heading button {
+	min-block-size: 44px;
+	border: 0;
+	padding-inline: var(--space-3);
+	color: var(--app-accent);
+	background: transparent;
+	cursor: pointer;
 }
-
-.public-trail ol {
-	position: relative;
-	z-index: 1;
+.recent-list {
 	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--space-3);
-	margin: var(--space-5) 0 0;
+	margin: 0;
 	padding: 0;
 	list-style: none;
 }
-
-.public-trail li a {
+.recent-list a {
 	display: grid;
-	grid-template-columns: auto 1fr auto;
+	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
 	gap: var(--space-4);
-	min-block-size: 6rem;
+	min-block-size: 5.5rem;
 	border: 1px solid var(--app-border);
 	border-radius: var(--radius-md);
 	padding: var(--space-4);
 	color: var(--app-text);
-	background: var(--app-background);
+	background: var(--app-surface);
 	text-decoration: none;
-	transition:
-		border-color 160ms ease-out,
-		transform 160ms ease-out;
 }
-
-.public-trail__number {
-	display: grid;
-	place-items: center;
-	inline-size: 2.5rem;
-	block-size: 2.5rem;
-	border: 1px solid var(--app-accent);
-	border-radius: 50%;
+.recent-list a > ion-icon:first-child {
 	color: var(--app-accent);
-	background: var(--app-background);
-	font-family: var(--font-mono);
-	font-size: var(--text-xs);
-	font-weight: 700;
+	font-size: 1.25rem;
 }
-
-.public-trail li a > span:nth-child(2) {
+.recent-list a > ion-icon:last-child {
+	color: var(--app-text-muted);
+}
+.recent-list span {
 	display: grid;
 	gap: var(--space-1);
 	min-inline-size: 0;
 }
-
-.public-trail small {
+.recent-list small {
 	color: var(--app-text-muted);
-	font-size: var(--text-xs);
 }
-
-.public-trail strong {
+.recent-list strong {
 	overflow: hidden;
-	font-family: var(--font-display);
-	font-size: var(--text-lg);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-
-.public-trail li ion-icon {
-	color: var(--app-accent);
-}
-
-.public-trail__mark {
-	position: absolute;
-	z-index: -1;
-	inset-inline-end: -3rem;
-	inset-block-end: -4rem;
-	opacity: 0.055;
-	transform: rotate(-12deg);
-}
-
-.public-trail__mark img {
-	display: block;
-	inline-size: 16rem;
-	block-size: 16rem;
-}
-
-.home-page__browse {
-	display: grid;
-	grid-template-columns: minmax(15rem, 0.65fr) minmax(24rem, 1.35fr);
-	gap: clamp(var(--space-8), 7vw, var(--space-12));
-	border-block-start: 1px solid var(--app-border);
-	padding-block-start: var(--space-8);
-}
-
-.home-page__browse header > p {
-	margin: 0 0 var(--space-4);
-	color: var(--app-accent);
-	font-size: var(--text-sm);
-	font-weight: 700;
-}
-
-.home-page__browse h2 {
-	max-inline-size: 11ch;
-	margin: 0;
-	font-family: var(--font-display);
-	font-size: clamp(2.5rem, 4.5vw, 4.75rem);
-	letter-spacing: -0.055em;
-	line-height: 0.95;
-	text-wrap: balance;
-}
-
-.home-page__path-list {
-	display: grid;
-}
-
-.home-page__path-list a {
-	display: grid;
-	grid-template-columns: 2rem minmax(11rem, 0.85fr) minmax(13rem, 1.15fr) auto;
-	align-items: center;
+.dashboard__empty {
+	display: flex;
+	align-items: flex-start;
 	gap: var(--space-4);
-	min-block-size: 7rem;
+	border-inline-start: 3px solid var(--app-accent);
+	padding: var(--space-3) var(--space-5);
+}
+.dashboard__empty > ion-icon {
+	flex: 0 0 auto;
+	color: var(--app-accent);
+	font-size: 1.4rem;
+}
+.dashboard__empty h3,
+.dashboard__empty p {
+	margin: 0;
+}
+.dashboard__empty p {
+	margin-block-start: var(--space-1);
+	color: var(--app-text-muted);
+	line-height: 1.5;
+}
+.dashboard__explore {
+	display: grid;
+	grid-template-columns: minmax(12rem, 0.65fr) minmax(20rem, 1.35fr);
+	gap: var(--space-8);
+	border-block-start: 1px solid var(--app-border);
+	padding-block-start: var(--space-6);
+}
+.dashboard__explore nav {
+	display: grid;
+}
+.dashboard__explore nav a {
+	display: grid;
+	grid-template-columns: minmax(10rem, 0.8fr) minmax(12rem, 1.2fr);
+	gap: var(--space-4);
+	min-block-size: 4.5rem;
 	border-block-end: 1px solid var(--app-border);
 	color: var(--app-text);
 	text-decoration: none;
+	align-items: center;
 }
-
-.home-page__path-list a:first-child {
+.dashboard__explore nav a:first-child {
 	border-block-start: 1px solid var(--app-border);
 }
-
-.home-page__path-list span,
-.home-page__path-list small {
+.dashboard__explore nav span {
 	color: var(--app-text-muted);
 }
-
-.home-page__path-list span {
-	font-family: var(--font-mono);
-	font-size: var(--text-sm);
-}
-
-.home-page__path-list strong {
-	font-family: var(--font-display);
-	font-size: var(--text-xl);
-}
-
-.home-page__path-list small {
-	font-size: var(--text-base);
-	line-height: 1.5;
-}
-
-.home-page__path-list ion-icon {
-	color: var(--app-accent);
-	font-size: 1.35rem;
-	transition: transform 160ms ease-out;
-}
-
-.home-page__footer {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--space-6);
-	border-block-start: 1px solid var(--app-border);
-	padding-block: var(--space-6);
-}
-
-.home-page__footer > div {
-	display: flex;
-	align-items: center;
-	gap: var(--space-3);
-}
-
-.home-page__footer img {
-	inline-size: 2.25rem;
-	block-size: 2.25rem;
-}
-
-.home-page__footer p {
-	margin: 0;
-	color: var(--app-text-muted);
-}
-
-.home-page__footer strong {
-	color: var(--app-text);
-}
-
-.home-page__footer > a {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--space-2);
-	min-block-size: 44px;
-	font-weight: 700;
-}
-
-@media (hover: hover) {
-	.public-trail li a:hover {
-		border-color: var(--app-accent);
-		transform: translateX(0.25rem);
-	}
-
-	.home-page__path-list a:hover ion-icon {
-		transform: translateX(0.3rem);
-	}
-}
-
-@media (max-width: 1100px) {
-	.home-page__hero {
-		grid-template-columns: minmax(0, 1fr) minmax(19rem, 0.75fr);
-	}
-
-	.public-trail {
-		min-block-size: 30rem;
-	}
-}
-
-@media (max-width: 959px) {
-	.home-page__mobile-header {
-		display: block;
-	}
-
-	.home-page {
-		padding-block-start: var(--space-8);
-	}
-}
-
-@media (max-width: 820px) {
-	.home-page__hero,
-	.home-page__browse {
+@media (max-width: 720px) {
+	.recent-list {
 		grid-template-columns: 1fr;
 	}
-
-	.home-page__hero {
-		min-block-size: auto;
-	}
-
-	.public-trail {
-		min-block-size: auto;
-		transform: none;
-	}
-
-	.home-page__browse {
-		gap: var(--space-8);
-	}
-
-	.home-page__browse h2 {
-		max-inline-size: 13ch;
+	.dashboard__explore {
+		grid-template-columns: 1fr;
 	}
 }
-
-@media (max-width: 620px) {
-	.home-page {
-		gap: var(--space-12);
-	}
-
-	.home-page__pitch h1 {
-		font-size: clamp(3.25rem, 17vw, 5rem);
-	}
-
-	.home-page__search > div {
+@media (max-width: 470px) {
+	.dashboard__search > div {
 		grid-template-columns: auto 1fr;
 	}
-
-	.home-page__search button {
+	.dashboard__search button {
 		grid-column: 1 / -1;
 		margin: 0 var(--space-2) var(--space-2);
 	}
-
-	.home-page__path-list a {
-		grid-template-columns: 1.5rem 1fr auto;
-		gap: var(--space-3);
-		padding-block: var(--space-4);
-	}
-
-	.home-page__path-list small {
-		grid-column: 2 / -1;
-		grid-row: 2;
-	}
-
-	.home-page__path-list ion-icon {
-		grid-column: 3;
-		grid-row: 1;
-	}
-
-	.home-page__footer {
+	.dashboard__section-heading {
 		align-items: flex-start;
-		flex-direction: column;
 	}
-}
-
-@media (max-width: 390px) {
-	.public-trail {
-		padding: var(--space-4);
-	}
-
-	.public-trail li a {
-		grid-template-columns: auto minmax(0, 1fr);
-	}
-
-	.public-trail li ion-icon {
-		display: none;
+	.dashboard__explore nav a {
+		grid-template-columns: 1fr;
+		gap: var(--space-1);
+		padding-block: var(--space-3);
 	}
 }
 </style>

@@ -50,19 +50,25 @@ describe('Twisted foundation', () => {
 		cy.get('ion-menu-button').should('be.visible')
 		cy.contains('h2', 'This identifier is not supported')
 		cy.contains('a', 'Return home').should('be.visible').click()
-		cy.contains('h1', 'See where the work leads.')
-		cy.get('.public-trail').should('exist')
-		cy.get('.home-page').then(($page) => {
-			expect($page[0].scrollWidth).to.be.at.most($page[0].clientWidth)
-		})
+		cy.location('pathname').should('equal', '/home')
+		cy.contains('h1', 'Pick up where you left off.')
+		cy.get('.mobile-tabs').should('be.visible')
 		cy.get('.mobile-tabs').contains('Search').click()
 		cy.location('pathname').should('equal', '/search')
 		cy.get('.mobile-tabs a[aria-current="page"]').should('contain.text', 'Search')
 	})
 
-	it('aligns the persistent desktop menu with the routed content', () => {
+	it('uses the full desktop width on landing and restores the app menu after entry', () => {
 		cy.viewport(1440, 900)
 		cy.visit('/')
+		cy.get('ion-menu').should('not.exist')
+		cy.get('#main-content').then(($content) => {
+			expect($content[0].getBoundingClientRect().left).to.be.lessThan(2)
+		})
+		cy.get('.public-trail').should('be.visible')
+		cy.get('.mobile-tabs').should('not.exist')
+		cy.contains('a', 'a repository').click()
+		cy.location('pathname').should('equal', '/repositories')
 		cy.get('ion-menu').then(($menu) => {
 			cy.get('#main-content').then(($content) => {
 				const menuRight = $menu[0].getBoundingClientRect().right
@@ -71,7 +77,6 @@ describe('Twisted foundation', () => {
 			})
 		})
 		cy.get('.mobile-tabs').should('not.be.visible')
-		cy.get('.public-trail').should('be.visible')
 		cy.document().then((document) => {
 			expect(document.documentElement.scrollWidth).to.be.at.most(document.documentElement.clientWidth)
 		})

@@ -4,6 +4,7 @@ type Filters = LocationQueryRaw
 
 /** Named route builders are the only feature-facing boundary for opaque identifiers. */
 export const links = {
+	landing: { name: 'landing' } satisfies RouteLocationRaw,
 	home: { name: 'home' } satisfies RouteLocationRaw,
 	search: (query?: string): RouteLocationRaw => ({ name: 'search', query: query ? { q: query } : undefined }),
 	profiles: { name: 'profiles' } satisfies RouteLocationRaw,

@@ -1,13 +1,12 @@
-import HomePage from '@/views/HomePage.vue'
-import { describe, expect, test, vi } from 'vitest'
+import LandingPage from '@/views/LandingPage.vue'
+import { describe, expect, test } from 'vitest'
 import { mountIonicRoute } from './support/mount'
 
-describe('HomePage', () => {
-	test('mounts as an Ionic route without Vue warnings', async () => {
-		const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+describe('LandingPage', () => {
+	test('introduces Twisted and links into the client', async () => {
 		const emptyPage = { template: '<div />' }
-		const wrapper = await mountIonicRoute(HomePage, '/home', [
-			{ path: '/home', name: 'home', component: HomePage },
+		const wrapper = await mountIonicRoute(LandingPage, '/', [
+			{ path: '/', name: 'landing', component: LandingPage },
 			{ path: '/search', name: 'search', component: emptyPage },
 			{ path: '/profiles', name: 'profiles', component: emptyPage },
 			{ path: '/profiles/:actor', name: 'profile', component: emptyPage },
@@ -16,7 +15,7 @@ describe('HomePage', () => {
 			{ path: '/infrastructure', name: 'infrastructure', component: emptyPage },
 		])
 
-		expect(wrapper.get('h1').text()).toBe('Pick up where you left off.')
-		expect(warning).not.toHaveBeenCalled()
+		expect(wrapper.get('h1').text()).toBe('See where the work leads.')
+		expect(wrapper.get('.public-trail').text()).toContain('@desertthunder.dev')
 	})
 })
