@@ -2,8 +2,8 @@
 	<aside v-if="coverage && !coverage.ready" class="coverage-notice" role="status">
 		<ion-icon :icon="hourglassOutline" aria-hidden="true" />
 		<p>
-			<strong>Bobbin is still indexing Tangled.</strong> Available records remain visible, but these results may be
-			incomplete.
+			<strong>Some recent results may be missing.</strong> Tangled’s public catalog is still catching up. Everything
+			available now remains visible.
 		</p>
 	</aside>
 </template>

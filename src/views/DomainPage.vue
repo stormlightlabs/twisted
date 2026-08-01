@@ -25,11 +25,8 @@
 				</section>
 
 				<section v-else class="route-notice">
-					<strong>{{ identifier ? 'Deep link recognized' : 'Destination ready' }}</strong>
-					<p>
-						This stable route is part of the application shell. Its live Bobbin data view is implemented in the
-						corresponding feature ticket.
-					</p>
+					<strong>This view is on its way</strong>
+					<p>You can use search to find related public profiles, projects, and conversations in the meantime.</p>
 				</section>
 			</main>
 		</ion-content>

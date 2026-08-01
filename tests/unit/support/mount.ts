@@ -9,10 +9,11 @@ export async function mountIonicRoute(
 	component: Component,
 	path = '/',
 	routes: RouteRecordRaw[] = [{ path: '/', component }],
+	provide: Record<PropertyKey, unknown> = {},
 ) {
 	const router = createRouter({ history: createMemoryHistory(), routes })
 	await router.push(path)
 	await router.isReady()
 
-	return mount(component, { global: { plugins: [IonicVue, router] } })
+	return mount(component, { global: { plugins: [IonicVue, router], provide } })
 }

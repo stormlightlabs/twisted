@@ -6,7 +6,7 @@ describe('Twisted foundation', () => {
 	it('loads the app and intercepts a Bobbin XRPC query', () => {
 		cy.interceptBobbin('sh.tangled.bobbin.getCoverage', 'xrpc/coverage.json')
 		cy.visit('/')
-		cy.contains('h1', 'Follow the thread.')
+		cy.contains('h1', 'See where the work leads.')
 
 		cy.window().then(async (window) => {
 			const response = await window.fetch('/xrpc/sh.tangled.bobbin.getCoverage')
@@ -23,7 +23,7 @@ describe('Twisted foundation', () => {
 			expect(document.fonts.check('16px "Azeret Mono Variable"')).to.equal(true)
 		})
 		cy.get('h1').should('have.css', 'font-family').and('contain', 'Commissioner Variable')
-		cy.get('.home-page__eyebrow').should('have.css', 'font-family').and('contain', 'Azeret Mono Variable')
+		cy.get('.public-trail__number').first().should('have.css', 'font-family').and('contain', 'Azeret Mono Variable')
 	})
 
 	it('persists theme and service settings independently', () => {
@@ -31,7 +31,7 @@ describe('Twisted foundation', () => {
 		cy.contains('label', 'Catppuccin Latte').click()
 		cy.get('html').should('have.attr', 'data-theme', 'catppuccin-latte')
 		cy.get('#service-url').clear().type('https://bobbin.example.com/')
-		cy.contains('button', 'Save service').click()
+		cy.contains('button', 'Save data source').click()
 		cy.reload()
 
 		cy.get('html').should('have.attr', 'data-theme', 'catppuccin-latte')
@@ -44,13 +44,17 @@ describe('Twisted foundation', () => {
 
 	it('keeps recovery and navigation usable at a native-sized viewport', () => {
 		cy.viewport(390, 844)
-		cy.visit('/profiles/not%20valid')
+		cy.visit('/repositories/not%20valid')
 		cy.get('.mobile-tabs').should('be.visible')
 		cy.get('.mobile-tabs a').should('have.length', 4)
 		cy.get('ion-menu-button').should('be.visible')
 		cy.contains('h2', 'This identifier is not supported')
 		cy.contains('a', 'Return home').should('be.visible').click()
-		cy.contains('h1', 'Follow the thread.')
+		cy.contains('h1', 'See where the work leads.')
+		cy.get('.public-trail').should('exist')
+		cy.get('.home-page').then(($page) => {
+			expect($page[0].scrollWidth).to.be.at.most($page[0].clientWidth)
+		})
 		cy.get('.mobile-tabs').contains('Search').click()
 		cy.location('pathname').should('equal', '/search')
 		cy.get('.mobile-tabs a[aria-current="page"]').should('contain.text', 'Search')
@@ -67,6 +71,10 @@ describe('Twisted foundation', () => {
 			})
 		})
 		cy.get('.mobile-tabs').should('not.be.visible')
+		cy.get('.public-trail').should('be.visible')
+		cy.document().then((document) => {
+			expect(document.documentElement.scrollWidth).to.be.at.most(document.documentElement.clientWidth)
+		})
 	})
 
 	it('offers recovery links for unknown deep links', () => {

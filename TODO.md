@@ -143,6 +143,8 @@ in the specification has a navigable read view.
 
 ### T08 - Build discovery and filtered search
 
+**Status:** Complete
+
 **What to build:** Add identifier entry, mixed full-text results, every Bobbin
 search filter, coverage state, and cursor pagination.
 
@@ -150,14 +152,16 @@ search filter, coverage state, and cursor pagination.
 
 **Acceptance criteria:**
 
-- [ ] Handle, DID, repo DID, AT-URI, and Tangled URL input routes correctly.
-- [ ] Search preserves relevance order and supports NSID, author, repo, and date filters.
-- [ ] Empty, invalid-filter, incomplete-index, and next-page states are tested.
-- [ ] Search result records are schema-validated before rendering.
+- [x] Handle, DID, repo DID, AT-URI, and Tangled URL input routes correctly.
+- [x] Search preserves relevance order and supports NSID, author, repo, and date filters.
+- [x] Empty, invalid-filter, incomplete-index, and next-page states are tested.
+- [x] Search result records are schema-validated before rendering.
 
 **Verification:** `bun run test:unit --run && bun run build`
 
 ### T09 - Build complete profile pages
+
+**Status:** Complete
 
 **What to build:** Resolve handle or DID and render profile metadata, pinned
 repositories, owned repositories, links, and independently loading sections.
@@ -166,10 +170,10 @@ repositories, owned repositories, links, and independently loading sections.
 
 **Acceptance criteria:**
 
-- [ ] Bidirectionally resolved handle, DID, profile fields, avatar, and links render safely.
-- [ ] Pinned repo DIDs resolve without losing their configured order.
-- [ ] Repository pagination and per-section failures do not blank the profile.
-- [ ] The `desertthunder.dev` fixture works in a manual development check.
+- [x] Bidirectionally resolved handle, DID, profile fields, avatar, and links render safely.
+- [x] Pinned repo DIDs resolve without losing their configured order.
+- [x] Repository pagination and per-section failures do not blank the profile.
+- [x] The `desertthunder.dev` fixture works in a live development check.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

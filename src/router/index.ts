@@ -11,13 +11,13 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/profiles',
 		name: 'profiles',
-		component: domainPage,
+		component: () => import('../views/ProfilesPage.vue'),
 		meta: { title: 'People', section: 'Profiles', description: 'Find a Tangled profile by handle or DID.' },
 	},
 	{
 		path: '/profiles/:actor',
 		name: 'profile',
-		component: domainPage,
+		component: () => import('../views/ProfilePage.vue'),
 		meta: {
 			title: 'Profile',
 			section: 'People',

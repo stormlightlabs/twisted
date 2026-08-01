@@ -1,6 +1,6 @@
 # Twisted
 
-Twisted is a read-only client for public data on [Tangled](https://tangled.org).
+Twisted is a Tangled client for browsing public projects, profiles, and conversations.
 It is built with Ionic Vue and is intended to run as a website, installable PWA, and Capacitor app for Android and iOS.
 
 ## Development

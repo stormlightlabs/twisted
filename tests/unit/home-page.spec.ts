@@ -8,12 +8,15 @@ describe('HomePage', () => {
 		const emptyPage = { template: '<div />' }
 		const wrapper = await mountIonicRoute(HomePage, '/home', [
 			{ path: '/home', name: 'home', component: HomePage },
+			{ path: '/search', name: 'search', component: emptyPage },
 			{ path: '/profiles', name: 'profiles', component: emptyPage },
+			{ path: '/profiles/:actor', name: 'profile', component: emptyPage },
 			{ path: '/repositories', name: 'repositories', component: emptyPage },
+			{ path: '/repositories/:repo', name: 'repository', component: emptyPage },
 			{ path: '/infrastructure', name: 'infrastructure', component: emptyPage },
 		])
 
-		expect(wrapper.get('h1').text()).toBe('Follow the thread.')
+		expect(wrapper.get('h1').text()).toBe('See where the work leads.')
 		expect(warning).not.toHaveBeenCalled()
 	})
 })

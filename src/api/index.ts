@@ -1,4 +1,5 @@
 export * from './client'
+export * from './client-provider'
 export * from './cache'
 export * from './contracts'
 export * from './errors'

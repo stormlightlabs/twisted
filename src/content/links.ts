@@ -25,7 +25,8 @@ export function localRecordLink(value: string, context: RecordLinkContext = {}):
 	const atUri = parseAtUri(value)
 	if (atUri) {
 		if (atUri.collection === 'sh.tangled.repo') return links.repository(value)
-		if (atUri.collection === 'sh.tangled.feed.string') return links.string(value)
+		if (atUri.collection === 'sh.tangled.string' || atUri.collection === 'sh.tangled.feed.string')
+			return links.string(value)
 		return links.search(value)
 	}
 

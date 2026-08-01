@@ -1,13 +1,16 @@
 <template>
 	<ion-menu content-id="main-content" type="overlay">
 		<ion-content class="app-menu">
-			<div class="app-menu__brand">
-				<div class="app-menu__mark" aria-hidden="true">T</div>
-				<div>
+			<router-link :to="links.home" class="app-menu__brand" aria-label="Twisted home">
+				<span class="app-menu__mark" aria-hidden="true">
+					<img alt="" src="/favicon.png" />
+					<span>T</span>
+				</span>
+				<span class="app-menu__brand-copy">
 					<strong>Twisted</strong>
-					<span>Read Tangled anywhere</span>
-				</div>
-			</div>
+					<small>A Tangled client</small>
+				</span>
+			</router-link>
 
 			<nav aria-label="Primary navigation">
 				<div v-for="group in navigation" :key="group.label" class="app-menu__group">
@@ -27,7 +30,7 @@
 				</div>
 			</nav>
 
-			<p class="app-menu__readonly"><span aria-hidden="true"></span> Read-only connection</p>
+			<p class="app-menu__readonly"><span aria-hidden="true"></span> No sign-in needed</p>
 		</ion-content>
 	</ion-menu>
 </template>
@@ -85,9 +88,11 @@ function isActive(path: string): boolean {
 	align-items: center;
 	gap: var(--space-3);
 	padding: calc(var(--safe-top) + var(--space-6)) var(--space-5) var(--space-6);
+	color: var(--app-text);
+	text-decoration: none;
 }
 
-.app-menu__brand > div:last-child {
+.app-menu__brand-copy {
 	display: grid;
 	gap: 0.125rem;
 }
@@ -97,14 +102,16 @@ function isActive(path: string): boolean {
 	font-size: var(--text-xl);
 }
 
-.app-menu__brand span {
+.app-menu__brand small {
 	color: var(--app-text-muted);
 	font-size: var(--text-xs);
 }
 
 .app-menu__mark {
+	position: relative;
 	display: grid;
 	place-items: center;
+	flex: 0 0 auto;
 	inline-size: 2.5rem;
 	block-size: 2.5rem;
 	border: 1px solid var(--app-accent);
@@ -114,6 +121,37 @@ function isActive(path: string): boolean {
 	font-size: var(--text-xl);
 	font-weight: 800;
 	transform: rotate(-3deg);
+}
+
+.app-menu__mark img,
+.app-menu__mark > span {
+	position: absolute;
+	transition:
+		opacity 150ms ease-out,
+		transform 150ms ease-out;
+}
+
+.app-menu__mark img {
+	inline-size: 1.85rem;
+	block-size: 1.85rem;
+	object-fit: contain;
+}
+
+.app-menu__mark > span {
+	opacity: 0;
+	transform: scale(0.8);
+}
+
+.app-menu__brand:hover .app-menu__mark img,
+.app-menu__brand:focus-visible .app-menu__mark img {
+	opacity: 0;
+	transform: scale(0.8);
+}
+
+.app-menu__brand:hover .app-menu__mark > span,
+.app-menu__brand:focus-visible .app-menu__mark > span {
+	opacity: 1;
+	transform: scale(1);
 }
 
 .app-menu__group {

@@ -7,6 +7,8 @@ import {
 	ShTangledActorGetProfile,
 	ShTangledActorProfile,
 	ShTangledRepo,
+	ShTangledRepoGetRepoByRepoDid,
+	ShTangledRepoGetRepos,
 	ShTangledRepoGetRepo,
 	ShTangledRepoListRepos,
 	ShTangledSearchQuery,
@@ -140,6 +142,34 @@ export class BobbinClient {
 		return validateRecordView(view, ShTangledRepo.mainSchema, 'repository')
 	}
 
+	/** Fetches and validates one repository by its repository DID. */
+	async getRepoByRepoDid(
+		repoDid: ShTangledRepoGetRepoByRepoDid.$params['repoDid'],
+		options: RequestOptions = {},
+	): Promise<ValidatedRecordView<ShTangledRepo.Main>> {
+		const view = await this.#cached(
+			'sh.tangled.repo.getRepoByRepoDid',
+			{ repoDid },
+			options,
+			STALE_TIMES.record,
+			(signal) => this.#rpc.call(ShTangledRepoGetRepoByRepoDid, { params: { repoDid }, signal }),
+		)
+
+		return validateRecordView(view, ShTangledRepo.mainSchema, 'repository')
+	}
+
+	/** Fetches and validates repository records in one ordered batch. */
+	async getRepos(
+		repos: ShTangledRepoGetRepos.$params['repos'],
+		options: RequestOptions = {},
+	): Promise<ValidatedRecordView<ShTangledRepo.Main>[]> {
+		const data = await this.#cached('sh.tangled.repo.getRepos', { repos }, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledRepoGetRepos, { params: { repos }, signal }),
+		)
+
+		return data.items.map((item) => validateRecordView(item, ShTangledRepo.mainSchema, 'repository'))
+	}
+
 	/** Lists an actor's repositories and validates every embedded record. */
 	async listRepos(
 		subject: ShTangledRepoListRepos.$params['subject'],
@@ -268,10 +298,10 @@ export function validateEmbeddedRecord<const TSchema extends BaseSchema>(
 export function normalizeBobbinService(service: string | URL): string {
 	const url = new URL(service)
 	if (url.protocol !== 'https:') {
-		throw new TypeError('Bobbin services must use HTTPS')
+		throw new TypeError('Data source addresses must use HTTPS')
 	}
 	if (url.username || url.password || url.search || url.hash) {
-		throw new TypeError('Bobbin service URLs cannot contain credentials, a query, or a fragment')
+		throw new TypeError('Data source addresses cannot contain credentials, a query, or a page fragment')
 	}
 
 	return url.toString().replace(/\/$/, '')

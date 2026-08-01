@@ -36,6 +36,28 @@ describe('BobbinClient', () => {
 		expect(fetch).toHaveBeenCalledOnce()
 	})
 
+	test('validates repository DID and ordered batch lookups', async () => {
+		const secondUri = repoUri.replace('3mho6hukiei22', 'second')
+		const fetch = vi
+			.fn<typeof globalThis.fetch>()
+			.mockResolvedValueOnce(jsonResponse({ uri: repoUri, value: repoRecord() }))
+			.mockResolvedValueOnce(
+				jsonResponse({
+					items: [
+						{ uri: repoUri, value: repoRecord() },
+						{ uri: secondUri, value: { ...repoRecord(), name: 'second' } },
+					],
+				}),
+			)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.getRepoByRepoDid('did:plc:4iw5fospv2asv3344au236ka')).resolves.toMatchObject({ uri: repoUri })
+		await expect(client.getRepos([repoUri, secondUri])).resolves.toEqual([
+			expect.objectContaining({ uri: repoUri }),
+			expect.objectContaining({ uri: secondUri }),
+		])
+	})
+
 	test('rejects malformed embedded records', async () => {
 		const fetch = vi
 			.fn<typeof globalThis.fetch>()

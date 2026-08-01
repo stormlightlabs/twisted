@@ -8,11 +8,11 @@ describe('RequestState', () => {
 	test.each([
 		['invalid-request', 'Check this request'],
 		['not-found', 'Record not found'],
-		['rate-limited', 'Bobbin asked us to slow down'],
-		['upstream-unavailable', 'The upstream service is unavailable'],
-		['service-unavailable', 'Bobbin is unavailable'],
+		['rate-limited', 'Too many requests'],
+		['upstream-unavailable', 'Part of Tangled is unavailable'],
+		['service-unavailable', 'Tangled is unavailable'],
 		['offline', 'You are offline'],
-		['malformed-response', 'Bobbin returned unexpected data'],
+		['malformed-response', 'This content could not be displayed'],
 	] as const)('renders %s as a distinct state', (kind, title) => {
 		const wrapper = mount(RequestState, { props: { error: new BobbinError(kind, 'Test') } })
 
@@ -47,7 +47,7 @@ describe('CoverageNotice', () => {
 		})
 
 		expect(wrapper.get('#results').text()).toBe('Indexed result')
-		expect(wrapper.text()).toContain('results may be incomplete')
+		expect(wrapper.text()).toContain('Some recent results may be missing')
 	})
 
 	test('stays hidden when indexing is ready', () => {

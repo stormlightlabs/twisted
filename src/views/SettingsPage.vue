@@ -6,7 +6,7 @@
 				<header class="settings-page__header">
 					<p class="section-label">Application</p>
 					<h1>Make Twisted yours.</h1>
-					<p>Appearance and network settings stay on this device. They are stored separately.</p>
+					<p>Choose how Twisted looks and where it finds public Tangled content.</p>
 				</header>
 
 				<section class="settings-section" aria-labelledby="theme-heading">
@@ -14,7 +14,7 @@
 						<span>01</span>
 						<div>
 							<h2 id="theme-heading">Theme</h2>
-							<p>Choose a reviewed Base16 palette or import a compatible JSON file.</p>
+							<p>Choose a built-in color theme or bring your own Base16 theme file.</p>
 						</div>
 					</div>
 
@@ -51,15 +51,15 @@
 					<div class="settings-section__intro">
 						<span>02</span>
 						<div>
-							<h2 id="service-heading">Bobbin service</h2>
-							<p>Advanced setting. Twisted accepts HTTPS Bobbin instances only.</p>
+							<h2 id="service-heading">Data source</h2>
+							<p>Advanced: choose where Twisted finds public Tangled content.</p>
 						</div>
 					</div>
 					<form class="service-form" @submit.prevent="saveService">
-						<label for="service-url">Service URL</label>
+						<label for="service-url">Data source address</label>
 						<input id="service-url" v-model="serviceInput" inputmode="url" spellcheck="false" />
 						<div>
-							<button type="submit">Save service</button>
+							<button type="submit">Save data source</button>
 							<button type="button" class="button-secondary" @click="resetService">Restore default</button>
 						</div>
 						<p v-if="serviceMessage" :class="{ 'form-message--error': serviceError }" role="status">
@@ -73,7 +73,7 @@
 						<span>03</span>
 						<div>
 							<h2 id="about-heading">About</h2>
-							<p>Twisted is an independent, read-only client for public Tangled data.</p>
+							<p>Twisted gives you a focused way to browse public work on Tangled.</p>
 						</div>
 					</div>
 					<dl class="about-list">
@@ -82,12 +82,12 @@
 							<dd>{{ activeScheme.name }}</dd>
 						</div>
 						<div>
-							<dt>Bobbin service</dt>
+							<dt>Data source</dt>
 							<dd>{{ service }}</dd>
 						</div>
 						<div>
 							<dt>Access</dt>
-							<dd>Unauthenticated and read-only</dd>
+							<dd>No sign-in needed</dd>
 						</div>
 					</dl>
 				</section>
@@ -134,7 +134,7 @@ function saveService(): void {
 	try {
 		serviceInput.value = updateService(serviceInput.value)
 		serviceError.value = false
-		serviceMessage.value = 'Bobbin service saved.'
+		serviceMessage.value = 'Data source saved.'
 	} catch (error) {
 		serviceError.value = true
 		serviceMessage.value = error instanceof Error ? error.message : 'The service URL is invalid.'
@@ -145,7 +145,7 @@ function resetService(): void {
 	restoreDefault()
 	serviceInput.value = service.value
 	serviceError.value = false
-	serviceMessage.value = 'The default Bobbin service was restored.'
+	serviceMessage.value = 'The default data source was restored.'
 }
 </script>
 

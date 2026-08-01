@@ -56,5 +56,5 @@
 		"vitest": "^0.34.6",
 		"vue-tsc": "^2.1.10"
 	},
-	"description": "A read-only Tangled client"
+	"description": "A Tangled client for browsing public work"
 }
