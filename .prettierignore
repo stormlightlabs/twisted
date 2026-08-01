@@ -1,0 +1,8 @@
+bun.lock
+.sandbox
+coverage
+dist
+node_modules
+tests/e2e/screenshots
+tests/e2e/videos
+tests/smoke

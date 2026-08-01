@@ -12,6 +12,8 @@ theme engine, and live API contract checks.
 
 ### T01 - Replace starter tests with a reliable test baseline
 
+**Status:** Complete
+
 **What to build:** Remove placeholder expectations and establish shared Vitest
 and Cypress fixtures for route-level feature work.
 
@@ -19,13 +21,15 @@ and Cypress fixtures for route-level feature work.
 
 **Acceptance criteria:**
 
-- [ ] Unit and component tests can mount Ionic route components without warnings.
-- [ ] Cypress starts against the Vite app and intercepts XRPC requests.
-- [ ] Starter copy and example fixtures are removed.
+- [x] Unit and component tests can mount Ionic route components without warnings.
+- [x] Cypress starts against the Vite app and intercepts XRPC requests.
+- [x] Starter copy and example fixtures are removed.
 
-**Verification:** `npm run test:unit -- --run && npm run lint`
+**Verification:** `bun run test:unit --run && bun run lint`
 
 ### T02 - Add the typed Bobbin client boundary
+
+**Status:** Complete
 
 **What to build:** Add atcute dependencies and one configurable XRPC boundary
 with runtime record validation, abort support, pagination, and typed errors.
@@ -34,14 +38,16 @@ with runtime record validation, abort support, pagination, and typed errors.
 
 **Acceptance criteria:**
 
-- [ ] Tangled and Microcosm ambient declarations type every published query.
-- [ ] Embedded records are validated with generated atcute schemas before use.
-- [ ] Coverage and knot-proxy differences use narrow local overlays; views use no raw `fetch`.
-- [ ] Unit tests cover validation, malformed records, aborts, and XRPC error mapping.
+- [x] Tangled and Microcosm ambient declarations type every published query.
+- [x] Embedded records are validated with generated atcute schemas before use.
+- [x] Coverage and knot-proxy differences use narrow local overlays; views use no raw `fetch`.
+- [x] Unit tests cover validation, malformed records, aborts, and XRPC error mapping.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T03 - Add live Bobbin smoke tests with Hurl
+
+**Status:** Complete
 
 **What to build:** Create a read-only Hurl suite using the approved
 `desertthunder.dev` fixture and document how to run it.
@@ -50,12 +56,13 @@ with runtime record validation, abort support, pagination, and typed errors.
 
 **Acceptance criteria:**
 
-- [ ] Tests cover coverage, identity, profile, repo lookup/listing, search, one aggregation, and one Git proxy query.
-- [ ] Assertions use stable identifiers and shapes, never CIDs, counts, branch names, or mutable prose.
-- [ ] Tests run sequentially with delay and bounded retry to respect the hosted rate limit.
-- [ ] `package.json` exposes a `test:smoke` script without installing Hurl as a JavaScript dependency.
+- [x] Tests cover coverage, identity, profile, repo lookup/listing, search,
+      one aggregation, and one Git proxy query.
+- [x] Assertions use stable identifiers and shapes, never CIDs, counts, branch names, or mutable prose.
+- [x] Tests run sequentially with delay and bounded retry to respect the hosted rate limit.
+- [x] `package.json` exposes a `test:smoke` script without installing Hurl as a JavaScript dependency.
 
-**Verification:** `npm run test:smoke`
+**Verification:** `bun run test:smoke`
 
 ### T04 - Build the Base16 theme engine
 
@@ -71,7 +78,7 @@ tokens, with bundled defaults, JSON import, selection, and persistence.
 - [ ] Bundled light and dark schemes meet WCAG AA for application-owned controls.
 - [ ] Unit tests cover parsing, token mapping, persistence, and recovery.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T05 - Replace the starter screen with the application shell
 
@@ -87,7 +94,7 @@ behavior, safe areas, and stable deep-link routing for every specified domain.
 - [ ] Unknown routes and unsupported identifiers have useful recovery links.
 - [ ] Theme and API-service settings persist independently.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T06 - Add coverage, caching, and shared request states
 
@@ -103,7 +110,7 @@ cursor guards, coverage notices, and shared loading/error/empty components.
 - [ ] Retryable errors preserve existing content and respect `Retry-After` when present.
 - [ ] `ready: false` keeps partial indexed results visible with an explanation.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T07 - Render Markdown and record links safely
 
@@ -119,7 +126,7 @@ headers, identifier copying, and canonical Tangled links.
 - [ ] Mentions, references, AT-URIs, DIDs, and known Tangled URLs link to local views.
 - [ ] Unknown record types remain inspectable without unsafe generic HTML.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ## Milestone 2: Complete read-only client
 
@@ -140,7 +147,7 @@ search filter, coverage state, and cursor pagination.
 - [ ] Empty, invalid-filter, incomplete-index, and next-page states are tested.
 - [ ] Search result records are schema-validated before rendering.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T09 - Build complete profile pages
 
@@ -156,7 +163,7 @@ repositories, owned repositories, links, and independently loading sections.
 - [ ] Repository pagination and per-section failures do not blank the profile.
 - [ ] The `desertthunder.dev` fixture works in a manual development check.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T10 - Build actor activity dashboards
 
@@ -172,7 +179,7 @@ activity sections linked to their subject records.
 - [ ] Filters supported by issue and pull `*By` endpoints are available.
 - [ ] One section's failure does not block other activity sections.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T11 - Build repository overview pages
 
@@ -188,7 +195,7 @@ languages, README, labels, counts, collaborators, and recent ref activity.
 - [ ] Overview sections load independently and link to their full views.
 - [ ] Canonical Tangled and clone/download actions are unambiguous and read-only.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T12 - Browse repository trees and blobs
 
@@ -204,7 +211,7 @@ large-file, and missing-blob views.
 - [ ] Binary and oversized files offer download or canonical links without unsafe rendering.
 - [ ] Tree and blob upstream failures retain repository navigation.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T13 - Browse branches, tags, commits, and ref updates
 
@@ -220,7 +227,7 @@ commit details, and ref-update records.
 - [ ] Author, time, hash, message, and changed-ref links remain readable on narrow screens.
 - [ ] Empty repositories and missing refs have explicit states.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T14 - Render diffs, compares, and archive downloads
 
@@ -236,7 +243,7 @@ output, and streamed archive downloads.
 - [ ] Archive bodies stream to download and are never buffered as app state.
 - [ ] Range, cache, filename, and content-type metadata survive the API boundary.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T15 - Read issue lists and details
 
@@ -252,7 +259,7 @@ state, state history, labels, mentions, and references.
 - [ ] Details use rkeys as identifiers and never invent sequential numbers.
 - [ ] State history names its author and timestamp when available.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T16 - Read pull lists and details
 
@@ -268,7 +275,7 @@ status, status history, target/source data, and patch links.
 - [ ] Pull rkeys remain the displayed identifiers.
 - [ ] Source, target, comparison, and status-author links resolve correctly.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T17 - Read comments and reactions
 
@@ -284,7 +291,7 @@ pulls, strings, and other valid subjects.
 - [ ] Reaction summaries and full actor lists agree with count/list endpoints.
 - [ ] Independent pagination and failure handling work on each thread.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T18 - Read stars, follows, vouches, and collaborators
 
@@ -300,7 +307,7 @@ vouches, and repo collaborators, with links to both ends of each edge.
 - [ ] Missing profiles or repos do not hide the relationship record.
 - [ ] Profile and repo summaries link to the full relationship views.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T19 - Read pipelines, statuses, and artifacts
 
@@ -316,7 +323,7 @@ history, artifact metadata, and safe artifact downloads.
 - [ ] Artifact downloads preserve upstream content metadata and avoid buffering large bodies.
 - [ ] Empty, running, failed, unavailable, and incomplete-index states are covered.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T20 - Read labels and Tangled strings
 
@@ -332,7 +339,7 @@ listing, comment, and reaction flows.
 - [ ] Strings render safely and expose their valid discussion subjects.
 - [ ] Arbitrary scope identifiers are encoded and validated at the API boundary.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ### T21 - Read knots, spindles, memberships, and public keys
 
@@ -349,7 +356,7 @@ owners, versions, knot keys, actor public keys, and freshness limitations.
 - [ ] Views disclose that Bobbin coverage does not prove knot-roster freshness.
 - [ ] No secret-list or management endpoint is called.
 
-**Verification:** `npm run test:unit -- --run && npm run build`
+**Verification:** `bun run test:unit --run && bun run build`
 
 ## Milestone 3: Web and PWA release quality
 
@@ -370,7 +377,7 @@ and an offline application shell with explicit online-data states.
 - [ ] Service-worker updates never strand the app on mixed asset versions.
 - [ ] API payloads are not persisted by the service worker.
 
-**Verification:** `npm run build` and a browser PWA audit
+**Verification:** `bun run build` and a browser PWA audit
 
 ### T23 - Cover complete user journeys in Cypress
 
@@ -386,7 +393,7 @@ repos, source, collaboration, activity, infrastructure, settings, and failures.
 - [ ] Theme persistence, deep links, pagination guards, and back navigation are covered.
 - [ ] At least one narrow viewport exercises every primary route family.
 
-**Verification:** Start `npm run dev`, then run `npm run test:e2e`
+**Verification:** Start `bun run dev`, then run `bun run test:e2e`
 
 ### T24 - Complete accessibility and responsive review
 
@@ -402,7 +409,7 @@ contrast, zoom, reduced motion, touch targets, safe areas, and long content.
 - [ ] Reviewed themes meet WCAG 2.2 AA and imported low-contrast themes warn the user.
 - [ ] Layout works at 320 CSS pixels, 200% zoom, and common tablet/desktop widths.
 
-**Verification:** `npm run test:unit -- --run && npm run test:e2e` plus manual assistive-technology review
+**Verification:** `bun run test:unit --run && bun run test:e2e` plus manual assistive-technology review
 
 ## Milestone 4: Native apps
 
@@ -423,7 +430,7 @@ safe-area/status-bar behavior, external links, downloads, and back navigation.
 - [ ] External URLs and streamed downloads use an explicit safe platform flow.
 - [ ] Native code contains no API secrets or feature fork.
 
-**Verification:** `npm run build && npx cap sync android` plus the documented Android debug build
+**Verification:** `bun run build && bunx cap sync android` plus the documented Android debug build
 
 ### T26 - Package and verify iOS
 
@@ -439,7 +446,7 @@ final assets, safe areas, status bar, external links, and downloads.
 - [ ] Rotation, dynamic type, safe areas, external links, and downloads behave correctly.
 - [ ] Signing and provisioning requirements are documented without committing credentials.
 
-**Verification:** `npm run build && npx cap sync ios` plus the documented iOS simulator build
+**Verification:** `bun run build && bunx cap sync ios` plus the documented iOS simulator build
 
 ### T27 - Run the release verification matrix
 

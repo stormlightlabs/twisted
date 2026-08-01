@@ -48,11 +48,11 @@ the complete web/PWA experience; it does not reduce the product scope.
 
 ## Current state
 
-The repository is an Ionic Vue starter using Vue 3, TypeScript, Vite 5,
-Vue Router, Ionic 8, Capacitor 8, Vitest, Cypress, and ESLint. It contains one
-placeholder page, no API client, no product navigation, and no meaningful test
-coverage. Capacitor has a starter app identifier and no checked-in Android or
-iOS project.
+The repository is an Ionic Vue app using Vue 3, TypeScript, Vite 5, Vue Router,
+Ionic 8, Capacitor 8, Vitest, Cypress, and ESLint. It has a typed Bobbin read
+boundary, shared unit and browser-test fixtures, and live Hurl contract checks.
+The interface is still a foundation screen without product navigation.
+Capacitor has a starter app identifier and no checked-in Android or iOS project.
 
 The API contract is documented in [docs/api.md](docs/api.md). Bobbin is a new,
 read-only XRPC AppView whose hosted instance is `https://api.tangled.org`.
@@ -260,14 +260,15 @@ Twisted contract regression.
 ### Commands
 
 ```sh
-npm install
-npm run lint
-npm run test:unit -- --run
-npm run build
-npm run dev
-npm run test:e2e
-hurl --test --jobs 1 --delay 250ms --retry 2 --retry-interval 2s tests/smoke
-npx cap sync
+bun install --frozen-lockfile
+bun run format:check
+bun run lint
+bun run test:unit --run
+bun run build
+bun run dev
+bun run test:e2e
+bun run test:smoke
+bunx cap sync
 ```
 
 The Cypress command requires the dev server at `http://localhost:5173`. Native

@@ -44,23 +44,19 @@ Use `@atcute/client` for XRPC requests and register `@atcute/tangled` for its
 ambient query declarations:
 
 ```ts
-import { Client, simpleFetchHandler } from "@atcute/client";
-import type {} from "@atcute/microcosm";
-import type {} from "@atcute/tangled";
+import { Client, simpleFetchHandler } from '@atcute/client'
+import type {} from '@atcute/microcosm'
+import type {} from '@atcute/tangled'
 
-export const tangled = new Client({
-    handler: simpleFetchHandler({ service: "https://api.tangled.org" }),
-});
+export const tangled = new Client({ handler: simpleFetchHandler({ service: 'https://api.tangled.org' }) })
 
-const response = await tangled.get("sh.tangled.search.query", {
-    params: { q: "tangled", limit: 20 },
-});
+const response = await tangled.get('sh.tangled.search.query', { params: { q: 'tangled', limit: 20 } })
 
 if (!response.ok) {
-    throw new Error(response.data.message ?? response.data.error);
+	throw new Error(response.data.message ?? response.data.error)
 }
 
-const { hits, cursor } = response.data;
+const { hits, cursor } = response.data
 ```
 
 The equivalent project-wide registration is
@@ -72,15 +68,22 @@ Bobbin's record views embed `value` as `unknown`. Narrow it with the generated
 record schema before a view uses it:
 
 ```ts
-import { is } from "@atcute/lexicons";
-import { ShTangledRepo } from "@atcute/tangled";
+import { is } from '@atcute/lexicons'
+import { ShTangledRepo } from '@atcute/tangled'
 
 if (!is(ShTangledRepo.mainSchema, response.data.value)) {
-    throw new Error("Bobbin returned an invalid repository record");
+	throw new Error('Bobbin returned an invalid repository record')
 }
 
-const repo: ShTangledRepo.Main = response.data.value;
+const repo: ShTangledRepo.Main = response.data.value
 ```
+
+Twisted uses `Client.call` so atcute also validates query parameters and the
+published response envelope. Search is the one compatibility exception:
+Bobbin returns a floating-point `score`, while the generated AT Protocol
+`unknown` validator accepts object values. Twisted validates that envelope in
+its API boundary and still requires a generated record schema for every search
+hit before returning it to a feature.
 
 `@atcute/tangled` does not yet define `sh.tangled.bobbin.getCoverage`. Keep the
 following local exception beside the API client until upstream publishes that
@@ -88,9 +91,9 @@ lexicon:
 
 ```ts
 export interface BobbinCoverage {
-    ready: boolean;
-    eventsProcessed: number;
-    lastCursor: number;
+	ready: boolean
+	eventsProcessed: number
+	lastCursor: number
 }
 ```
 
@@ -120,9 +123,9 @@ Single-record methods return a record view:
 
 ```ts
 interface RecordView<T> {
-    uri: string;
-    cid?: string;
-    value: T;
+	uri: string
+	cid?: string
+	value: T
 }
 ```
 
@@ -260,11 +263,7 @@ client release.
 Call `sh.tangled.bobbin.getCoverage` without parameters:
 
 ```json
-{
-    "ready": true,
-    "eventsProcessed": 137863,
-    "lastCursor": 162959
-}
+{ "ready": true, "eventsProcessed": 137863, "lastCursor": 162959 }
 ```
 
 `ready: false` means Bobbin is still rebuilding its index. Single-record
@@ -300,8 +299,8 @@ XRPC errors use this JSON shape:
 
 ```ts
 interface XrpcErrorBody {
-    error: string;
-    message?: string;
+	error: string
+	message?: string
 }
 ```
 

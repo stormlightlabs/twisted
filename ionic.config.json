@@ -1,7 +1,1 @@
-{
-  "name": "twisted",
-  "integrations": {
-    "capacitor": {}
-  },
-  "type": "vue-vite"
-}
+{ "name": "twisted", "integrations": { "capacitor": {} }, "type": "vue-vite" }
