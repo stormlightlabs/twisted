@@ -51,9 +51,12 @@ the complete web/PWA experience; it does not reduce the product scope.
 The repository is an Ionic Vue app using Vue 3, TypeScript, Vite 5, Vue Router,
 Ionic 8, Capacitor 8, Vitest, Cypress, and ESLint. It has a typed Bobbin read
 boundary, shared unit and browser-test fixtures, live Hurl contract checks, a
-Base16 theme engine, and the responsive application shell. The Bobbin boundary
-deduplicates concurrent reads with explicit stale times, and shared route state
-handles cancellation, retries, incomplete coverage, and distinct failures.
+Base16 theme engine, and a responsive application shell with persistent desktop
+navigation and mobile tabs. The Bobbin boundary deduplicates concurrent reads
+with explicit stale times, and shared route state handles cancellation, retries,
+incomplete coverage, and distinct failures. Shared content components compile
+plain Markdown with Satteri, sanitize it with DOMPurify, route supported record
+identifiers locally, and keep unknown validated records inspectable as text.
 Every planned domain has a stable deep-link route; later feature tickets replace
 the shell's route notices with live data. Capacitor has a starter app identifier
 and no checked-in Android or iOS project.
@@ -209,8 +212,12 @@ a useful shareable URL. Do not expose opaque cursors as human identifiers.
 
 ### Content safety
 
-- Render Markdown through `marked` `18.0.7`, sanitize the result with DOMPurify
-  `3.4.12`, and restrict URL schemes before inserting HTML.
+- Compile plain Markdown through Satteri `0.9.5`, sanitize the result with
+  DOMPurify `3.4.12`, and restrict URL schemes before inserting HTML. Do not
+  compile or evaluate untrusted MDX.
+- Serve the application with cross-origin isolation headers because Satteri's
+  browser WASI build uses shared memory. Target modern browser modules; do not
+  emit a legacy bundle that cannot run the WASI module.
 - Treat repository blobs as untrusted text or bytes. Never execute HTML,
   JavaScript, SVG scripts, or repository-provided styles.
 - Open external links with an explicit external-browser policy and safe opener

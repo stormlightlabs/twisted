@@ -5,6 +5,7 @@
 			<app-menu />
 			<ion-router-outlet id="main-content" />
 		</ion-split-pane>
+		<mobile-tab-bar />
 	</ion-app>
 </template>
 
@@ -15,6 +16,7 @@ import { IonApp, IonRouterOutlet, IonSplitPane } from '@ionic/vue'
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppMenu from './components/AppMenu.vue'
+import MobileTabBar from './components/MobileTabBar.vue'
 import { links } from './router/links'
 
 const router = useRouter()

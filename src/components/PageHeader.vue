@@ -3,7 +3,7 @@
 		<ion-toolbar>
 			<ion-buttons slot="start">
 				<ion-back-button v-if="back" :default-href="back" />
-				<ion-menu-button v-else />
+				<ion-menu-button />
 			</ion-buttons>
 			<ion-title>{{ title }}</ion-title>
 		</ion-toolbar>

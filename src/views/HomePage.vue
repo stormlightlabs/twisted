@@ -84,12 +84,12 @@ function search(): void {
 .home-page {
 	display: grid;
 	align-content: start;
-	gap: clamp(var(--space-10), 8vw, 7rem);
+	gap: clamp(var(--space-8), 6vw, 5rem);
 }
 
 .home-page__intro {
 	max-inline-size: 52rem;
-	padding-block-start: clamp(var(--space-8), 8vh, 6rem);
+	padding-block-start: clamp(var(--space-6), 6vh, 4rem);
 }
 
 .home-page__eyebrow,
@@ -105,10 +105,10 @@ function search(): void {
 	max-inline-size: 10ch;
 	margin: 0;
 	font-family: var(--font-display);
-	font-size: clamp(3.25rem, 11vw, 7rem);
+	font-size: clamp(3rem, 7vw, 5.75rem);
 	font-weight: 780;
-	letter-spacing: -0.07em;
-	line-height: 0.88;
+	letter-spacing: -0.06em;
+	line-height: 0.92;
 	text-wrap: balance;
 }
 
@@ -151,6 +151,7 @@ function search(): void {
 
 .home-page__search input {
 	min-inline-size: 0;
+	min-block-size: 3rem;
 	block-size: 100%;
 	border: 0;
 	padding: 0 var(--space-3);

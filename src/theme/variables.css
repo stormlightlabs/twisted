@@ -90,6 +90,9 @@ a {
 
 ion-split-pane {
 	--border: 1px solid var(--app-border);
+	--side-max-width: 17.5rem;
+	--side-min-width: 17.5rem;
+	--side-width: 17.5rem;
 }
 
 ion-menu {
@@ -108,6 +111,11 @@ ion-toolbar {
 ion-title {
 	font-family: var(--font-display);
 	font-weight: 750;
+}
+
+ion-menu-button,
+ion-back-button {
+	--color: var(--app-text);
 }
 
 .page-frame {
@@ -211,5 +219,15 @@ ion-title {
 		transition-duration: 0.01ms !important;
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
+	}
+}
+
+@media (max-width: 959px) {
+	ion-content {
+		--padding-bottom: calc(3.75rem + var(--safe-bottom));
+	}
+
+	.page-frame {
+		padding-block-end: calc(var(--space-10) + 3.75rem + var(--safe-bottom));
 	}
 }

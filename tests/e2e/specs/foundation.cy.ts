@@ -45,9 +45,28 @@ describe('Twisted foundation', () => {
 	it('keeps recovery and navigation usable at a native-sized viewport', () => {
 		cy.viewport(390, 844)
 		cy.visit('/profiles/not%20valid')
+		cy.get('.mobile-tabs').should('be.visible')
+		cy.get('.mobile-tabs a').should('have.length', 4)
+		cy.get('ion-menu-button').should('be.visible')
 		cy.contains('h2', 'This identifier is not supported')
 		cy.contains('a', 'Return home').should('be.visible').click()
 		cy.contains('h1', 'Follow the thread.')
+		cy.get('.mobile-tabs').contains('Search').click()
+		cy.location('pathname').should('equal', '/search')
+		cy.get('.mobile-tabs a[aria-current="page"]').should('contain.text', 'Search')
+	})
+
+	it('aligns the persistent desktop menu with the routed content', () => {
+		cy.viewport(1440, 900)
+		cy.visit('/')
+		cy.get('ion-menu').then(($menu) => {
+			cy.get('#main-content').then(($content) => {
+				const menuRight = $menu[0].getBoundingClientRect().right
+				const contentLeft = $content[0].getBoundingClientRect().left
+				expect(Math.abs(menuRight - contentLeft)).to.be.lessThan(2)
+			})
+		})
+		cy.get('.mobile-tabs').should('not.be.visible')
 	})
 
 	it('offers recovery links for unknown deep links', () => {

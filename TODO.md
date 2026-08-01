@@ -120,6 +120,8 @@ cursor guards, coverage notices, and shared loading/error/empty components.
 
 ### T07 - Render Markdown and record links safely
 
+**Status:** Complete
+
 **What to build:** Add sanitized Markdown, safe link handling, common record
 headers, identifier copying, and canonical Tangled links.
 
@@ -127,10 +129,10 @@ headers, identifier copying, and canonical Tangled links.
 
 **Acceptance criteria:**
 
-- [ ] Markdown uses Marked and DOMPurify with restricted URL schemes.
-- [ ] Scriptable HTML, SVG, styles, and unsafe links are removed in security tests.
-- [ ] Mentions, references, AT-URIs, DIDs, and known Tangled URLs link to local views.
-- [ ] Unknown record types remain inspectable without unsafe generic HTML.
+- [x] Markdown uses Satteri and DOMPurify with restricted URL schemes.
+- [x] Scriptable HTML, SVG, styles, and unsafe links are removed in security tests.
+- [x] Mentions, references, AT-URIs, DIDs, and known Tangled URLs link to local views.
+- [x] Unknown record types remain inspectable without unsafe generic HTML.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

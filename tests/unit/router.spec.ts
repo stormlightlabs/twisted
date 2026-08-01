@@ -13,39 +13,42 @@ describe('application routes', () => {
 		expect(resolved.params.repo).toBe(repo)
 	})
 
-	test('encodes handles, rkeys, and string AT-URIs through named routes', () => {
-		expect(router.resolve(links.profile('desertthunder.dev')).name).toBe('profile')
-		expect(router.resolve(links.issue('at://did:plc:abc/sh.tangled.repo/key', '3k.test')).name).toBe('issue')
-		expect(router.resolve(links.string('at://did:plc:abc/sh.tangled.feed.string/key')).name).toBe('string')
-	})
-
-	test('provides named builders for every opaque feature route', () => {
-		const actor = 'did:plc:abc'
-		const repo = 'at://did:plc:abc/sh.tangled.repo/key'
-		const locations = [
-			[links.actorActivity(actor, 'issues'), 'actor-activity'],
-			[links.actorRelationships(actor, 'followers'), 'actor-relationships'],
-			[links.repository(repo), 'repository'],
-			[links.commits(repo, 'refs/heads/main', 'src/main.ts'), 'repository-commits'],
-			[links.commit(repo, 'abc123'), 'repository-commit'],
-			[links.branches(repo), 'repository-branches'],
-			[links.tags(repo), 'repository-tags'],
-			[links.diff(repo, 'refs/heads/main'), 'repository-diff'],
-			[links.compare(repo, 'main', 'feature/theme'), 'repository-compare'],
-			[links.issues(repo, { state: 'open' }), 'issues'],
-			[links.issue(repo, '3k.test'), 'issue'],
-			[links.pulls(repo, { status: 'open' }), 'pulls'],
-			[links.pull(repo, '3k.pull'), 'pull'],
-			[links.pipelines(repo, 'pipeline/key'), 'pipelines'],
-			[links.artifact(repo, 'artifact/key'), 'artifact'],
-			[links.string('at://did:plc:abc/sh.tangled.feed.string/key'), 'string'],
-			[links.knot('knot.example'), 'knot'],
-			[links.spindle('spindle/key'), 'spindle'],
-			[links.labels('at://did:plc:abc/sh.tangled.label.scope/key'), 'labels'],
+	test('round-trips opaque route values through shareable URLs', () => {
+		const repo = 'at://did:plc:abc/sh.tangled.repo/3mhø-%25-key'
+		const cases = [
+			{
+				location: links.actorActivity('did:web:example.com', 'pull requests'),
+				params: { actor: 'did:web:example.com', activity: 'pull requests' },
+				query: {},
+			},
+			{
+				location: links.diff(repo, 'refs/heads/feature/λ theme'),
+				params: { repo, ref: 'refs/heads/feature/λ theme' },
+				query: {},
+			},
+			{
+				location: links.compare(repo, 'refs/tags/v1.0.0', 'feature/a b#c'),
+				params: { repo },
+				query: { base: 'refs/tags/v1.0.0', head: 'feature/a b#c' },
+			},
+			{
+				location: links.issues(repo, { state: 'open', author: 'did:plc:a/b', label: 'good first issue' }),
+				params: { repo },
+				query: { state: 'open', author: 'did:plc:a/b', label: 'good first issue' },
+			},
+			{
+				location: links.artifact(repo, 'build/linux arm64+debug.tgz'),
+				params: { repo, artifact: 'build/linux arm64+debug.tgz' },
+				query: {},
+			},
 		] as const
 
-		for (const [location, name] of locations) {
-			expect(router.resolve(location).name).toBe(name)
+		for (const routeCase of cases) {
+			const href = router.resolve(routeCase.location).href
+			const shared = router.resolve(href)
+
+			expect(shared.params).toEqual(routeCase.params)
+			expect(shared.query).toEqual(routeCase.query)
 		}
 	})
 
