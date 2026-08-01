@@ -102,6 +102,8 @@ behavior, safe areas, and stable deep-link routing for every specified domain.
 
 ### T06 - Add coverage, caching, and shared request states
 
+**Status:** Complete
+
 **What to build:** Add in-memory request deduplication, explicit stale times,
 cursor guards, coverage notices, and shared loading/error/empty components.
 
@@ -109,10 +111,10 @@ cursor guards, coverage notices, and shared loading/error/empty components.
 
 **Acceptance criteria:**
 
-- [ ] Route changes abort obsolete work and concurrent identical calls share one request.
-- [ ] `400`, `404`, `429`, `502`, `503`, offline, and malformed-data states remain distinct.
-- [ ] Retryable errors preserve existing content and respect `Retry-After` when present.
-- [ ] `ready: false` keeps partial indexed results visible with an explanation.
+- [x] Route changes abort obsolete work and concurrent identical calls share one request.
+- [x] `400`, `404`, `429`, `502`, `503`, offline, and malformed-data states remain distinct.
+- [x] Retryable errors preserve existing content and respect `Retry-After` when present.
+- [x] `ready: false` keeps partial indexed results visible with an explanation.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

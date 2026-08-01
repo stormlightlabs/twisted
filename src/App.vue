@@ -15,6 +15,7 @@ import { IonApp, IonRouterOutlet, IonSplitPane } from '@ionic/vue'
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppMenu from './components/AppMenu.vue'
+import { links } from './router/links'
 
 const router = useRouter()
 let removeBackListener: (() => Promise<void>) | undefined
@@ -26,7 +27,7 @@ onMounted(async () => {
 		if (typeof router.options.history.state.back === 'string') {
 			router.back()
 		} else if (router.currentRoute.value.path !== '/') {
-			void router.replace('/')
+			void router.replace(links.home)
 		} else {
 			void CapacitorApp.exitApp()
 		}

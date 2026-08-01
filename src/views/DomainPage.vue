@@ -18,8 +18,8 @@
 						<h2 id="unsupported-heading">This identifier is not supported</h2>
 						<p>{{ recovery }}</p>
 						<div class="recovery-state__actions">
-							<router-link to="/search">Try search</router-link>
-							<router-link to="/">Return home</router-link>
+							<router-link :to="links.search()">Try search</router-link>
+							<router-link :to="links.home">Return home</router-link>
 						</div>
 					</div>
 				</section>
@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
+import { links } from '@/router/links'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
 import { warningOutline } from 'ionicons/icons'
 import { computed } from 'vue'

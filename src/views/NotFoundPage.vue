@@ -10,8 +10,8 @@
 					>.
 				</p>
 				<div>
-					<router-link to="/">Return home</router-link>
-					<router-link to="/search">Search Tangled</router-link>
+					<router-link :to="links.home">Return home</router-link>
+					<router-link :to="links.search()">Search Tangled</router-link>
 				</div>
 			</main>
 		</ion-content>
@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
+import { links } from '@/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
 import { useRoute } from 'vue-router'
 

@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'vitest'
-import { errorFromResponse } from '@/api'
+import { describe, expect, test, vi } from 'vitest'
+import { errorFromException, errorFromResponse } from '@/api'
 
 describe('errorFromResponse', () => {
 	test.each([
@@ -14,4 +14,21 @@ describe('errorFromResponse', () => {
 
 		expect(error).toMatchObject({ kind, status })
 	})
+
+	test('parses an HTTP-date Retry-After value', () => {
+		vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-08-01T12:00:00Z'))
+		const error = errorFromResponse({
+			status: 429,
+			headers: new Headers({ 'retry-after': 'Sat, 01 Aug 2026 12:00:05 GMT' }),
+			data: { error: 'RateLimitExceeded' },
+		})
+
+		expect(error.retryAfterMs).toBe(5_000)
+	})
+})
+
+test('distinguishes an offline device from another network failure', () => {
+	vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
+	expect(errorFromException(new TypeError('Failed to fetch'))).toMatchObject({ kind: 'offline' })
 })

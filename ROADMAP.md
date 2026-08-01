@@ -51,10 +51,12 @@ the complete web/PWA experience; it does not reduce the product scope.
 The repository is an Ionic Vue app using Vue 3, TypeScript, Vite 5, Vue Router,
 Ionic 8, Capacitor 8, Vitest, Cypress, and ESLint. It has a typed Bobbin read
 boundary, shared unit and browser-test fixtures, live Hurl contract checks, a
-Base16 theme engine, and the responsive application shell. Every planned domain
-has a stable deep-link route; later feature tickets replace the shell's route
-notices with live data. Capacitor has a starter app identifier and no checked-in
-Android or iOS project.
+Base16 theme engine, and the responsive application shell. The Bobbin boundary
+deduplicates concurrent reads with explicit stale times, and shared route state
+handles cancellation, retries, incomplete coverage, and distinct failures.
+Every planned domain has a stable deep-link route; later feature tickets replace
+the shell's route notices with live data. Capacitor has a starter app identifier
+and no checked-in Android or iOS project.
 
 The API contract is documented in [docs/api.md](docs/api.md). Bobbin is a new,
 read-only XRPC AppView whose hosted instance is `https://api.tangled.org`.

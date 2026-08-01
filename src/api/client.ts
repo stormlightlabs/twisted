@@ -20,6 +20,7 @@ import {
 } from './contracts'
 import type { BobbinCoverage } from './contracts'
 import { BobbinError, errorFromException, errorFromResponse } from './errors'
+import { createRequestKey, RequestCache, STALE_TIMES } from './cache'
 
 /** A Bobbin record view after its embedded value has passed schema validation. */
 export interface ValidatedRecordView<T> {
@@ -36,12 +37,14 @@ export interface CursorPage<T> {
 
 /** Constructor options for a configurable, testable Bobbin boundary. */
 export interface BobbinClientOptions {
+	cache?: RequestCache
 	service?: string | URL
 	fetch?: typeof globalThis.fetch
 }
 
 /** Options shared by abortable Bobbin requests. */
 export interface RequestOptions {
+	cache?: 'default' | 'reload'
 	signal?: AbortSignal
 }
 
@@ -83,16 +86,20 @@ interface BobbinSearchResponse {
  */
 export class BobbinClient {
 	readonly service: string
+	readonly #cache: RequestCache
 	readonly #rpc: Client
 
 	constructor(options: BobbinClientOptions = {}) {
 		this.service = normalizeBobbinService(options.service ?? DEFAULT_BOBBIN_SERVICE)
+		this.#cache = options.cache ?? new RequestCache()
 		this.#rpc = new Client({ handler: simpleFetchHandler({ service: this.service, fetch: options.fetch }) })
 	}
 
 	/** Returns Bobbin's current Hydrant ingestion coverage. */
 	getCoverage(options: RequestOptions = {}): Promise<BobbinCoverage> {
-		return this.#request(() => this.#rpc.call(bobbinCoverageSchema, options))
+		return this.#cached('sh.tangled.bobbin.getCoverage', {}, options, STALE_TIMES.coverage, (signal) =>
+			this.#rpc.call(bobbinCoverageSchema, { signal }),
+		)
 	}
 
 	/** Resolves a handle or DID through Microcosm's typed identity query. */
@@ -100,8 +107,12 @@ export class BobbinClient {
 		identifier: ComBadExampleIdentityResolveMiniDoc.$params['identifier'],
 		options: RequestOptions = {},
 	): Promise<ComBadExampleIdentityResolveMiniDoc.$output> {
-		return this.#request(() =>
-			this.#rpc.call(ComBadExampleIdentityResolveMiniDoc, { params: { identifier }, signal: options.signal }),
+		return this.#cached(
+			'com.bad-example.identity.resolveMiniDoc',
+			{ identifier },
+			options,
+			STALE_TIMES.identity,
+			(signal) => this.#rpc.call(ComBadExampleIdentityResolveMiniDoc, { params: { identifier }, signal }),
 		)
 	}
 
@@ -110,8 +121,8 @@ export class BobbinClient {
 		actor: ShTangledActorGetProfile.$params['actor'],
 		options: RequestOptions = {},
 	): Promise<ValidatedRecordView<ShTangledActorProfile.Main>> {
-		const view = await this.#request(() =>
-			this.#rpc.call(ShTangledActorGetProfile, { params: { actor }, signal: options.signal }),
+		const view = await this.#cached('sh.tangled.actor.getProfile', { actor }, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledActorGetProfile, { params: { actor }, signal }),
 		)
 
 		return validateRecordView(view, ShTangledActorProfile.mainSchema, 'actor profile')
@@ -122,8 +133,8 @@ export class BobbinClient {
 		repo: ShTangledRepoGetRepo.$params['repo'],
 		options: RequestOptions = {},
 	): Promise<ValidatedRecordView<ShTangledRepo.Main>> {
-		const view = await this.#request(() =>
-			this.#rpc.call(ShTangledRepoGetRepo, { params: { repo }, signal: options.signal }),
+		const view = await this.#cached('sh.tangled.repo.getRepo', { repo }, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledRepoGetRepo, { params: { repo }, signal }),
 		)
 
 		return validateRecordView(view, ShTangledRepo.mainSchema, 'repository')
@@ -134,11 +145,9 @@ export class BobbinClient {
 		subject: ShTangledRepoListRepos.$params['subject'],
 		options: ListReposOptions = {},
 	): Promise<CursorPage<ValidatedRecordView<ShTangledRepo.Main>>> {
-		const data = await this.#request(() =>
-			this.#rpc.call(ShTangledRepoListRepos, {
-				params: { subject, cursor: options.cursor, limit: options.limit, order: options.order },
-				signal: options.signal,
-			}),
+		const parameters = { subject, cursor: options.cursor, limit: options.limit, order: options.order }
+		const data = await this.#cached('sh.tangled.repo.listRepos', parameters, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoListRepos, { params: parameters, signal }),
 		)
 
 		return {
@@ -159,7 +168,9 @@ export class BobbinClient {
 		if (!is(ShTangledSearchQuery.mainSchema.params, params)) {
 			throw new BobbinError('invalid-request', 'The search parameters are invalid')
 		}
-		const data = await this.#request(() => this.#rpc.get('sh.tangled.search.query', { params, signal: options.signal }))
+		const data = await this.#cached('sh.tangled.search.query', params, options, STALE_TIMES.search, (signal) =>
+			this.#rpc.get('sh.tangled.search.query', { params, signal }),
+		)
 		const validated = validateSearchResponse(data)
 
 		return {
@@ -183,19 +194,42 @@ export class BobbinClient {
 
 	/** Queries a knot's public owner through Bobbin's documented parameter overlay. */
 	getKnotOwner(knot: string, options: RequestOptions = {}) {
-		return this.#request(() => this.#rpc.call(bobbinKnotOwnerSchema, { params: { knot }, signal: options.signal }))
+		return this.#cached('sh.tangled.owner', { knot }, options, STALE_TIMES.diagnostics, (signal) =>
+			this.#rpc.call(bobbinKnotOwnerSchema, { params: { knot }, signal }),
+		)
 	}
 
 	/** Queries a knot's public version through Bobbin's documented parameter overlay. */
 	getKnotVersion(knot: string, options: RequestOptions = {}) {
-		return this.#request(() => this.#rpc.call(bobbinKnotVersionSchema, { params: { knot }, signal: options.signal }))
+		return this.#cached('sh.tangled.knot.version', { knot }, options, STALE_TIMES.diagnostics, (signal) =>
+			this.#rpc.call(bobbinKnotVersionSchema, { params: { knot }, signal }),
+		)
 	}
 
 	/** Lists a knot's public keys through Bobbin's documented parameter overlay. */
 	listKnotKeys(knot: string, params: { cursor?: string; limit?: number } = {}, options: RequestOptions = {}) {
-		return this.#request(() =>
-			this.#rpc.call(bobbinKnotListKeysSchema, { params: { knot, ...params }, signal: options.signal }),
+		const parameters = { knot, ...params }
+		return this.#cached('sh.tangled.knot.listKeys', parameters, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(bobbinKnotListKeysSchema, { params: parameters, signal }),
 		)
+	}
+
+	async #cached<TResponse extends XrpcResponse<unknown>>(
+		nsid: string,
+		parameters: unknown,
+		options: RequestOptions,
+		staleTimeMs: number,
+		request: (signal: AbortSignal) => Promise<TResponse>,
+	): Promise<SuccessData<TResponse>> {
+		try {
+			return await this.#cache.get(
+				createRequestKey(nsid, parameters),
+				(signal) => this.#request(() => request(signal)),
+				{ force: options.cache === 'reload', signal: options.signal, staleTimeMs },
+			)
+		} catch (error) {
+			throw errorFromException(error)
+		}
 	}
 
 	async #request<TResponse extends XrpcResponse<unknown>>(

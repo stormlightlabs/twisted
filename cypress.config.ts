@@ -9,6 +9,7 @@ const config = defineConfig({
 		videosFolder: 'tests/e2e/videos',
 		screenshotsFolder: 'tests/e2e/screenshots',
 		baseUrl: 'http://localhost:5173',
+		scrollBehavior: 'center',
 	},
 })
 

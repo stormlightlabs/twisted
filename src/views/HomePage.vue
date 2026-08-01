@@ -30,19 +30,19 @@
 						<h2 id="browse-heading">Browse the public network</h2>
 					</div>
 					<div class="home-page__path-list">
-						<router-link to="/profiles">
+						<router-link :to="links.profiles">
 							<span>01</span>
 							<strong>People</strong>
 							<small>Profiles, repositories, and public activity</small>
 							<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
 						</router-link>
-						<router-link to="/repositories">
+						<router-link :to="links.repositories">
 							<span>02</span>
 							<strong>Repositories</strong>
 							<small>Source, history, issues, pulls, and pipelines</small>
 							<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
 						</router-link>
-						<router-link to="/infrastructure">
+						<router-link :to="links.infrastructure">
 							<span>03</span>
 							<strong>Infrastructure</strong>
 							<small>Knots, spindles, labels, and public keys</small>
@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
+import { links } from '@/router/links'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
 import { arrowForwardOutline, eyeOutline, searchOutline } from 'ionicons/icons'
 import { ref } from 'vue'
@@ -75,7 +76,7 @@ const router = useRouter()
 
 function search(): void {
 	const value = query.value.trim()
-	void router.push({ path: '/search', query: value ? { q: value } : undefined })
+	void router.push(links.search(value || undefined))
 }
 </script>
 
@@ -96,6 +97,7 @@ function search(): void {
 	margin: 0 0 var(--space-3);
 	color: var(--app-accent);
 	font-size: var(--text-sm);
+	font-family: var(--font-mono);
 	font-weight: 700;
 }
 
@@ -205,6 +207,11 @@ function search(): void {
 .home-page__path-list span,
 .home-page__path-list small {
 	color: var(--app-text-muted);
+}
+
+.home-page__path-list span {
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
 }
 
 .home-page__path-list strong {

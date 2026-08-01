@@ -10,8 +10,8 @@ describe('DomainPage', () => {
 				component: DomainPage,
 				meta: { title: 'Profile', parameter: 'actor', requirement: 'actor' },
 			},
-			{ path: '/search', component: { template: '<div />' } },
-			{ path: '/', component: { template: '<div />' } },
+			{ path: '/search', name: 'search', component: { template: '<div />' } },
+			{ path: '/', name: 'home', component: { template: '<div />' } },
 		])
 
 		expect(wrapper.get('#unsupported-heading').text()).toBe('This identifier is not supported')

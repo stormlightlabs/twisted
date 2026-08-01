@@ -7,10 +7,10 @@ describe('HomePage', () => {
 		const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 		const emptyPage = { template: '<div />' }
 		const wrapper = await mountIonicRoute(HomePage, '/home', [
-			{ path: '/home', component: HomePage },
-			{ path: '/profiles', component: emptyPage },
-			{ path: '/repositories', component: emptyPage },
-			{ path: '/infrastructure', component: emptyPage },
+			{ path: '/home', name: 'home', component: HomePage },
+			{ path: '/profiles', name: 'profiles', component: emptyPage },
+			{ path: '/repositories', name: 'repositories', component: emptyPage },
+			{ path: '/infrastructure', name: 'infrastructure', component: emptyPage },
 		])
 
 		expect(wrapper.get('h1').text()).toBe('Follow the thread.')

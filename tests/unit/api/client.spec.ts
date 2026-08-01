@@ -64,15 +64,54 @@ describe('BobbinClient', () => {
 
 	test('maps aborts separately from network failures', async () => {
 		const controller = new AbortController()
+		let requestSignal!: AbortSignal
 		const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation((_input, init) => {
-			expect(init?.signal).toBe(controller.signal)
-			return Promise.reject(new DOMException('Canceled', 'AbortError'))
+			requestSignal = init?.signal as AbortSignal
+			return new Promise((_resolve, reject) => {
+				requestSignal.addEventListener('abort', () => reject(new DOMException('Canceled', 'AbortError')), {
+					once: true,
+				})
+			})
 		})
 		const client = new BobbinClient({ fetch })
+		const request = client.getCoverage({ signal: controller.signal })
+		controller.abort()
 
-		await expect(client.getCoverage({ signal: controller.signal })).rejects.toEqual(
-			expect.objectContaining<Partial<BobbinError>>({ kind: 'aborted' }),
+		await expect(request).rejects.toEqual(expect.objectContaining<Partial<BobbinError>>({ kind: 'aborted' }))
+		expect(requestSignal.aborted).toBe(true)
+	})
+
+	test('deduplicates concurrent identical Bobbin calls', async () => {
+		let resolveFetch!: (response: Response) => void
+		const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveFetch = resolve
+				}),
 		)
+		const client = new BobbinClient({ fetch })
+		const first = client.getCoverage()
+		const second = client.getCoverage()
+		resolveFetch(jsonResponse({ ready: true, eventsProcessed: 100, lastCursor: 120 }))
+
+		await expect(Promise.all([first, second])).resolves.toEqual([
+			{ ready: true, eventsProcessed: 100, lastCursor: 120 },
+			{ ready: true, eventsProcessed: 100, lastCursor: 120 },
+		])
+		expect(fetch).toHaveBeenCalledOnce()
+	})
+
+	test('reloads a cached query only when requested', async () => {
+		const fetch = vi
+			.fn<typeof globalThis.fetch>()
+			.mockResolvedValueOnce(jsonResponse({ ready: true, eventsProcessed: 100, lastCursor: 120 }))
+			.mockResolvedValueOnce(jsonResponse({ ready: true, eventsProcessed: 101, lastCursor: 121 }))
+		const client = new BobbinClient({ fetch })
+
+		await client.getCoverage()
+		await client.getCoverage()
+		await expect(client.getCoverage({ cache: 'reload' })).resolves.toMatchObject({ eventsProcessed: 101 })
+		expect(fetch).toHaveBeenCalledTimes(2)
 	})
 
 	test('adds Bobbin knot proxy parameters without copying generated outputs', async () => {

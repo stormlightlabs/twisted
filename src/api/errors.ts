@@ -6,6 +6,7 @@ export type BobbinErrorKind =
 	| 'invalid-request'
 	| 'malformed-response'
 	| 'network'
+	| 'offline'
 	| 'not-found'
 	| 'rate-limited'
 	| 'service-unavailable'
@@ -70,6 +71,9 @@ export function errorFromException(error: unknown): BobbinError {
 	}
 	if (isAbortError(error)) {
 		return new BobbinError('aborted', 'The Bobbin request was canceled', { cause: error })
+	}
+	if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+		return new BobbinError('offline', 'This device is offline', { cause: error })
 	}
 
 	return new BobbinError('network', 'Bobbin could not be reached', { cause: error })

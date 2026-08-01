@@ -19,6 +19,36 @@ describe('application routes', () => {
 		expect(router.resolve(links.string('at://did:plc:abc/sh.tangled.feed.string/key')).name).toBe('string')
 	})
 
+	test('provides named builders for every opaque feature route', () => {
+		const actor = 'did:plc:abc'
+		const repo = 'at://did:plc:abc/sh.tangled.repo/key'
+		const locations = [
+			[links.actorActivity(actor, 'issues'), 'actor-activity'],
+			[links.actorRelationships(actor, 'followers'), 'actor-relationships'],
+			[links.repository(repo), 'repository'],
+			[links.commits(repo, 'refs/heads/main', 'src/main.ts'), 'repository-commits'],
+			[links.commit(repo, 'abc123'), 'repository-commit'],
+			[links.branches(repo), 'repository-branches'],
+			[links.tags(repo), 'repository-tags'],
+			[links.diff(repo, 'refs/heads/main'), 'repository-diff'],
+			[links.compare(repo, 'main', 'feature/theme'), 'repository-compare'],
+			[links.issues(repo, { state: 'open' }), 'issues'],
+			[links.issue(repo, '3k.test'), 'issue'],
+			[links.pulls(repo, { status: 'open' }), 'pulls'],
+			[links.pull(repo, '3k.pull'), 'pull'],
+			[links.pipelines(repo, 'pipeline/key'), 'pipelines'],
+			[links.artifact(repo, 'artifact/key'), 'artifact'],
+			[links.string('at://did:plc:abc/sh.tangled.feed.string/key'), 'string'],
+			[links.knot('knot.example'), 'knot'],
+			[links.spindle('spindle/key'), 'spindle'],
+			[links.labels('at://did:plc:abc/sh.tangled.label.scope/key'), 'labels'],
+		] as const
+
+		for (const [location, name] of locations) {
+			expect(router.resolve(location).name).toBe(name)
+		}
+	})
+
 	test('sends unknown deep links to the recovery route', () => {
 		expect(router.resolve('/not/a/twisted/domain').name).toBe('not-found')
 	})

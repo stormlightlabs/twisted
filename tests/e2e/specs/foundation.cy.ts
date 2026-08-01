@@ -15,6 +15,17 @@ describe('Twisted foundation', () => {
 		cy.wait('@sh.tangled.bobbin.getCoverage')
 	})
 
+	it('loads the self-hosted variable typefaces', () => {
+		cy.visit('/')
+		cy.document().then(async (document) => {
+			await document.fonts.ready
+			expect(document.fonts.check('16px "Commissioner Variable"')).to.equal(true)
+			expect(document.fonts.check('16px "Azeret Mono Variable"')).to.equal(true)
+		})
+		cy.get('h1').should('have.css', 'font-family').and('contain', 'Commissioner Variable')
+		cy.get('.home-page__eyebrow').should('have.css', 'font-family').and('contain', 'Azeret Mono Variable')
+	})
+
 	it('persists theme and service settings independently', () => {
 		cy.visit('/settings')
 		cy.contains('label', 'Catppuccin Latte').click()

@@ -13,9 +13,9 @@
 				<div v-for="group in navigation" :key="group.label" class="app-menu__group">
 					<p>{{ group.label }}</p>
 					<ion-list lines="none">
-						<ion-menu-toggle v-for="item in group.items" :key="item.to" :auto-hide="false">
+						<ion-menu-toggle v-for="item in group.items" :key="item.label" :auto-hide="false">
 							<ion-item
-								:class="{ 'app-menu__item--active': isActive(item.to) }"
+								:class="{ 'app-menu__item--active': isActive(item.activePath) }"
 								:detail="false"
 								:router-link="item.to"
 								router-direction="root">
@@ -33,6 +33,7 @@
 </template>
 
 <script setup lang="ts">
+import { links } from '@/router/links'
 import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonMenu, IonMenuToggle } from '@ionic/vue'
 import {
 	compassOutline,
@@ -50,20 +51,23 @@ const navigation = [
 	{
 		label: 'Explore',
 		items: [
-			{ label: 'Home', to: '/', icon: homeOutline },
-			{ label: 'Search', to: '/search', icon: searchOutline },
-			{ label: 'Profiles', to: '/profiles', icon: peopleOutline },
-			{ label: 'Repositories', to: '/repositories', icon: gitBranchOutline },
+			{ label: 'Home', to: links.home, activePath: '/', icon: homeOutline },
+			{ label: 'Search', to: links.search(), activePath: '/search', icon: searchOutline },
+			{ label: 'Profiles', to: links.profiles, activePath: '/profiles', icon: peopleOutline },
+			{ label: 'Repositories', to: links.repositories, activePath: '/repositories', icon: gitBranchOutline },
 		],
 	},
 	{
 		label: 'Infrastructure',
 		items: [
-			{ label: 'Knots & spindles', to: '/infrastructure', icon: compassOutline },
-			{ label: 'Public keys', to: '/diagnostics/keys', icon: helpBuoyOutline },
+			{ label: 'Knots & spindles', to: links.infrastructure, activePath: '/infrastructure', icon: compassOutline },
+			{ label: 'Public keys', to: links.publicKeys, activePath: '/diagnostics/keys', icon: helpBuoyOutline },
 		],
 	},
-	{ label: 'Application', items: [{ label: 'Settings', to: '/settings', icon: settingsOutline }] },
+	{
+		label: 'Application',
+		items: [{ label: 'Settings', to: links.settings, activePath: '/settings', icon: settingsOutline }],
+	},
 ] as const
 
 function isActive(path: string): boolean {
@@ -124,6 +128,7 @@ function isActive(path: string): boolean {
 	margin: 0 0 var(--space-2) var(--space-3);
 	color: var(--app-text-muted);
 	font-size: var(--text-xs);
+	font-family: var(--font-mono);
 	font-weight: 700;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;

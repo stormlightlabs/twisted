@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
+import { links } from '@/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -40,7 +41,7 @@ watch(
 
 function submit(): void {
 	const value = query.value.trim()
-	void router.replace({ query: value ? { q: value } : undefined })
+	void router.replace(links.search(value || undefined))
 }
 </script>
 
