@@ -3,7 +3,7 @@
 		<p v-if="loading" class="patch-viewer__status">Preparing the patch…</p>
 		<div v-show="!loading && !failed" ref="root" class="patch-viewer__rendered" />
 		<div v-if="failed" class="patch-viewer__fallback">
-			<p>Syntax highlighting is unavailable, so this patch is shown as plain text.</p>
+			<p>The enhanced view is unavailable, so these changes are shown as plain text.</p>
 			<pre><code>{{ patch }}</code></pre>
 		</div>
 	</section>

@@ -74,17 +74,10 @@ import { BobbinError, errorFromException, errorFromResponse } from './errors'
 import { createRequestKey, RequestCache, STALE_TIMES } from './cache'
 
 /** A Bobbin record view after its embedded value has passed schema validation. */
-export interface ValidatedRecordView<T> {
-	uri: string
-	cid?: string
-	value: T
-}
+export type ValidatedRecordView<T> = { uri: string; cid?: string; value: T }
 
 /** One cursor-based page returned by an indexed Bobbin query. */
-export interface CursorPage<T> {
-	items: T[]
-	cursor?: string
-}
+export type CursorPage<T> = { items: T[]; cursor?: string }
 
 export const actorActivityKinds = [
 	'comments',
@@ -108,16 +101,11 @@ export const actorActivityKinds = [
 
 export type ActorActivityKind = (typeof actorActivityKinds)[number]
 
-export interface ActorActivityItem {
-	cid?: string
-	uri?: string
-	value: Record<string, unknown>
-}
+export type ActorActivityItem = { cid?: string; uri?: string; value: Record<string, unknown> }
 
-export interface ActorActivityOptions extends ListReposOptions {
-	state?: 'open' | 'closed'
-	status?: 'open' | 'closed' | 'merged'
-}
+type TState = 'open' | 'closed'
+
+export type ActorActivityOptions = ListReposOptions & { state?: TState; status?: TState | 'merged' }
 
 export type RepositoryCounts = { issues: number; pulls: number; stars: number }
 
@@ -132,8 +120,6 @@ export type RepositoryArchiveFormat = Extract<ShTangledRepoArchive.$params['form
 
 export type RepositoryArchiveOptions = RequestOptions & {
 	format?: RepositoryArchiveFormat
-	ifModifiedSince?: string
-	ifNoneMatch?: string
 	prefix?: string
 	range?: string
 	ref?: string
@@ -182,24 +168,13 @@ export type RepositoryLogOptions = RepositoryRefOptions & { path?: string; ref: 
 type ActorDid = ShTangledRepoListIssuesBy.$params['subject']
 
 /** Constructor options for a configurable, testable Bobbin boundary. */
-export interface BobbinClientOptions {
-	cache?: RequestCache
-	service?: string | URL
-	fetch?: typeof globalThis.fetch
-}
+export type BobbinClientOptions = { cache?: RequestCache; service?: string | URL; fetch?: typeof globalThis.fetch }
 
 /** Options shared by abortable Bobbin requests. */
-export interface RequestOptions {
-	cache?: 'default' | 'reload'
-	signal?: AbortSignal
-}
+export type RequestOptions = { cache?: 'default' | 'reload'; signal?: AbortSignal }
 
 /** Parameters accepted by the repository list endpoint. */
-export interface ListReposOptions extends RequestOptions {
-	cursor?: string
-	limit?: number
-	order?: 'asc' | 'desc'
-}
+export type ListReposOptions = RequestOptions & { cursor?: string; limit?: number; order?: 'asc' | 'desc' }
 
 /** A search hit whose embedded value has been validated and mapped. */
 export interface ValidatedSearchHit<T> {
@@ -219,10 +194,9 @@ type XrpcResponse<T> =
 
 type SuccessData<TResponse> = TResponse extends { ok: true; data: infer TData } ? TData : never
 
-interface BobbinSearchResponse {
-	cursor?: string
-	hits: Array<{ uri: string; cid?: string; nsid: string; score: number; value: Record<string, unknown> }>
-}
+type SearchHit = { uri: string; cid?: string; nsid: string; score: number; value: Record<string, unknown> }
+
+type BobbinSearchResponse = { cursor?: string; hits: Array<SearchHit> }
 
 /**
  * The read-only XRPC boundary used by Twisted views and feature modules.
@@ -535,7 +509,12 @@ export class BobbinClient {
 		return this.#getRepositoryPatch(this.repositoryDiffUrl(repo, ref), options)
 	}
 
-	getRepositoryCompare(repo: string, base: string, head: string, options: RequestOptions = {}): Promise<RepositoryPatch> {
+	getRepositoryCompare(
+		repo: string,
+		base: string,
+		head: string,
+		options: RequestOptions = {},
+	): Promise<RepositoryPatch> {
 		const params = { repo, rev1: base, rev2: head }
 		if (!is(ShTangledRepoCompare.mainSchema.params, params)) {
 			return Promise.reject(new BobbinError('invalid-request', 'The comparison revisions are invalid'))
@@ -610,20 +589,13 @@ export class BobbinClient {
 	}
 
 	async getRepositoryArchive(repo: string, options: RepositoryArchiveOptions = {}): Promise<RepositoryDownload> {
-		const params = {
-			repo,
-			ref: options.ref ?? 'HEAD',
-			format: options.format ?? 'tar.gz',
-			prefix: options.prefix,
-		}
+		const params = { repo, ref: options.ref ?? 'HEAD', format: options.format ?? 'tar.gz', prefix: options.prefix }
 		if (!is(ShTangledRepoArchive.mainSchema.params, params)) {
 			throw new BobbinError('invalid-request', 'The archive request is invalid')
 		}
 
-		const headers = new Headers()
-		if (options.range) headers.set('range', options.range)
-		if (options.ifNoneMatch) headers.set('if-none-match', options.ifNoneMatch)
-		if (options.ifModifiedSince) headers.set('if-modified-since', options.ifModifiedSince)
+		const headers: Record<string, string> = {}
+		if (options.range) headers.range = options.range
 
 		try {
 			const response = await this.#fetch(this.repositoryArchiveUrl(repo, params.format, params.ref, params.prefix), {
@@ -793,6 +765,7 @@ export class BobbinClient {
 				text += decoder.decode(value, { stream: true })
 			}
 			text += decoder.decode()
+			if (metadata.contentType?.toLowerCase().includes('json')) text = normalizeRepositoryPatch(text)
 			return { kind: 'patch', bytes, text, contentType: metadata.contentType, filename: metadata.filename }
 		} catch (error) {
 			throw errorFromException(error)
@@ -1006,7 +979,7 @@ function malformed(context: string): BobbinError {
 }
 
 async function responseError(response: Response): Promise<BobbinError> {
-	let data: { error: string; message?: string } = { error: response.statusText || 'Request failed' }
+	const data: { error: string; message?: string } = { error: response.statusText || 'Request failed' }
 	try {
 		const value = (await response.json()) as { error?: unknown; message?: unknown }
 		if (typeof value.error === 'string') data.error = value.error
@@ -1044,6 +1017,78 @@ function contentDispositionFilename(value: string | null): string | undefined {
 		}
 	}
 	return /filename\s*=\s*"([^"]+)"/i.exec(value)?.[1] ?? /filename\s*=\s*([^;]+)/i.exec(value)?.[1]?.trim()
+}
+
+/** Converts Bobbin's structured Git response into a standard unified patch. */
+export function normalizeRepositoryPatch(text: string): string {
+	let value: unknown
+	try {
+		value = JSON.parse(text) as unknown
+	} catch (error) {
+		throw new BobbinError('malformed-response', 'Bobbin returned an invalid patch', { cause: error })
+	}
+
+	const root = responseRecord(value, 'patch')
+	const diff = optionalRecord(root.diff)
+	const directFiles = diff?.diff
+	const formatPatches = root.format_patch
+	const files = Array.isArray(directFiles)
+		? directFiles
+		: Array.isArray(formatPatches)
+			? formatPatches.flatMap((patch) => {
+					const record = optionalRecord(patch)
+					return Array.isArray(record?.Files) ? record.Files : []
+				})
+			: []
+
+	if (files.length === 0) return ''
+	return files.map(structuredFilePatch).join('')
+}
+
+function structuredFilePatch(value: unknown): string {
+	const file = responseRecord(value, 'patch file')
+	const names = optionalRecord(file.name)
+	const oldName = requiredString(file.OldName ?? names?.old, 'old patch filename')
+	const newName = requiredString(file.NewName ?? names?.new, 'new patch filename')
+	const isNew = file.IsNew === true || file.is_new === true
+	const isDelete = file.IsDelete === true || file.is_delete === true
+	const fragments = file.TextFragments ?? file.text_fragments
+	if (!Array.isArray(fragments)) throw malformed('patch fragments')
+
+	let patch = `diff --git a/${oldName} b/${newName}\n--- ${isNew ? '/dev/null' : `a/${oldName}`}\n+++ ${isDelete ? '/dev/null' : `b/${newName}`}\n`
+	if (fragments.length === 0 && (file.IsBinary === true || file.is_binary === true)) {
+		return `${patch}Binary files a/${oldName} and b/${newName} differ\n`
+	}
+
+	for (const fragmentValue of fragments) {
+		const fragment = responseRecord(fragmentValue, 'patch fragment')
+		const oldPosition = requiredInteger(fragment.OldPosition, 'old patch position')
+		const oldLines = requiredInteger(fragment.OldLines, 'old patch line count')
+		const newPosition = requiredInteger(fragment.NewPosition, 'new patch position')
+		const newLines = requiredInteger(fragment.NewLines, 'new patch line count')
+		const comment = optionalString(fragment.Comment)
+		patch += `@@ -${oldPosition},${oldLines} +${newPosition},${newLines} @@${comment ? ` ${comment}` : ''}\n`
+		if (!Array.isArray(fragment.Lines)) throw malformed('patch lines')
+		for (const lineValue of fragment.Lines) {
+			const line = responseRecord(lineValue, 'patch line')
+			const operation = requiredInteger(line.Op, 'patch operation')
+			if (operation !== 0 && operation !== 1 && operation !== 2) throw malformed('patch operation')
+			const contents = requiredStringAllowEmpty(line.Line, 'patch line')
+			patch += `${operation === 1 ? '-' : operation === 2 ? '+' : ' '}${contents}`
+			if (!contents.endsWith('\n')) patch += '\n\\ No newline at end of file\n'
+		}
+	}
+	return patch
+}
+
+function requiredInteger(value: unknown, context: string): number {
+	if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) throw malformed(context)
+	return value
+}
+
+function requiredStringAllowEmpty(value: unknown, context: string): string {
+	if (typeof value !== 'string') throw malformed(context)
+	return value
 }
 
 /**

@@ -15,11 +15,14 @@
 						<p class="section-label">{{ repository.value.name || 'Repository' }}</p>
 						<h1>{{ isCompare ? 'Compare revisions' : 'Changes in this revision' }}</h1>
 						<p v-if="isCompare && base && head">
-							Changes needed to move from <code>{{ base }}</code> to <code>{{ head }}</code>.
+							Changes needed to move from <code>{{ base }}</code> to <code>{{ head }}</code
+							>.
 						</p>
-						<p v-else-if="singleRef">Changes introduced by <code>{{ singleRef }}</code>.</p>
+						<p v-else-if="singleRef">
+							Changes introduced by <code>{{ singleRef }}</code
+							>.
+						</p>
 					</div>
-					<a v-if="downloadUrl" class="secondary-action" :href="downloadUrl">Download raw patch</a>
 				</header>
 
 				<form v-if="isCompare" class="compare-form" @submit.prevent="compare">
@@ -49,11 +52,11 @@
 				<section v-if="patch?.kind === 'too-large'" class="large-patch" aria-labelledby="large-patch-heading">
 					<h2 id="large-patch-heading">This patch is too large to display safely</h2>
 					<p>
-						Download the raw patch to inspect it in your editor<span v-if="patch.bytes">
-							({{ formatBytes(patch.bytes) }})</span
-						>.
+						Open the repository on Tangled to continue<span v-if="patch.bytes"> ({{ formatBytes(patch.bytes) }})</span>.
 					</p>
-					<a v-if="downloadUrl" class="primary-action" :href="downloadUrl">Download raw patch</a>
+					<a v-if="canonicalUrl" class="primary-action" :href="canonicalUrl" rel="noopener noreferrer" target="_blank"
+						>Open repository on Tangled</a
+					>
 				</section>
 				<patch-viewer v-else-if="patch?.kind === 'patch' && patch.text" :patch="patch.text" />
 			</main>
@@ -74,7 +77,7 @@ import { IonContent, IonPage } from '@ionic/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-const { getClient, repo, repoUri, repository, repositoryRequest, route } = useRepositoryRoute()
+const { getClient, repo, repoDid, repoUri, repository, repositoryRequest, route } = useRepositoryRoute()
 const router = useRouter()
 const isCompare = computed(() => route.name === 'repository-compare')
 const singleRef = computed(() => String(route.params.ref ?? ''))
@@ -94,7 +97,9 @@ const branchesRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
 		: Promise.resolve({ items: [] }),
 )
 const tagsRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri ? getClient().listRepositoryTags(uri, { signal, cache: attempt.cache, limit: 99 }) : Promise.resolve({ items: [] }),
+	uri
+		? getClient().listRepositoryTags(uri, { signal, cache: attempt.cache, limit: 99 })
+		: Promise.resolve({ items: [] }),
 )
 const refOptions = computed(() => [
 	...(branchesRequest.data.value?.items.map((item) => item.name) ?? []),
@@ -114,10 +119,7 @@ const patchRequest = useRouteRequest(
 		if (!source.uri) return Promise.resolve(undefined)
 		if (source.compare) {
 			if (!source.base || !source.head) return Promise.resolve(undefined)
-			return getClient().getRepositoryCompare(source.uri, source.base, source.head, {
-				signal,
-				cache: attempt.cache,
-			})
+			return getClient().getRepositoryCompare(source.uri, source.base, source.head, { signal, cache: attempt.cache })
 		}
 		if (!source.ref) return Promise.resolve(undefined)
 		return getClient().getRepositoryDiff(source.uri, source.ref, { signal, cache: attempt.cache })
@@ -125,16 +127,7 @@ const patchRequest = useRouteRequest(
 	{ isEmpty: (value) => value === undefined || (value.kind === 'patch' && value.text.trim().length === 0) },
 )
 const patch = computed(() => patchRequest.data.value)
-const downloadUrl = computed(() => {
-	if (!repoUri.value) return ''
-	return isCompare.value
-		? base.value && head.value
-			? getClient().repositoryCompareUrl(repoUri.value, base.value, head.value)
-			: ''
-		: singleRef.value
-			? getClient().repositoryDiffUrl(repoUri.value, singleRef.value)
-			: ''
-})
+const canonicalUrl = computed(() => (repoDid.value ? `https://tangled.org/${repoDid.value}` : ''))
 
 function compare() {
 	const nextBase = baseDraft.value.trim()
@@ -202,8 +195,7 @@ function formatBytes(bytes: number) {
 
 .compare-form input,
 .compare-form button,
-.primary-action,
-.secondary-action {
+.primary-action {
 	min-block-size: 44px;
 	border: 1px solid var(--app-border);
 	border-radius: var(--radius-sm);
@@ -230,17 +222,11 @@ function formatBytes(bytes: number) {
 	font-size: var(--text-lg);
 }
 
-.primary-action,
-.secondary-action {
+.primary-action {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	text-decoration: none;
-}
-
-.secondary-action {
-	flex: 0 0 auto;
-	background: var(--app-surface);
 }
 
 .large-patch {

@@ -13,8 +13,10 @@ const routes = [
 	{ path: '/repositories/:repo/source', name: 'repository-source', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/commits', name: 'repository-commits', component: RepositoryHistoryPage },
 	{ path: '/repositories/:repo/commits/:hash', name: 'repository-commit', component: { template: '<div />' } },
+	{ path: '/repositories/:repo/diff/:ref', name: 'repository-diff', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/branches', name: 'repository-branches', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/tags', name: 'repository-tags', component: { template: '<div />' } },
+	{ path: '/repositories/:repo/compare', name: 'repository-compare', component: { template: '<div />' } },
 ]
 
 describe('RepositoryHistoryPage', () => {

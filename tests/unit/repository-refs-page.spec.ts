@@ -13,6 +13,7 @@ const routes = [
 	{ path: '/repositories/:repo/commits', name: 'repository-commits', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/branches', name: 'repository-branches', component: RepositoryRefsPage },
 	{ path: '/repositories/:repo/tags', name: 'repository-tags', component: RepositoryRefsPage },
+	{ path: '/repositories/:repo/compare', name: 'repository-compare', component: { template: '<div />' } },
 ]
 
 describe('RepositoryRefsPage', () => {

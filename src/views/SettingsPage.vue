@@ -86,8 +86,14 @@
 							<dd>{{ service }}</dd>
 						</div>
 						<div>
-							<dt>Access</dt>
-							<dd>No sign-in needed</dd>
+							<dt>Links</dt>
+							<dd class="about-list__links">
+								<a href="https://tangled.org/" rel="noopener noreferrer" target="_blank">Tangled</a>
+								<a href="https://docs.tangled.org/" rel="noopener noreferrer" target="_blank">Tangled docs</a>
+								<a href="https://tangled.org/desertthunder.dev/twisted" rel="noopener noreferrer" target="_blank"
+									>Twisted source</a
+								>
+							</dd>
 						</div>
 					</dl>
 				</section>
@@ -339,6 +345,16 @@ function resetService(): void {
 .about-list dd {
 	margin: 0;
 	overflow-wrap: anywhere;
+}
+
+.about-list__links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3) var(--space-4);
+}
+
+.about-list__links a {
+	text-underline-offset: 0.2em;
 }
 
 @media (max-width: 520px) {

@@ -62,7 +62,9 @@ records, and keep using the other sections when one source is unavailable.
 Repository overviews show identity, topics, links, hosts, languages, README
 content, labels, totals, collaborators, and recent code updates. They also make
 the repository record and repository DID easy to distinguish and copy. The
-public landing page and shared messages speak to readers rather than exposing
+repository experience now includes branch and tag shortcuts, commit patches,
+base-to-head comparisons, readable highlighted diffs, and streamed archive
+downloads. The public landing page and shared messages speak to readers rather than exposing
 implementation details. Shared content components sanitize Markdown and route
 supported record links to local views. Every planned domain has a stable deep
 link; later tickets replace the remaining compact availability notices with

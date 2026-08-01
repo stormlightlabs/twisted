@@ -30,7 +30,13 @@
 				</div>
 			</nav>
 
-			<p class="app-menu__readonly"><span aria-hidden="true"></span> No sign-in needed</p>
+			<nav class="app-menu__links" aria-label="Tangled links">
+				<a href="https://tangled.org/" rel="noopener noreferrer" target="_blank">Tangled</a>
+				<a href="https://docs.tangled.org/" rel="noopener noreferrer" target="_blank">Docs</a>
+				<a href="https://tangled.org/desertthunder.dev/twisted" rel="noopener noreferrer" target="_blank"
+					>Twisted source</a
+				>
+			</nav>
 		</ion-content>
 	</ion-menu>
 </template>
@@ -201,19 +207,20 @@ function isActive(path: string): boolean {
 	color: var(--app-accent);
 }
 
-.app-menu__readonly {
+.app-menu__links {
 	display: flex;
-	align-items: center;
-	gap: var(--space-2);
+	flex-wrap: wrap;
+	gap: var(--space-3);
 	margin: var(--space-8) var(--space-6) calc(var(--safe-bottom) + var(--space-5));
-	color: var(--app-text-muted);
 	font-size: var(--text-xs);
 }
 
-.app-menu__readonly span {
-	inline-size: 0.5rem;
-	block-size: 0.5rem;
-	border-radius: 50%;
-	background: var(--app-success);
+.app-menu__links a {
+	color: var(--app-text-muted);
+	text-underline-offset: 0.2em;
+}
+
+.app-menu__links a:hover {
+	color: var(--app-accent);
 }
 </style>

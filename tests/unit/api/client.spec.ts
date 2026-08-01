@@ -1,6 +1,13 @@
 import { ShTangledRepo } from '@atcute/tangled'
 import { describe, expect, test, vi } from 'vitest'
-import { actorActivityKinds, BobbinClient, BobbinError, normalizeBobbinService } from '@/lib/api'
+import {
+	actorActivityKinds,
+	BobbinClient,
+	BobbinError,
+	MAX_RENDERED_PATCH_BYTES,
+	normalizeRepositoryPatch,
+	normalizeBobbinService,
+} from '@/lib/api'
 
 const repoUri = 'at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.repo/3mho6hukiei22'
 
@@ -180,6 +187,119 @@ describe('BobbinClient', () => {
 		expect(archive.searchParams.get('repo')).toBe('did:plc:4iw5fospv2asv3344au236ka')
 		expect(archive.searchParams.get('ref')).toBe('HEAD')
 		expect(archive.searchParams.get('format')).toBe('zip')
+	})
+
+	test('encodes patch refs and comparison direction at the API boundary', () => {
+		const client = new BobbinClient({ service: 'https://api.example' })
+		const ref = 'refs/heads/feature a&b'
+		const diff = new URL(client.repositoryDiffUrl(repoUri, ref))
+		const compare = new URL(client.repositoryCompareUrl(repoUri, 'main', ref))
+
+		expect(diff.searchParams.get('repo')).toBe(repoUri)
+		expect(diff.searchParams.get('ref')).toBe(ref)
+		expect(compare.searchParams.get('rev1')).toBe('main')
+		expect(compare.searchParams.get('rev2')).toBe(ref)
+	})
+
+	test('normalizes Bobbin diff and compare envelopes as unified patches', () => {
+		const file = {
+			OldName: 'src/old.ts',
+			NewName: 'src/new.ts',
+			TextFragments: [
+				{
+					Comment: 'renameValue',
+					OldPosition: 4,
+					OldLines: 2,
+					NewPosition: 4,
+					NewLines: 2,
+					Lines: [
+						{ Op: 1, Line: 'const oldValue = 1\n' },
+						{ Op: 2, Line: 'const newValue = 1\n' },
+					],
+				},
+			],
+		}
+		const expected = [
+			'diff --git a/src/old.ts b/src/new.ts',
+			'--- a/src/old.ts',
+			'+++ b/src/new.ts',
+			'@@ -4,2 +4,2 @@ renameValue',
+			'-const oldValue = 1',
+			'+const newValue = 1',
+			'',
+		].join('\n')
+
+		expect(normalizeRepositoryPatch(JSON.stringify({ format_patch: [{ Files: [file] }] }))).toBe(expected)
+		expect(
+			normalizeRepositoryPatch(
+				JSON.stringify({
+					diff: { diff: [{ name: { old: 'src/old.ts', new: 'src/new.ts' }, text_fragments: file.TextFragments }] },
+				}),
+			),
+		).toBe(expected)
+	})
+
+	test('stops reading patches that exceed the display limit', async () => {
+		const cancel = vi.fn()
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(new Uint8Array(MAX_RENDERED_PATCH_BYTES + 1))
+			},
+			cancel,
+		})
+		const fetch = fetchMock().mockResolvedValue(new Response(stream, { headers: { 'content-type': 'text/x-diff' } }))
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.getRepositoryDiff(repoUri, 'HEAD')).resolves.toEqual({
+			kind: 'too-large',
+			bytes: MAX_RENDERED_PATCH_BYTES + 1,
+			contentType: 'text/x-diff',
+			filename: undefined,
+		})
+		expect(cancel).toHaveBeenCalledOnce()
+	})
+
+	test('preserves streamed archive response and request metadata', async () => {
+		const stream = new ReadableStream<Uint8Array>()
+		const fetch = fetchMock().mockResolvedValue(
+			new Response(stream, {
+				status: 206,
+				headers: {
+					'cache-control': 'public, max-age=60',
+					'content-disposition': "attachment; filename*=UTF-8''twisted%20main.zip",
+					'content-length': '10',
+					'content-range': 'bytes 0-9/100',
+					'content-type': 'application/zip',
+					etag: '"archive-1"',
+					'last-modified': 'Sat, 01 Aug 2026 12:00:00 GMT',
+				},
+			}),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(
+			client.getRepositoryArchive(repoUri, {
+				format: 'zip',
+				ref: 'feature/a b',
+				prefix: 'twisted/',
+				range: 'bytes=0-9',
+			}),
+		).resolves.toEqual({
+			body: stream,
+			status: 206,
+			cacheControl: 'public, max-age=60',
+			contentLength: 10,
+			contentRange: 'bytes 0-9/100',
+			contentType: 'application/zip',
+			etag: '"archive-1"',
+			filename: 'twisted main.zip',
+			lastModified: 'Sat, 01 Aug 2026 12:00:00 GMT',
+		})
+		const [input, init] = fetch.mock.calls[0]
+		const url = new URL(String(input))
+		expect(url.searchParams.get('ref')).toBe('feature/a b')
+		expect(url.searchParams.get('prefix')).toBe('twisted/')
+		expect(init?.headers).toMatchObject({ range: 'bytes=0-9' })
 	})
 
 	test('uses Bobbin repository record identifiers for proxied blob queries', async () => {

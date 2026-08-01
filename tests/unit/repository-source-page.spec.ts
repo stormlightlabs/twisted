@@ -13,6 +13,7 @@ const routes = [
 	{ path: '/repositories/:repo/commits', name: 'repository-commits', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/branches', name: 'repository-branches', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/tags', name: 'repository-tags', component: { template: '<div />' } },
+	{ path: '/repositories/:repo/compare', name: 'repository-compare', component: { template: '<div />' } },
 ]
 
 function client(overrides: Record<string, unknown> = {}) {
@@ -83,7 +84,7 @@ describe('RepositorySourcePage', () => {
 		await flushPromises()
 		await flushPromises()
 
-		expect(wrapper.findAll('.repository-navigation a')).toHaveLength(5)
+		expect(wrapper.findAll('.repository-navigation a')).toHaveLength(6)
 		expect(wrapper.text()).toContain('Record not found')
 	})
 })

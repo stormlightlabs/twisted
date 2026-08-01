@@ -251,6 +251,8 @@ commit details, and ref-update records.
 
 ### T14 - Render diffs, compares, and archive downloads
 
+**Status:** Complete
+
 **What to build:** Add single-ref diffs, two-revision comparison, readable patch
 output, and streamed archive downloads.
 
@@ -258,10 +260,10 @@ output, and streamed archive downloads.
 
 **Acceptance criteria:**
 
-- [ ] Refs are encoded safely and comparison direction is clear.
-- [ ] Large diffs degrade to download or canonical links without locking the UI.
-- [ ] Archive bodies stream to download and are never buffered as app state.
-- [ ] Range, cache, filename, and content-type metadata survive the API boundary.
+- [x] Refs are encoded safely and comparison direction is clear.
+- [x] Large diffs degrade to download or canonical links without locking the UI.
+- [x] Archive bodies stream to download and are never buffered as app state.
+- [x] Range, cache, filename, and content-type metadata survive the API boundary.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

@@ -241,10 +241,17 @@ repository record AT-URI.
 | `sh.tangled.repo.languages`        | `repo`                 | `ref` (defaults to `HEAD`)                |
 | `sh.tangled.repo.archive`          | `repo`, `ref`          | `format` (defaults to `tar.gz`), `prefix` |
 
-Several git endpoints declare `*/*` output. Call atcute with `as: 'blob'`,
-`as: 'bytes'`, or `as: 'stream'` instead of relying on JSON parsing. Bobbin
-forwards range and cache validators and preserves response metadata including
-`Content-Type`, `ETag`, `Last-Modified`, and `Content-Range`.
+Several Git endpoints declare `*/*` output, so their bodies need an explicit
+response mode. Diff and compare currently return structured JSON even though
+their generated types describe a blob. Twisted accepts both response shapes,
+normalizes the structured form to a unified patch, and stops reading at the
+display limit before handing the patch to the renderer.
+
+Archive responses stay as streams. The API boundary passes through range
+requests and preserves `Content-Type`, `Content-Length`, `Content-Range`,
+`Cache-Control`, `ETag`, `Last-Modified`, and the filename from
+`Content-Disposition`. Views link directly to archive URLs so the browser can
+download them without storing the archive in application state.
 
 The current knot responses use numeric offsets for branch and tag pages and a
 numeric page cursor for commit history. Twisted keeps those details inside its
