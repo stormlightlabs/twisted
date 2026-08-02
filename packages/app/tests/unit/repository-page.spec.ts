@@ -18,6 +18,11 @@ const routes = [
 	{ path: '/repositories/:repo/compare', name: 'repository-compare', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/issues', name: 'issues', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/pulls', name: 'pulls', component: { template: '<div />' } },
+	{
+		path: '/repositories/:repo/relationships/:relationship?',
+		name: 'repository-relationships',
+		component: { template: '<div />' },
+	},
 	{ path: '/knots/:knot', name: 'knot', component: { template: '<div />' } },
 	{ path: '/spindles/:spindle', name: 'spindle', component: { template: '<div />' } },
 	{ path: '/labels/:scope', name: 'labels', component: { template: '<div />' } },

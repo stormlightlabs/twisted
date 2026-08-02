@@ -157,6 +157,122 @@ describe('BobbinClient', () => {
 		expect(requestUrl.searchParams.get('state')).toBe('open')
 	})
 
+	test('serializes repository work-item filters and preserves derived list metadata', async () => {
+		const issueUri = 'at://did:plc:author/sh.tangled.repo.issue/3mho6hukiei22'
+		const fetch = fetchMock().mockResolvedValue(
+			jsonResponse({
+				cursor: 'next-page',
+				items: [
+					{
+						uri: issueUri,
+						commentCount: 7,
+						state: 'closed',
+						stateUpdatedAt: '2026-08-01T01:00:00.000Z',
+						value: {
+							$type: 'sh.tangled.repo.issue',
+							createdAt: '2026-08-01T00:00:00.000Z',
+							repo: 'did:plc:repository',
+							title: 'Use derived state',
+						},
+					},
+				],
+			}),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(
+			client.listIssues('did:plc:repository', {
+				author: 'did:plc:author',
+				cursor: 'page-1',
+				limit: 20,
+				order: 'asc',
+				state: 'closed',
+			}),
+		).resolves.toMatchObject({
+			cursor: 'next-page',
+			items: [{ uri: issueUri, commentCount: 7, state: 'closed', value: { title: 'Use derived state' } }],
+		})
+		const requestUrl = new URL(String(fetch.mock.calls[0][0]))
+		expect(requestUrl.pathname).toBe('/xrpc/sh.tangled.repo.listIssues')
+		expect(Object.fromEntries(requestUrl.searchParams)).toMatchObject({
+			subject: 'did:plc:repository',
+			author: 'did:plc:author',
+			cursor: 'page-1',
+			limit: '20',
+			order: 'asc',
+			state: 'closed',
+		})
+	})
+
+	test('accepts canonical and legacy comments while rejecting unrelated embedded records', async () => {
+		const subject = 'at://did:plc:author/sh.tangled.repo.issue/3mho6hukiei22'
+		const comment = (rkey: string, value: Record<string, unknown>) => ({
+			uri: `at://did:plc:commenter/${String(value.$type)}/${rkey}`,
+			value,
+		})
+		const canonical = comment('3mho6hukiei23', {
+			$type: 'sh.tangled.feed.comment',
+			body: { $type: 'sh.tangled.markup.markdown', text: '**canonical**' },
+			createdAt: '2026-08-01T01:00:00.000Z',
+			subject: { uri: subject, cid: 'bafyreicrfpnvmlnd7x5nvfsytxpehmpirnzx7u6kzwxebtdkd5npjxbsmy' },
+		})
+		const legacy = comment('3mho6hukiei24', {
+			$type: 'sh.tangled.repo.issue.comment',
+			body: 'legacy',
+			createdAt: '2026-08-01T02:00:00.000Z',
+			issue: subject,
+		})
+		const fetch = fetchMock()
+			.mockResolvedValueOnce(jsonResponse({ items: [canonical, legacy], cursor: 'more' }))
+			.mockResolvedValueOnce(
+				jsonResponse({
+					items: [comment('3mho6hukiei25', { $type: 'sh.tangled.feed.star', createdAt: '2026-08-01T03:00:00.000Z' })],
+				}),
+			)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.listComments(subject, { order: 'asc' })).resolves.toMatchObject({
+			cursor: 'more',
+			items: [{ value: { $type: 'sh.tangled.feed.comment' } }, { value: { $type: 'sh.tangled.repo.issue.comment' } }],
+		})
+		await expect(client.listComments(subject, { cache: 'reload' })).rejects.toMatchObject({
+			kind: 'malformed-response',
+		})
+	})
+
+	test('uses matching list and count relationship endpoints with cursor metadata', async () => {
+		const starUri = 'at://did:plc:fan/sh.tangled.feed.star/3mho6hukiei22'
+		const fetch = fetchMock()
+			.mockResolvedValueOnce(
+				jsonResponse({
+					cursor: 'stars-2',
+					items: [
+						{
+							uri: starUri,
+							value: {
+								$type: 'sh.tangled.feed.star',
+								createdAt: '2026-08-01T00:00:00.000Z',
+								subject: { $type: 'sh.tangled.feed.star#repo', did: 'did:plc:repository' },
+							},
+						},
+					],
+				}),
+			)
+			.mockResolvedValueOnce(jsonResponse({ count: 9, distinctAuthors: 8 }))
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.listStars('did:plc:repository', { cursor: 'stars-1', limit: 25 })).resolves.toEqual({
+			cursor: 'stars-2',
+			items: [expect.objectContaining({ uri: starUri })],
+		})
+		await expect(client.countStars('did:plc:repository')).resolves.toEqual({ count: 9, distinctAuthors: 8 })
+		expect(fetch.mock.calls.map((call) => new URL(String(call[0])).pathname)).toEqual([
+			'/xrpc/sh.tangled.feed.listStars',
+			'/xrpc/sh.tangled.feed.countStars',
+		])
+		expect(new URL(String(fetch.mock.calls[0][0])).searchParams.get('cursor')).toBe('stars-1')
+	})
+
 	test('dispatches every actor activity family through its published query', async () => {
 		const endpoints = [
 			'sh.tangled.feed.listCommentsBy',
@@ -488,7 +604,13 @@ describe('normalizeBobbinService', () => {
 		expect(normalizeBobbinService('https://bobbin.example/')).toBe('https://bobbin.example')
 	})
 
-	test('rejects non-HTTPS services', () => {
+	test('allows HTTP only for loopback development services', () => {
+		expect(normalizeBobbinService('http://localhost:8090/')).toBe('http://localhost:8090')
+		expect(normalizeBobbinService('http://127.0.0.1:8090')).toBe('http://127.0.0.1:8090')
+		expect(normalizeBobbinService('http://[::1]:8090')).toBe('http://[::1]:8090')
+	})
+
+	test('rejects non-loopback HTTP services', () => {
 		expect(() => normalizeBobbinService('http://bobbin.example')).toThrow('must use HTTPS')
 	})
 })

@@ -73,9 +73,9 @@
 							<router-link :to="links.pulls(repository.uri)"
 								><strong>{{ countsRequest.data.value.pulls }}</strong> Pull requests</router-link
 							>
-							<div>
+							<router-link :to="links.repositoryRelationships(repository.uri, 'stars')">
 								<strong>{{ countsRequest.data.value.stars }}</strong> Stars
-							</div>
+							</router-link>
 						</template>
 					</section>
 
@@ -101,7 +101,10 @@
 						</section>
 
 						<section class="overview-panel" aria-labelledby="collaborators-heading">
-							<header><h2 id="collaborators-heading">Collaborators</h2></header>
+							<header>
+								<h2 id="collaborators-heading">Collaborators</h2>
+								<router-link :to="links.repositoryRelationships(repository.uri, 'collaborators')">View all</router-link>
+							</header>
 							<request-state
 								:empty="collaboratorsRequest.phase.value === 'empty'"
 								empty-message="No public collaborators are listed."

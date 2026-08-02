@@ -5,9 +5,15 @@ import { is } from '@atcute/lexicons'
 import { ComBadExampleIdentityResolveMiniDoc } from '@atcute/microcosm'
 import {
 	ShTangledFeedComment,
+	ShTangledFeedCountComments,
+	ShTangledFeedCountReactions,
 	ShTangledFeedCountStars,
+	ShTangledFeedCountStarsBy,
+	ShTangledFeedListComments,
 	ShTangledFeedListCommentsBy,
+	ShTangledFeedListReactions,
 	ShTangledFeedListReactionsBy,
+	ShTangledFeedListStars,
 	ShTangledFeedListStarsBy,
 	ShTangledFeedReaction,
 	ShTangledFeedStar,
@@ -15,12 +21,19 @@ import {
 	ShTangledGitListRefUpdatesBy,
 	ShTangledGitRefUpdate,
 	ShTangledGraphFollow,
+	ShTangledGraphCountFollows,
+	ShTangledGraphCountFollowsBy,
+	ShTangledGraphCountVouches,
+	ShTangledGraphCountVouchesBy,
+	ShTangledGraphListFollows,
 	ShTangledGraphListFollowsBy,
+	ShTangledGraphListVouches,
 	ShTangledGraphListVouchesBy,
 	ShTangledGraphVouch,
 	ShTangledKnotListMembersBy,
 	ShTangledLabelDefinition,
 	ShTangledLabelListDefinitions,
+	ShTangledLabelListOps,
 	ShTangledLabelListOpsBy,
 	ShTangledLabelOp,
 	ShTangledPipeline,
@@ -37,12 +50,18 @@ import {
 	ShTangledRepoCompare,
 	ShTangledRepoCountIssues,
 	ShTangledRepoCountPulls,
+	ShTangledRepoCountCollaborators,
+	ShTangledRepoCountCollaboratorsBy,
 	ShTangledRepoDiff,
 	ShTangledRepoGetDefaultBranch,
+	ShTangledRepoGetIssue,
+	ShTangledRepoGetPull,
 	ShTangledRepoGetRepoByRepoDid,
 	ShTangledRepoGetRepos,
 	ShTangledRepoGetRepo,
 	ShTangledRepoIssue,
+	ShTangledRepoIssueComment,
+	ShTangledRepoIssueListStates,
 	ShTangledRepoIssueListStatesBy,
 	ShTangledRepoIssueState,
 	ShTangledRepoLanguages,
@@ -50,10 +69,14 @@ import {
 	ShTangledRepoListArtifactsBy,
 	ShTangledRepoListCollaborators,
 	ShTangledRepoListCollaboratorsBy,
+	ShTangledRepoListIssues,
 	ShTangledRepoListIssuesBy,
+	ShTangledRepoListPulls,
 	ShTangledRepoListPullsBy,
 	ShTangledRepoListRepos,
 	ShTangledRepoPull,
+	ShTangledRepoPullComment,
+	ShTangledRepoPullListStatuses,
 	ShTangledRepoPullListStatusesBy,
 	ShTangledRepoPullStatus,
 	ShTangledRepoTree,
@@ -80,6 +103,14 @@ export type ValidatedRecordView<T> = { uri: string; cid?: string; value: T }
 
 /** One cursor-based page returned by an indexed Bobbin query. */
 export type CursorPage<T> = { items: T[]; cursor?: string }
+
+export type CountSummary = { count: number; distinctAuthors: number }
+
+export type IssueListItem = Omit<ShTangledRepoListIssues.IssueListItem, 'value'> & { value: ShTangledRepoIssue.Main }
+
+export type PullListItem = Omit<ShTangledRepoListPulls.PullListItem, 'value'> & { value: ShTangledRepoPull.Main }
+
+export type TangledComment = ShTangledFeedComment.Main | ShTangledRepoIssueComment.Main | ShTangledRepoPullComment.Main
 
 export const actorActivityKinds = [
 	'comments',
@@ -108,6 +139,8 @@ export type ActorActivityItem = { cid?: string; uri?: string; value: Record<stri
 type TState = 'open' | 'closed'
 
 export type ActorActivityOptions = ListReposOptions & { state?: TState; status?: TState | 'merged' }
+
+export type AuthoredRelationshipKind = 'collaborators' | 'follows' | 'stars' | 'vouches'
 
 export type RepositoryCounts = { issues: number; pulls: number; stars: number }
 
@@ -177,6 +210,16 @@ export type RequestOptions = { cache?: 'default' | 'reload'; signal?: AbortSigna
 
 /** Parameters accepted by the repository list endpoint. */
 export type ListReposOptions = RequestOptions & { cursor?: string; limit?: number; order?: 'asc' | 'desc' }
+
+export type IssueListOptions = ListReposOptions & {
+	author?: ShTangledRepoListIssues.$params['author']
+	state?: 'open' | 'closed'
+}
+
+export type PullListOptions = ListReposOptions & {
+	author?: ShTangledRepoListPulls.$params['author']
+	status?: 'open' | 'closed' | 'merged'
+}
 
 /** A search hit whose embedded value has been validated and mapped. */
 export interface ValidatedSearchHit<T> {
@@ -350,6 +393,131 @@ export class BobbinClient {
 			items: data.items.map((item) => validateRecordView(item, ShTangledRepo.mainSchema, 'repository list item')),
 			cursor: data.cursor,
 		}
+	}
+
+	async getIssue(
+		issue: ShTangledRepoGetIssue.$params['issue'],
+		options: RequestOptions = {},
+	): Promise<ValidatedRecordView<ShTangledRepoIssue.Main>> {
+		const view = await this.#cached('sh.tangled.repo.getIssue', { issue }, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledRepoGetIssue, { params: { issue }, signal }),
+		)
+		return validateRecordView(view, ShTangledRepoIssue.mainSchema, 'issue')
+	}
+
+	async listIssues(
+		subject: ShTangledRepoListIssues.$params['subject'],
+		options: IssueListOptions = {},
+	): Promise<CursorPage<IssueListItem>> {
+		const params = pickListParams(subject, options, { author: options.author, state: options.state })
+		const data = await this.#cached('sh.tangled.repo.listIssues', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoListIssues, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => ({
+				...item,
+				value: validateEmbeddedRecord(ShTangledRepoIssue.mainSchema, item.value, `issue ${item.uri}`),
+			})),
+			cursor: data.cursor,
+		}
+	}
+
+	async getPull(
+		pull: ShTangledRepoGetPull.$params['pull'],
+		options: RequestOptions = {},
+	): Promise<ValidatedRecordView<ShTangledRepoPull.Main>> {
+		const view = await this.#cached('sh.tangled.repo.getPull', { pull }, options, STALE_TIMES.record, (signal) =>
+			this.#rpc.call(ShTangledRepoGetPull, { params: { pull }, signal }),
+		)
+		return validateRecordView(view, ShTangledRepoPull.mainSchema, 'pull request')
+	}
+
+	async listPulls(
+		subject: ShTangledRepoListPulls.$params['subject'],
+		options: PullListOptions = {},
+	): Promise<CursorPage<PullListItem>> {
+		const params = pickListParams(subject, options, { author: options.author, status: options.status })
+		const data = await this.#cached('sh.tangled.repo.listPulls', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoListPulls, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => ({
+				...item,
+				value: validateEmbeddedRecord(ShTangledRepoPull.mainSchema, item.value, `pull request ${item.uri}`),
+			})),
+			cursor: data.cursor,
+		}
+	}
+
+	async listComments(
+		subject: ShTangledFeedListComments.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<TangledComment>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.feed.listComments', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledFeedListComments, { params, signal }),
+		)
+		return { items: data.items.map((item) => validateCommentView(item)), cursor: data.cursor }
+	}
+
+	async listReactions(
+		subject: ShTangledFeedListReactions.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledFeedReaction.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.feed.listReactions', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledFeedListReactions, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledFeedReaction.mainSchema, 'reaction')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listIssueStates(
+		subject: ShTangledRepoIssueListStates.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledRepoIssueState.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.repo.issue.listStates', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoIssueListStates, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledRepoIssueState.mainSchema, 'issue state')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listPullStatuses(
+		subject: ShTangledRepoPullListStatuses.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledRepoPullStatus.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.repo.pull.listStatuses', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoPullListStatuses, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledRepoPullStatus.mainSchema, 'pull status')),
+			cursor: data.cursor,
+		}
+	}
+
+	countComments(
+		subject: ShTangledFeedCountComments.$params['subject'],
+		options: RequestOptions = {},
+	): Promise<CountSummary> {
+		return this.#count('sh.tangled.feed.countComments', subject, options, (signal) =>
+			this.#rpc.call(ShTangledFeedCountComments, { params: { subject }, signal }),
+		)
+	}
+
+	countReactions(
+		subject: ShTangledFeedCountReactions.$params['subject'],
+		options: RequestOptions = {},
+	): Promise<CountSummary> {
+		return this.#count('sh.tangled.feed.countReactions', subject, options, (signal) =>
+			this.#rpc.call(ShTangledFeedCountReactions, { params: { subject }, signal }),
+		)
 	}
 
 	/** Lists one actor-authored record family through its generated reverse-lookup schema. */
@@ -543,11 +711,115 @@ export class BobbinClient {
 		return url.href
 	}
 
-	async listRepositoryCollaborators(subject: ActorDid, options: RequestOptions = {}) {
-		const params = { subject, limit: 8, order: 'desc' as const }
-		return this.#cached('sh.tangled.repo.listCollaborators', params, options, STALE_TIMES.list, (signal) =>
+	async listRepositoryCollaborators(
+		subject: ActorDid,
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ShTangledRepoListCollaborators.ListItem>> {
+		const params = pickListParams(subject, { limit: 8, ...options })
+		const data = await this.#cached('sh.tangled.repo.listCollaborators', params, options, STALE_TIMES.list, (signal) =>
 			this.#rpc.call(ShTangledRepoListCollaborators, { params, signal }),
 		)
+		return { items: [...data.items], cursor: data.cursor }
+	}
+
+	async listStars(
+		subject: ShTangledFeedListStars.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledFeedStar.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.feed.listStars', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledFeedListStars, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledFeedStar.mainSchema, 'star')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listFollows(
+		subject: ShTangledGraphListFollows.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledGraphFollow.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.graph.listFollows', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledGraphListFollows, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledGraphFollow.mainSchema, 'follow')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listVouches(
+		subject: ShTangledGraphListVouches.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledGraphVouch.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.graph.listVouches', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledGraphListVouches, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledGraphVouch.mainSchema, 'vouch')),
+			cursor: data.cursor,
+		}
+	}
+
+	countStars(subject: ShTangledFeedCountStars.$params['subject'], options: RequestOptions = {}): Promise<CountSummary> {
+		return this.#count('sh.tangled.feed.countStars', subject, options, (signal) =>
+			this.#rpc.call(ShTangledFeedCountStars, { params: { subject }, signal }),
+		)
+	}
+
+	countFollows(
+		subject: ShTangledGraphCountFollows.$params['subject'],
+		options: RequestOptions = {},
+	): Promise<CountSummary> {
+		return this.#count('sh.tangled.graph.countFollows', subject, options, (signal) =>
+			this.#rpc.call(ShTangledGraphCountFollows, { params: { subject }, signal }),
+		)
+	}
+
+	countVouches(
+		subject: ShTangledGraphCountVouches.$params['subject'],
+		options: RequestOptions = {},
+	): Promise<CountSummary> {
+		return this.#count('sh.tangled.graph.countVouches', subject, options, (signal) =>
+			this.#rpc.call(ShTangledGraphCountVouches, { params: { subject }, signal }),
+		)
+	}
+
+	countCollaborators(
+		subject: ShTangledRepoCountCollaborators.$params['subject'],
+		options: RequestOptions = {},
+	): Promise<CountSummary> {
+		return this.#count('sh.tangled.repo.countCollaborators', subject, options, (signal) =>
+			this.#rpc.call(ShTangledRepoCountCollaborators, { params: { subject }, signal }),
+		)
+	}
+
+	countAuthoredRelationships(
+		kind: AuthoredRelationshipKind,
+		subject: ActorDid,
+		options: RequestOptions = {},
+	): Promise<CountSummary> {
+		switch (kind) {
+			case 'stars':
+				return this.#count('sh.tangled.feed.countStarsBy', subject, options, (signal) =>
+					this.#rpc.call(ShTangledFeedCountStarsBy, { params: { subject }, signal }),
+				)
+			case 'follows':
+				return this.#count('sh.tangled.graph.countFollowsBy', subject, options, (signal) =>
+					this.#rpc.call(ShTangledGraphCountFollowsBy, { params: { subject }, signal }),
+				)
+			case 'vouches':
+				return this.#count('sh.tangled.graph.countVouchesBy', subject, options, (signal) =>
+					this.#rpc.call(ShTangledGraphCountVouchesBy, { params: { subject }, signal }),
+				)
+			case 'collaborators':
+				return this.#count('sh.tangled.repo.countCollaboratorsBy', subject, options, (signal) =>
+					this.#rpc.call(ShTangledRepoCountCollaboratorsBy, { params: { subject }, signal }),
+				)
+		}
 	}
 
 	async listRepositoryLabels(subject: string, options: RequestOptions = {}) {
@@ -556,6 +828,20 @@ export class BobbinClient {
 			this.#rpc.call(ShTangledLabelListDefinitions, { params, signal }),
 		)
 		return data.items.map((item) => validateRecordView(item, ShTangledLabelDefinition.mainSchema, 'label definition'))
+	}
+
+	async listLabelOperations(
+		subject: ShTangledLabelListOps.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledLabelOp.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.label.listOps', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledLabelListOps, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledLabelOp.mainSchema, 'label operation')),
+			cursor: data.cursor,
+		}
 	}
 
 	async listRepositoryRefUpdates(subject: ActorDid, options: RequestOptions = {}) {
@@ -716,6 +1002,15 @@ export class BobbinClient {
 		}
 	}
 
+	#count<TResponse extends XrpcResponse<CountSummary>>(
+		nsid: string,
+		subject: string,
+		options: RequestOptions,
+		request: (signal: AbortSignal) => Promise<TResponse>,
+	): Promise<SuccessData<TResponse>> {
+		return this.#cached(nsid, { subject }, options, STALE_TIMES.list, request)
+	}
+
 	async #request<TResponse extends XrpcResponse<unknown>>(
 		request: () => Promise<TResponse>,
 	): Promise<SuccessData<TResponse>> {
@@ -803,7 +1098,8 @@ export function validateEmbeddedRecord<const TSchema extends BaseSchema>(
 /** Normalizes and validates a configurable Bobbin base URL. */
 export function normalizeBobbinService(service: string | URL): string {
 	const url = new URL(service)
-	if (url.protocol !== 'https:') {
+	const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+	if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
 		throw new TypeError('Data source addresses must use HTTPS')
 	}
 	if (url.username || url.password || url.search || url.hash) {
@@ -819,6 +1115,28 @@ function validateRecordView<const TSchema extends BaseSchema>(
 	context: string,
 ): ValidatedRecordView<InferInput<TSchema>> {
 	return { uri: view.uri, cid: view.cid, value: validateEmbeddedRecord(schema, view.value, context) }
+}
+
+function validateCommentView(view: { uri: string; cid?: string; value: unknown }): ValidatedRecordView<TangledComment> {
+	const value = optionalRecord(view.value)
+	switch (value?.$type) {
+		case 'sh.tangled.feed.comment':
+			return validateRecordView(view, ShTangledFeedComment.mainSchema, 'comment')
+		case 'sh.tangled.repo.issue.comment':
+			return validateRecordView(view, ShTangledRepoIssueComment.mainSchema, 'legacy issue comment')
+		case 'sh.tangled.repo.pull.comment':
+			return validateRecordView(view, ShTangledRepoPullComment.mainSchema, 'legacy pull comment')
+		default:
+			throw new BobbinError('malformed-response', 'Bobbin returned an unsupported comment record')
+	}
+}
+
+function pickListParams<TSubject extends string>(
+	subject: TSubject,
+	options: ListReposOptions,
+	extra: Record<string, string | undefined> = {},
+) {
+	return { subject, cursor: options.cursor, limit: options.limit, order: options.order, ...extra }
 }
 
 /** Removes blank placeholders emitted by older profile writers before strict schema validation. */

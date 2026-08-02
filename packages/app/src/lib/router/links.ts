@@ -17,6 +17,10 @@ export const links = {
 		name: 'actor-relationships',
 		params: { actor, relationship },
 	}),
+	repositoryRelationships: (repo: string, relationship?: string): RouteLocationRaw => ({
+		name: 'repository-relationships',
+		params: { repo, relationship },
+	}),
 	repositories: { name: 'repositories' } satisfies RouteLocationRaw,
 	repository: (repo: string): RouteLocationRaw => ({ name: 'repository', params: { repo } }),
 	source: (repo: string, ref?: string, path?: string, view?: 'blob'): RouteLocationRaw => ({
@@ -43,13 +47,21 @@ export const links = {
 		params: { repo },
 		query: filters,
 	}),
-	issue: (repo: string, rkey: string): RouteLocationRaw => ({ name: 'issue', params: { repo, rkey } }),
+	issue: (repo: string, rkey: string, author?: string): RouteLocationRaw => ({
+		name: 'issue',
+		params: { repo, rkey },
+		query: { author },
+	}),
 	pulls: (repo: string, filters: Filters = {}): RouteLocationRaw => ({
 		name: 'pulls',
 		params: { repo },
 		query: filters,
 	}),
-	pull: (repo: string, rkey: string): RouteLocationRaw => ({ name: 'pull', params: { repo, rkey } }),
+	pull: (repo: string, rkey: string, author?: string): RouteLocationRaw => ({
+		name: 'pull',
+		params: { repo, rkey },
+		query: { author },
+	}),
 	pipelines: (repo: string, pipeline?: string): RouteLocationRaw => ({ name: 'pipelines', params: { repo, pipeline } }),
 	artifact: (repo: string, artifact: string): RouteLocationRaw => ({ name: 'artifact', params: { repo, artifact } }),
 	string: (uri: string): RouteLocationRaw => ({ name: 'string', params: { uri } }),

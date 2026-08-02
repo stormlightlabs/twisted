@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/profiles/:actor/relationships/:relationship?',
 		name: 'actor-relationships',
-		component: domainPage,
+		component: () => import('@/views/RelationshipsPage.vue'),
 		meta: {
 			title: 'Relationships',
 			section: 'People',
@@ -181,7 +181,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/issues',
 		name: 'issues',
-		component: domainPage,
+		component: () => import('@/views/RepositoryWorkItemsPage.vue'),
 		meta: {
 			title: 'Issues',
 			section: 'Collaboration',
@@ -195,7 +195,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/issues/:rkey',
 		name: 'issue',
-		component: domainPage,
+		component: () => import('@/views/RepositoryWorkItemPage.vue'),
 		meta: {
 			title: 'Issue',
 			section: 'Collaboration',
@@ -209,7 +209,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/pulls',
 		name: 'pulls',
-		component: domainPage,
+		component: () => import('@/views/RepositoryWorkItemsPage.vue'),
 		meta: {
 			title: 'Pull requests',
 			section: 'Collaboration',
@@ -223,11 +223,25 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/pulls/:rkey',
 		name: 'pull',
-		component: domainPage,
+		component: () => import('@/views/RepositoryWorkItemPage.vue'),
 		meta: {
 			title: 'Pull request',
 			section: 'Collaboration',
 			description: 'Read a pull request, its status history, discussion, and patch.',
+			parameter: 'repo',
+			identifierLabel: 'Repository record',
+			requirement: 'at-uri',
+			back: '/repositories',
+		},
+	},
+	{
+		path: '/repositories/:repo/relationships/:relationship?',
+		name: 'repository-relationships',
+		component: () => import('@/views/RelationshipsPage.vue'),
+		meta: {
+			title: 'Repository relationships',
+			section: 'Collaboration',
+			description: 'Browse repository stars and collaborators.',
 			parameter: 'repo',
 			identifierLabel: 'Repository record',
 			requirement: 'at-uri',
@@ -265,7 +279,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/strings/:uri',
 		name: 'string',
-		component: domainPage,
+		component: () => import('@/views/RecordThreadPage.vue'),
 		meta: {
 			title: 'String',
 			section: 'Social',

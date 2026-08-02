@@ -1,0 +1,14 @@
+:8090 {
+	@preflight method OPTIONS
+	respond @preflight 204
+
+	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		Access-Control-Allow-Headers "Content-Type, Authorization"
+		Access-Control-Max-Age "86400"
+	}
+
+	reverse_proxy bobbin:8090
+}
+

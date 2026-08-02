@@ -3,6 +3,16 @@
 Twisted is a Tangled client for browsing public projects, profiles, and conversations.
 It is built with Ionic Vue and is intended to run as a website, installable PWA, and Capacitor app for Android and iOS.
 
+## Repository layout
+
+- `packages/app` contains the Ionic Vue application.
+- `infra/bobbin` contains the pinned Docker Compose setup for a private Bobbin
+  instance.
+- `docs` contains the product and API contracts.
+
+Root Bun scripts delegate to `packages/app`, so development commands stay the
+same after the monorepo migration.
+
 ## Development
 
 Install [Bun 1.3.14](https://bun.sh), then install the locked dependencies:
@@ -27,6 +37,12 @@ bun run build
 ```
 
 Use `bun run format` to apply Prettier formatting.
+
+## Private Bobbin
+
+See [`infra/bobbin/README.md`](infra/bobbin/README.md) for the Docker setup and
+its Hydrant and Slingshot requirements. The app can use its local Caddy gateway
+at `http://localhost:8090`; non-local API services must use HTTPS.
 
 ## Tests
 

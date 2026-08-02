@@ -26,11 +26,17 @@ Use these sources in this order:
    [`5474d2d`](https://github.com/mary-ext/atcute/commit/5474d2d9d502c4f52c8c13162fac8c2cd8613ec6)
    during this review.
 2. [Bobbin's router](https://tangled.org/tangled.org/core/blob/master/bobbin/crates/xrpc/src/lib.rs)
-   determines which lexicons the service implements.
+   determines which lexicons the service implements. Twisted's compatibility
+   review used Tangled core commit
+   [`25d3c23e`](https://tangled.org/tangled.org/core/commit/25d3c23eacc81ec27e50ace3eaf608aa13e5d89f).
 3. [Tangled's Bobbin documentation](https://docs.tangled.org/bobbin) explains
    runtime behavior, warm-up, and upstream failures. The
    [announcement](https://blog.tangled.org/bobbin/) gives the architectural
    background.
+4. Twisted's pre-Bobbin client on `main`, reviewed at commit `7e205794`, is a
+   migration reference for older record shapes. It is not an API contract:
+   its `/actors/*`, `/issues/*`, and `/pulls/*` paths belonged to the retired
+   Twister service.
 
 The definition package contains Tangled queries and procedures that Bobbin does
 not serve. A generated atcute type proves that a lexicon exists; it does not
@@ -157,9 +163,11 @@ An endpoint ending in `By` reverses the lookup. For example,
 | `sh.tangled.repo.getPull`          | `pull`: pull record AT-URI              | One pull request |
 | `sh.tangled.repo.getPulls`         | `pulls`: up to 50 pull record AT-URIs   | Pull requests    |
 
-Issue and pull views include Bobbin's derived current state or status. Use those
-fields for list badges and detail headers rather than deriving the latest value
-from a separately fetched history.
+`repo.listIssues` and `repo.listPulls` enrich each item with `commentCount`, the
+derived state in `state`, and an optional `stateUpdatedAt`. Use those fields for
+list badges. The single-record methods return the issue or pull record itself;
+detail pages obtain current state or status from the corresponding history
+list.
 
 ## Indexed lists and counts
 
@@ -197,6 +205,26 @@ when an actor-DID reverse lookup is available.
 `repo.listPulls` accepts optional `author` and `status` filters. Their `By`
 counterparts accept the state or status filter but already use the subject as
 the author.
+
+## Comment compatibility
+
+New comments use `sh.tangled.feed.comment`. Its `body` is a Tangled Markdown
+object and its `subject` is a strong reference to any commentable record.
+Older repositories can still contain `sh.tangled.repo.issue.comment` and
+`sh.tangled.repo.pull.comment`, whose bodies are plain strings and whose
+subjects live in `issue` or `pull`.
+
+Bobbin's current resolver recognizes both legacy collections and upgrades them
+to canonical feed comments during resolution. The router also keeps both
+legacy collection names in its supported-record set. Twisted accepts all three
+validated shapes at its API boundary because an index built across an upgrade
+can still return an older value. Every body goes through the same sanitized
+Markdown renderer; legacy mentions and references remain visible as local
+links.
+
+The old Twisted client expected only the two repository-specific comment
+records. That history explains why compatibility matters, but new code should
+always treat `sh.tangled.feed.comment` as canonical.
 
 ## Search
 
@@ -280,6 +308,17 @@ lists, counts, and search may be incomplete. Twisted should show a non-blocking
 
 Coverage only describes Hydrant ingestion. It does not report whether a knot is
 reachable or whether Bobbin's cached knot membership is current.
+
+## Running Bobbin locally
+
+The reproducible Docker setup in [`infra/bobbin`](../infra/bobbin/README.md)
+builds the audited Tangled core commit and puts a small CORS gateway in front of
+Bobbin. Bobbin is not standalone: it replays events from Hydrant and resolves
+records through Slingshot. Tangled does not publish general-purpose endpoints
+for those services, so operators must provide both upstream URLs.
+
+Twisted accepts plain HTTP only for `localhost`, `127.0.0.1`, and `[::1]`.
+Remote Bobbin deployments must use HTTPS.
 
 ## Public smoke-test fixture
 

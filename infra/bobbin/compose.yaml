@@ -1,0 +1,40 @@
+name: twisted-bobbin
+
+services:
+  bobbin:
+    build:
+      context: https://tangled.org/tangled.org/core.git#25d3c23eacc81ec27e50ace3eaf608aa13e5d89f
+      dockerfile: bobbin/containerfiles/bobbin.Containerfile
+    environment:
+      BOBBIN_BIND: 0.0.0.0:8090
+      BOBBIN_HYDRANT_URL: ${BOBBIN_HYDRANT_URL:?Set BOBBIN_HYDRANT_URL in .env}
+      BOBBIN_SLINGSHOT_URL: ${BOBBIN_SLINGSHOT_URL:?Set BOBBIN_SLINGSHOT_URL in .env}
+      BOBBIN_LOG: ${BOBBIN_LOG:-info}
+      BOBBIN_LOG_FORMAT: ${BOBBIN_LOG_FORMAT:-json}
+      BOBBIN_RECORD_LRU_BYTES: ${BOBBIN_RECORD_LRU_BYTES:-67108864}
+      BOBBIN_SEARCH_HEAP_BYTES: ${BOBBIN_SEARCH_HEAP_BYTES:-50000000}
+    cap_drop:
+      - ALL
+    init: true
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+
+  gateway:
+    image: caddy:2.10.2-alpine
+    depends_on:
+      - bobbin
+    ports:
+      - ${BOBBIN_PORT:-8090}:8090
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /config:size=16m
+      - /data:size=16m
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro

@@ -14,6 +14,13 @@ const routes = [
 	{ path: '/repositories/:repo/branches', name: 'repository-branches', component: RepositoryRefsPage },
 	{ path: '/repositories/:repo/tags', name: 'repository-tags', component: RepositoryRefsPage },
 	{ path: '/repositories/:repo/compare', name: 'repository-compare', component: { template: '<div />' } },
+	{ path: '/repositories/:repo/issues', name: 'issues', component: { template: '<div />' } },
+	{ path: '/repositories/:repo/pulls', name: 'pulls', component: { template: '<div />' } },
+	{
+		path: '/repositories/:repo/relationships/:relationship?',
+		name: 'repository-relationships',
+		component: { template: '<div />' },
+	},
 ]
 
 describe('RepositoryRefsPage', () => {

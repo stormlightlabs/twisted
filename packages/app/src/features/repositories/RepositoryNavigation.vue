@@ -6,6 +6,9 @@
 		<router-link :to="links.compare(repo, currentRef || 'HEAD', currentRef || 'HEAD')">Compare</router-link>
 		<router-link :to="links.branches(repo)">Branches</router-link>
 		<router-link :to="links.tags(repo)">Tags</router-link>
+		<router-link :to="links.issues(repo)">Issues</router-link>
+		<router-link :to="links.pulls(repo)">Pull requests</router-link>
+		<router-link :to="links.repositoryRelationships(repo)">Relationships</router-link>
 	</nav>
 </template>
 
