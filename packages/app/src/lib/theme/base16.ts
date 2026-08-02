@@ -33,13 +33,13 @@ export type ThemeTokens = Record<`--${string}`, string>
 
 const HEX_COLOR = /^#[\da-f]{6}$/i
 
-/** Parses current Tinted YAML-as-JSON and legacy flat Base16 JSON shapes. */
+/** Parses current Tinted Base16 documents and legacy flat Base16 shapes. */
 export function parseBase16Scheme(input: unknown): Base16Scheme {
 	if (!isRecord(input)) {
-		throw new TypeError('A Base16 scheme must be a JSON object')
+		throw new TypeError('A Base16 scheme must be an object')
 	}
 	if (input.system !== undefined && input.system !== 'base16') {
-		throw new TypeError('The imported scheme is not Base16')
+		throw new TypeError('The scheme is not Base16')
 	}
 
 	const name = readName(input)
@@ -52,7 +52,7 @@ export function parseBase16Scheme(input: unknown): Base16Scheme {
 	const id = slugify(suppliedId)
 
 	if (id.length === 0) {
-		throw new TypeError('The imported scheme needs a stable id or name')
+		throw new TypeError('The scheme needs a stable id or name')
 	}
 
 	return {
@@ -62,6 +62,41 @@ export function parseBase16Scheme(input: unknown): Base16Scheme {
 		variant,
 		palette,
 	}
+}
+
+/** Creates the portable document shape used by the current Base16 specification. */
+export function base16Document(scheme: Base16Scheme) {
+	return {
+		system: 'base16' as const,
+		name: scheme.name,
+		slug: scheme.id,
+		author: scheme.author ?? 'Unknown',
+		variant: scheme.variant,
+		palette: Object.fromEntries(BASE16_SLOTS.map((slot) => [slot, scheme.palette[slot].replace(/^#/, '')])) as Record<
+			Base16Slot,
+			string
+		>,
+	}
+}
+
+/** Serializes a validated scheme as portable Base16 JSON. */
+export function serializeBase16Json(scheme: Base16Scheme): string {
+	return `${JSON.stringify(base16Document(scheme), null, 2)}\n`
+}
+
+/** Serializes a validated scheme as portable Base16 YAML without requiring a YAML runtime. */
+export function serializeBase16Yaml(scheme: Base16Scheme): string {
+	const document = base16Document(scheme)
+	return [
+		`system: ${JSON.stringify(document.system)}`,
+		`name: ${JSON.stringify(document.name)}`,
+		`slug: ${JSON.stringify(document.slug)}`,
+		`author: ${JSON.stringify(document.author)}`,
+		`variant: ${JSON.stringify(document.variant)}`,
+		'palette:',
+		...BASE16_SLOTS.map((slot) => `  ${slot}: ${JSON.stringify(document.palette[slot])}`),
+		'',
+	].join('\n')
 }
 
 /** Maps Base16 palette slots to stable application and Ionic semantic tokens. */
@@ -145,7 +180,7 @@ export function themeContrastIssues(scheme: Base16Scheme): string[] {
 function readName(input: Record<string, unknown>): string {
 	const value = typeof input.name === 'string' ? input.name : input.scheme
 	if (typeof value !== 'string' || value.trim().length === 0) {
-		throw new TypeError('The imported scheme needs a name')
+		throw new TypeError('The scheme needs a name')
 	}
 	return value.trim()
 }
@@ -153,7 +188,7 @@ function readName(input: Record<string, unknown>): string {
 function readColor(input: Record<string, unknown>, slot: Base16Slot): string {
 	const value = input[slot]
 	if (typeof value !== 'string') {
-		throw new TypeError(`The imported scheme is missing ${slot}`)
+		throw new TypeError(`The scheme is missing ${slot}`)
 	}
 	const normalized = value.startsWith('#') ? value : `#${value}`
 	if (!HEX_COLOR.test(normalized)) {
@@ -214,6 +249,8 @@ function mixHex(color: string, mix: string, amount: number): string {
 function slugify(value: string): string {
 	return value
 		.trim()
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-|-$/g, '')

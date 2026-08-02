@@ -168,6 +168,7 @@ function linkLabel(link: string): string {
 	try {
 		return new URL(link).hostname
 	} catch {
+		/* Non-URL profile links remain readable as entered. */
 		return link
 	}
 }

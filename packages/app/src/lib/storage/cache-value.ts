@@ -10,6 +10,7 @@ export function serializeCacheValue(value: unknown): string | undefined {
 	try {
 		return JSON.stringify(value)
 	} catch {
+		/* Non-serializable values are intentionally excluded from persistence. */
 		return undefined
 	}
 }

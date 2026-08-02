@@ -14,7 +14,7 @@
 						<span>01</span>
 						<div>
 							<h2 id="theme-heading">Theme</h2>
-							<p>Choose a built-in color theme or bring your own Base16 theme file.</p>
+							<p>Choose a built-in theme or tune every Base16 color yourself.</p>
 						</div>
 					</div>
 
@@ -29,7 +29,7 @@
 								name="theme"
 								type="radio"
 								:value="scheme.id"
-								@change="selectTheme(scheme.id)" />
+								@change="chooseTheme(scheme.id)" />
 							<span class="theme-option__swatches" aria-hidden="true">
 								<i v-for="slot in previewSlots" :key="slot" :style="{ backgroundColor: scheme.palette[slot] }"></i>
 							</span>
@@ -38,16 +38,69 @@
 						</label>
 					</fieldset>
 
-					<div class="import-control">
-						<label for="theme-import">Import Base16 JSON</label>
-						<input id="theme-import" accept="application/json,.json" type="file" @change="importFile" />
+					<form class="theme-builder" @submit.prevent="applyCustomTheme">
+						<div class="theme-builder__heading">
+							<div>
+								<h3>Build a custom theme</h3>
+								<p>Enter six-digit hex colors or use the color controls. Changes apply when you save.</p>
+							</div>
+							<span class="theme-builder__preview" aria-hidden="true">
+								<i
+									v-for="slot in BASE16_SLOTS"
+									:key="slot"
+									:style="{ backgroundColor: pickerValue(themeDraft.palette[slot]) }"></i>
+							</span>
+						</div>
+
+						<div class="theme-builder__metadata">
+							<label for="theme-name">Name <input id="theme-name" v-model="themeDraft.name" required /></label>
+							<label for="theme-author">Author <input id="theme-author" v-model="themeDraft.author" required /></label>
+							<label for="theme-variant">
+								Variant
+								<select id="theme-variant" v-model="themeDraft.variant">
+									<option value="dark">Dark</option>
+									<option value="light">Light</option>
+								</select>
+							</label>
+						</div>
+
+						<div class="theme-builder__palette">
+							<div v-for="slot in BASE16_SLOTS" :key="slot" class="palette-field">
+								<label :for="`${slot}-hex`">
+									<code>{{ slot }}</code>
+									<small>{{ slotDescriptions[slot] }}</small>
+								</label>
+								<div>
+									<input
+										:aria-label="`Choose ${slot} color`"
+										type="color"
+										:value="pickerValue(themeDraft.palette[slot])"
+										@input="setPickedColor(slot, $event)" />
+									<input
+										:id="`${slot}-hex`"
+										v-model="themeDraft.palette[slot]"
+										autocapitalize="off"
+										pattern="#?[0-9a-fA-F]{6}"
+										placeholder="#000000"
+										required
+										spellcheck="false"
+										type="text" />
+								</div>
+							</div>
+						</div>
+
+						<div class="theme-builder__actions">
+							<button type="submit">Apply theme</button>
+							<button class="button-secondary" type="button" @click="downloadTheme('json')">Download JSON</button>
+							<button class="button-secondary" type="button" @click="downloadTheme('yaml')">Download YAML</button>
+						</div>
 						<p
-							v-if="importMessage"
-							:class="{ 'form-message--error': importError }"
-							:role="importError ? 'alert' : 'status'">
-							{{ importMessage }}
+							v-if="themeMessage"
+							:class="{ 'form-message--error': themeError }"
+							:role="themeError ? 'alert' : 'status'">
+							{{ themeMessage }}
 						</p>
-					</div>
+					</form>
 				</section>
 
 				<section class="settings-section" aria-labelledby="service-heading">
@@ -110,34 +163,118 @@
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
 import { useBobbinService } from '@/lib/settings/service'
-import { useTheme } from '@/lib/theme'
-import type { Base16Slot } from '@/lib/theme'
+import {
+	BASE16_SLOTS,
+	BUNDLED_SCHEMES,
+	parseBase16Scheme,
+	serializeBase16Json,
+	serializeBase16Yaml,
+	useTheme,
+} from '@/lib/theme'
+import type { Base16Palette, Base16Scheme, Base16Slot } from '@/lib/theme'
 import { IonContent, IonPage } from '@ionic/vue'
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 
-const { schemes, activeScheme, selectedId, selectTheme, importTheme } = useTheme()
+type ThemeDraft = { name: string; author: string; variant: 'light' | 'dark'; palette: Base16Palette }
+
+const { schemes, activeScheme, selectedId, selectTheme, saveCustomTheme } = useTheme()
 const { service, updateService, restoreDefault } = useBobbinService()
 const previewSlots: Base16Slot[] = ['base00', 'base02', 'base05', 'base0D', 'base0B']
-const importMessage = ref('')
-const importError = ref(false)
+const slotDescriptions: Record<Base16Slot, string> = {
+	base00: 'Default background',
+	base01: 'Lighter background',
+	base02: 'Selection background',
+	base03: 'Comments and muted text',
+	base04: 'Dark foreground',
+	base05: 'Default foreground',
+	base06: 'Light foreground',
+	base07: 'Lightest foreground',
+	base08: 'Red',
+	base09: 'Orange',
+	base0A: 'Yellow',
+	base0B: 'Green',
+	base0C: 'Cyan',
+	base0D: 'Blue',
+	base0E: 'Purple',
+	base0F: 'Brown',
+}
+const themeDraft = reactive<ThemeDraft>(draftFrom(activeScheme.value))
+const themeMessage = ref('')
+const themeError = ref(false)
 const serviceInput = ref(service.value)
 const serviceMessage = ref('')
 const serviceError = ref(false)
 
-async function importFile(event: Event): Promise<void> {
-	const input = event.target as HTMLInputElement
-	const file = input.files?.[0]
-	if (file === undefined) return
-
+function applyCustomTheme(): void {
 	try {
-		const imported = importTheme(JSON.parse(await file.text()) as unknown)
-		importError.value = false
-		importMessage.value = `${imported.name} was imported and selected.`
+		const saved = saveCustomTheme(schemeFromDraft())
+		Object.assign(themeDraft, draftFrom(saved, false))
+		themeError.value = false
+		themeMessage.value = `${saved.name} was saved and applied.`
 	} catch (error) {
-		importError.value = true
-		importMessage.value = error instanceof Error ? error.message : 'The theme file could not be imported.'
-	} finally {
-		input.value = ''
+		themeError.value = true
+		themeMessage.value = error instanceof Error ? error.message : 'The custom theme could not be applied.'
+	}
+}
+
+function chooseTheme(id: string): void {
+	if (!selectTheme(id)) return
+	Object.assign(themeDraft, draftFrom(activeScheme.value))
+	themeMessage.value = ''
+	themeError.value = false
+}
+
+function setPickedColor(slot: Base16Slot, event: Event): void {
+	themeDraft.palette[slot] = (event.target as HTMLInputElement).value
+}
+
+function pickerValue(value: string): string {
+	const normalized = value.startsWith('#') ? value : `#${value}`
+	return /^#[\da-f]{6}$/i.test(normalized) ? normalized : '#000000'
+}
+
+function schemeFromDraft(): Base16Scheme {
+	if (!themeDraft.author.trim()) throw new TypeError('The scheme needs an author')
+	return parseBase16Scheme({
+		system: 'base16',
+		name: themeDraft.name,
+		author: themeDraft.author,
+		variant: themeDraft.variant,
+		palette: themeDraft.palette,
+	})
+}
+
+function downloadTheme(format: 'json' | 'yaml'): void {
+	try {
+		const scheme = schemeFromDraft()
+		const content = format === 'json' ? serializeBase16Json(scheme) : serializeBase16Yaml(scheme)
+		downloadText(`${scheme.id}.${format}`, content, format === 'json' ? 'application/json' : 'application/yaml')
+		themeError.value = false
+		themeMessage.value = `${scheme.name} was downloaded as ${format.toUpperCase()}.`
+	} catch (error) {
+		themeError.value = true
+		themeMessage.value = error instanceof Error ? error.message : 'The custom theme could not be downloaded.'
+	}
+}
+
+function downloadText(filename: string, content: string, type: string): void {
+	const url = URL.createObjectURL(new Blob([content], { type }))
+	const link = document.createElement('a')
+	link.download = filename
+	link.href = url
+	document.body.append(link)
+	link.click()
+	link.remove()
+	URL.revokeObjectURL(url)
+}
+
+function draftFrom(scheme: Base16Scheme, renameBuiltIn = true): ThemeDraft {
+	const builtIn = BUNDLED_SCHEMES.some(({ id }) => id === scheme.id)
+	return {
+		name: renameBuiltIn && builtIn ? `${scheme.name} Custom` : scheme.name,
+		author: scheme.author ?? '',
+		variant: scheme.variant,
+		palette: { ...scheme.palette },
 	}
 }
 
@@ -272,22 +409,22 @@ function resetService(): void {
 	text-transform: capitalize;
 }
 
-.import-control,
+.theme-builder,
 .service-form {
 	display: grid;
-	gap: var(--space-2);
-	max-inline-size: 42rem;
+	gap: var(--space-4);
 }
 
-.import-control label,
+.theme-builder label,
 .service-form label {
 	font-size: var(--text-sm);
 	font-weight: 700;
 }
 
-.import-control input,
+.theme-builder input,
+.theme-builder select,
 .service-form input {
-	min-block-size: 3rem;
+	min-block-size: 44px;
 	border: 1px solid var(--app-border);
 	border-radius: var(--radius-sm);
 	padding: var(--space-3);
@@ -296,6 +433,97 @@ function resetService(): void {
 	font: inherit;
 }
 
+.theme-builder__heading {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem);
+	gap: var(--space-5);
+	align-items: end;
+}
+
+.theme-builder__heading h3,
+.theme-builder__heading p {
+	margin: 0;
+}
+
+.theme-builder__heading h3 {
+	font-family: var(--font-display);
+	font-size: var(--text-xl);
+}
+
+.theme-builder__heading p {
+	margin-block-start: var(--space-1);
+	color: var(--app-text-muted);
+}
+
+.theme-builder__preview {
+	display: flex;
+	block-size: 2.75rem;
+	border: 1px solid var(--app-border);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+
+.theme-builder__preview i {
+	flex: 1;
+}
+
+.theme-builder__metadata {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+	gap: var(--space-3);
+}
+
+.theme-builder__metadata label {
+	display: grid;
+	gap: var(--space-2);
+}
+
+.theme-builder__palette {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+	gap: var(--space-2) var(--space-4);
+}
+
+.palette-field {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.8fr);
+	gap: var(--space-3);
+	align-items: center;
+}
+
+.palette-field > label {
+	display: grid;
+	min-inline-size: 0;
+}
+
+.palette-field code {
+	color: var(--app-accent);
+	font-weight: 750;
+}
+
+.palette-field small {
+	color: var(--app-text-muted);
+	font-weight: 400;
+}
+
+.palette-field > div {
+	display: grid;
+	grid-template-columns: 44px minmax(0, 1fr);
+	gap: var(--space-2);
+}
+
+.palette-field input[type='color'] {
+	inline-size: 44px;
+	padding: 0.2rem;
+	cursor: pointer;
+}
+
+.palette-field input[type='text'] {
+	min-inline-size: 0;
+	font-family: var(--font-mono);
+}
+
+.theme-builder__actions,
 .service-form > div {
 	display: flex;
 	flex-wrap: wrap;
@@ -303,6 +531,7 @@ function resetService(): void {
 	margin-block-start: var(--space-2);
 }
 
+.theme-builder button,
 .service-form button {
 	min-block-size: 44px;
 	border: 1px solid var(--app-accent);
@@ -314,18 +543,19 @@ function resetService(): void {
 	font-weight: 700;
 }
 
+.theme-builder .button-secondary,
 .service-form .button-secondary {
 	color: var(--app-text);
 	background: transparent;
 }
 
-.import-control p,
+.theme-builder > p,
 .service-form p {
 	margin: var(--space-1) 0 0;
 	color: var(--app-success);
 }
 
-.import-control .form-message--error,
+.theme-builder .form-message--error,
 .service-form .form-message--error {
 	color: var(--app-danger);
 }
@@ -364,6 +594,15 @@ function resetService(): void {
 }
 
 @media (max-width: 520px) {
+	.theme-builder__heading {
+		grid-template-columns: 1fr;
+	}
+
+	.palette-field {
+		grid-template-columns: 1fr;
+		gap: var(--space-2);
+	}
+
 	.about-list div {
 		grid-template-columns: 1fr;
 		gap: var(--space-1);

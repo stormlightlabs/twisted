@@ -12,6 +12,7 @@ export function useCopy() {
 				await copy(value)
 				return copied.value
 			} catch {
+				/* Callers render their own copy failure state. */
 				return false
 			}
 		},

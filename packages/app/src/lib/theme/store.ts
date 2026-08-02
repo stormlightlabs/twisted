@@ -37,6 +37,7 @@ export function loadThemePreferences(
 						const imported = parseBase16Scheme(candidate)
 						return bundledIds.has(imported.id) || !hasAccessibleControls(imported) ? [] : [imported]
 					} catch {
+						/* One corrupt custom theme must not discard the remaining preferences. */
 						return []
 					}
 				})
@@ -47,6 +48,7 @@ export function loadThemePreferences(
 
 		return { selectedId, imports }
 	} catch {
+		/* Corrupt or inaccessible preferences recover to the reviewed default. */
 		return fallback
 	}
 }
@@ -92,22 +94,22 @@ export function useTheme() {
 		return true
 	}
 
-	function importTheme(input: unknown): Base16Scheme {
-		const imported = parseBase16Scheme(input)
-		if (bundledSchemes.some(({ id }) => id === imported.id)) {
-			throw new TypeError(`A bundled theme already uses the id “${imported.id}”`)
+	function saveCustomTheme(input: unknown): Base16Scheme {
+		const custom = parseBase16Scheme(input)
+		if (bundledSchemes.some(({ id }) => id === custom.id)) {
+			throw new TypeError(`A built-in theme already uses the name “${custom.name}”`)
 		}
-		const contrastIssues = themeContrastIssues(imported)
+		const contrastIssues = themeContrastIssues(custom)
 		if (contrastIssues.length > 0) {
 			throw new TypeError(
-				`Low contrast warning: ${contrastIssues.join(', ')} do not meet WCAG 2.2 AA. Twisted did not import this theme.`,
+				`Low contrast warning: ${contrastIssues.join(', ')} do not meet WCAG 2.2 AA. Twisted did not apply this theme.`,
 			)
 		}
-		importedSchemes.value = [...importedSchemes.value.filter(({ id }) => id !== imported.id), imported]
-		selectedId.value = imported.id
+		importedSchemes.value = [...importedSchemes.value.filter(({ id }) => id !== custom.id), custom]
+		selectedId.value = custom.id
 		applyActiveScheme()
 		persist()
-		return imported
+		return custom
 	}
 
 	return {
@@ -115,7 +117,7 @@ export function useTheme() {
 		activeScheme: readonly(activeScheme),
 		selectedId: readonly(selectedId),
 		selectTheme,
-		importTheme,
+		saveCustomTheme,
 	}
 }
 

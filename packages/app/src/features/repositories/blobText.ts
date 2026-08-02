@@ -17,6 +17,7 @@ export function presentBlobText(blob: ShTangledRepoBlob.$output): BlobTextResult
 			const bytes = Uint8Array.from(atob(blob.content), (character) => character.charCodeAt(0))
 			text = new TextDecoder().decode(bytes)
 		} catch {
+			/* Invalid base64 cannot be rendered safely as source text. */
 			return { kind: 'download', reason: 'unavailable' }
 		}
 	} else {

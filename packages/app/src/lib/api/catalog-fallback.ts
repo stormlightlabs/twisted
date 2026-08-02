@@ -55,6 +55,7 @@ export function createCatalogFallbackFetch(
 		try {
 			return await fetchImplementation(rewriteRequest(input, fallbackUrl), init)
 		} catch {
+			/* Retry the configured service when the public catalog is unreachable. */
 			return fetchImplementation(input, init)
 		}
 	}) as typeof globalThis.fetch

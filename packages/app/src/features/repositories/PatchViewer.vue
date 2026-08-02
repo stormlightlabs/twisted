@@ -54,6 +54,7 @@ async function renderPatch() {
 			cleanups.push(() => diff.cleanUp())
 		}
 	} catch {
+		/* The plain patch fallback replaces a failed syntax render. */
 		cleanUp()
 		failed.value = true
 	} finally {

@@ -147,6 +147,10 @@ function recentKind(kind: RecentDestinationKind): string {
 	background: transparent;
 	outline: 0;
 }
+.dashboard__search input::placeholder {
+	color: var(--app-text-muted);
+	opacity: 1;
+}
 .dashboard__search button {
 	min-block-size: 44px;
 	margin-inline-end: var(--space-2);
@@ -167,8 +171,6 @@ function recentKind(kind: RecentDestinationKind): string {
 	align-items: end;
 	justify-content: space-between;
 	gap: var(--space-5);
-	border-block-end: 1px solid var(--app-border);
-	padding-block-end: var(--space-3);
 }
 .dashboard__section-heading h2,
 .dashboard__explore h2 {
@@ -186,10 +188,9 @@ function recentKind(kind: RecentDestinationKind): string {
 }
 .recent-list {
 	display: grid;
-	gap: 0;
+	gap: var(--space-2);
 	margin: 0;
 	padding: 0;
-	border-block-start: 1px solid var(--app-border);
 	list-style: none;
 }
 .recent-list a {
@@ -198,14 +199,12 @@ function recentKind(kind: RecentDestinationKind): string {
 	align-items: center;
 	gap: var(--space-3);
 	min-block-size: 4rem;
-	border-block-end: 1px solid var(--app-border);
-	padding: var(--space-3) var(--space-2);
+	border: 1px solid var(--app-border);
+	border-radius: var(--radius-sm);
+	padding: var(--space-3) var(--space-4);
 	color: var(--app-text);
-	background: transparent;
+	background: var(--app-surface-raised);
 	text-decoration: none;
-}
-.recent-list a:hover {
-	background: var(--app-surface);
 }
 .recent-list a > ion-icon:first-child {
 	color: var(--app-accent);
@@ -220,7 +219,8 @@ function recentKind(kind: RecentDestinationKind): string {
 	min-inline-size: 0;
 }
 .recent-list small {
-	color: var(--app-text-muted);
+	color: var(--app-text);
+	font-size: var(--text-xs);
 }
 .recent-list strong {
 	overflow: hidden;
@@ -252,27 +252,32 @@ function recentKind(kind: RecentDestinationKind): string {
 	display: grid;
 	grid-template-columns: minmax(12rem, 0.65fr) minmax(20rem, 1.35fr);
 	gap: var(--space-6);
-	border-block-start: 1px solid var(--app-border);
-	padding-block-start: var(--space-5);
 }
 .dashboard__explore nav {
 	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--space-3);
 }
 .dashboard__explore nav a {
 	display: grid;
-	grid-template-columns: minmax(10rem, 0.8fr) minmax(12rem, 1.2fr);
-	gap: var(--space-4);
-	min-block-size: 3.75rem;
-	border-block-end: 1px solid var(--app-border);
+	align-content: center;
+	gap: var(--space-1);
+	min-block-size: 5rem;
+	border: 1px solid var(--app-border);
+	border-radius: var(--radius-sm);
+	padding: var(--space-3) var(--space-4);
 	color: var(--app-text);
+	background: var(--app-surface-raised);
 	text-decoration: none;
-	align-items: center;
 }
-.dashboard__explore nav a:first-child {
-	border-block-start: 1px solid var(--app-border);
+.recent-list a:hover,
+.dashboard__explore nav a:hover {
+	border-color: var(--app-accent);
+	box-shadow: 0 0.35rem 0.9rem color-mix(in srgb, var(--app-background) 70%, transparent);
 }
 .dashboard__explore nav span {
-	color: var(--app-text-muted);
+	color: var(--app-text);
+	font-size: var(--text-sm);
 }
 @media (max-width: 720px) {
 	.recent-list {
@@ -281,22 +286,19 @@ function recentKind(kind: RecentDestinationKind): string {
 	.dashboard__explore {
 		grid-template-columns: 1fr;
 	}
+	.dashboard__explore nav {
+		grid-template-columns: 1fr;
+	}
 }
 @media (max-width: 470px) {
-	.dashboard__search > div {
-		grid-template-columns: auto 1fr;
-	}
-	.dashboard__search button {
-		grid-column: 1 / -1;
-		margin: 0 var(--space-2) var(--space-2);
-	}
 	.dashboard__section-heading {
-		align-items: flex-start;
-	}
-	.dashboard__explore nav a {
+		display: grid;
 		grid-template-columns: 1fr;
 		gap: var(--space-1);
-		padding-block: var(--space-3);
+	}
+	.dashboard__section-heading button {
+		justify-self: start;
+		padding-inline: 0;
 	}
 }
 </style>

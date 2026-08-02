@@ -41,6 +41,7 @@ function sqliteCacheStore(database: SQLiteDBConnection): PersistentCacheStore {
 			try {
 				return { data: JSON.parse(row.data) as T, key, updatedAt }
 			} catch {
+				/* Invalid cached JSON is deleted so a later request can replace it. */
 				await database.run('DELETE FROM response_cache WHERE cache_key = ?', [key])
 				return undefined
 			}

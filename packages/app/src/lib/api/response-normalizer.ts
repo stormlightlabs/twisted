@@ -10,6 +10,7 @@ export function createNormalizedResponseFetch(fetchImplementation: typeof global
 		try {
 			data = await response.clone().json()
 		} catch {
+			/* Non-JSON responses pass through unchanged. */
 			return response
 		}
 		if (!isRecord(data)) return response

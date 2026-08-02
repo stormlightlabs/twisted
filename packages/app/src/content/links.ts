@@ -51,6 +51,7 @@ export function safeCanonicalTangledUrl(value: string | undefined): string | und
 		const url = new URL(value)
 		return url.protocol === 'https:' && TANGLED_HOSTS.has(url.hostname.toLowerCase()) ? url.href : undefined
 	} catch {
+		/* Invalid external links do not receive a local destination. */
 		return undefined
 	}
 }

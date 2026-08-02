@@ -15,6 +15,7 @@ export function loadBobbinService(storage: Pick<Storage, 'getItem'> | undefined)
 		const saved = storage.getItem(SERVICE_STORAGE_KEY)
 		return saved === null ? DEFAULT_BOBBIN_SERVICE : normalizeBobbinService(saved)
 	} catch {
+		/* Invalid or inaccessible saved settings fall back to the public service. */
 		return DEFAULT_BOBBIN_SERVICE
 	}
 }

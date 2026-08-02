@@ -168,7 +168,7 @@ function isActive(path: string): boolean {
 .app-menu__group ion-item {
 	--background: transparent;
 	--border-radius: var(--radius-sm);
-	--color: var(--app-text-muted);
+	--color: var(--app-text);
 	--min-height: 44px;
 	--padding-start: var(--space-3);
 	margin-block: 0.125rem;

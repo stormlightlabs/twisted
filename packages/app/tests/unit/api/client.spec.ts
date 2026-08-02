@@ -161,6 +161,22 @@ describe('BobbinClient', () => {
 		expect(page.items[0].value.$type).toBe('sh.tangled.repo')
 	})
 
+	test('searches public Bluesky actors for DID typeahead', async () => {
+		const fetch = fetchMock().mockResolvedValue(
+			jsonResponse({ actors: [{ did: 'did:plc:person', handle: 'person.example', displayName: 'Person' }] }),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.searchActorsTypeahead(' person ')).resolves.toEqual([
+			expect.objectContaining({ did: 'did:plc:person', handle: 'person.example' }),
+		])
+		const requestUrl = new URL(String(fetch.mock.calls[0][0]))
+		expect(requestUrl.origin).toBe('https://public.api.bsky.app')
+		expect(requestUrl.pathname).toBe('/xrpc/app.bsky.actor.searchActorsTypeahead')
+		expect(requestUrl.searchParams.get('q')).toBe('person')
+		expect(requestUrl.searchParams.get('limit')).toBe('8')
+	})
+
 	test('validates and paginates actor activity through its typed query', async () => {
 		const reactionUri = 'at://did:plc:person/sh.tangled.feed.reaction/3mho6hukiei22'
 		const fetch = fetchMock().mockResolvedValue(

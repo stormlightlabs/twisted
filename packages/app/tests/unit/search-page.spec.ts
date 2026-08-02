@@ -77,11 +77,28 @@ describe('SearchPage', () => {
 			{ [BOBBIN_CLIENT_PROVIDER]: () => client },
 		)
 		await wrapper.get('#search-query').setValue('twisted')
-		await wrapper.get('input[placeholder="did:plc:…"]').setValue('invalid')
+		await wrapper.get('#search-author').setValue('invalid')
 		await wrapper.get('form').trigger('submit')
 
 		expect(wrapper.get('[role="alert"]').text()).toContain('author must be a complete DID')
 		expect(search).not.toHaveBeenCalled()
+	})
+
+	test('uses custom date controls instead of native date inputs', async () => {
+		const client = {
+			service: 'https://example.test',
+			getCatalogCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 1, lastCursor: 1 }),
+			search: vi.fn(),
+		} as unknown as BobbinClient
+		const wrapper = await mountIonicRoute(
+			SearchPage,
+			'/search?since=2026-08-02',
+			[{ path: '/search', name: 'search', component: SearchPage }],
+			{ [BOBBIN_CLIENT_PROVIDER]: () => client },
+		)
+
+		expect(wrapper.find('input[type="date"]').exists()).toBe(false)
+		expect(wrapper.get('#search-from').text()).toContain('Aug')
 	})
 
 	test('shows a useful empty state', async () => {

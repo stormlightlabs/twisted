@@ -3,6 +3,7 @@ import type { BaseSchema, InferInput } from '@atcute/lexicons/validations'
 import * as v from '@atcute/lexicons/validations'
 import { is } from '@atcute/lexicons'
 import { ComBadExampleIdentityResolveMiniDoc } from '@atcute/microcosm'
+import { AppBskyActorSearchActorsTypeahead } from '@atcute/bluesky'
 import { ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords } from '@atcute/atproto'
 import * as Tngl from '@atcute/tangled'
 import {
@@ -153,13 +154,10 @@ export type PullListOptions = ListReposOptions & {
 }
 
 /** A search hit whose embedded value has been validated and mapped. */
-export interface ValidatedSearchHit<T> {
-	uri: string
-	cid?: string
-	nsid: string
-	score: number
-	value: T
-}
+export type ValidatedSearchHit<T> = { uri: string; cid?: string; nsid: string; score: number; value: T }
+
+/** A compact public Bluesky actor result suitable for identity selection. */
+export type ActorTypeaheadResult = AppBskyActorSearchActorsTypeahead.$output['actors'][number]
 
 /** Parameters for Bobbin's full-text search query. */
 export type SearchParams = Tngl.ShTangledSearchQuery.$params
@@ -175,6 +173,7 @@ type SearchHit = { uri: string; cid?: string; nsid: string; score: number; value
 type BobbinSearchResponse = { cursor?: string; hits: Array<SearchHit> }
 
 const defaultBobbinFetch = createRateLimitedFetch((input, init) => globalThis.fetch(input, init))
+const PUBLIC_BSKY_SERVICE = 'https://public.api.bsky.app'
 
 /**
  * The read-only XRPC boundary used by Twisted views and feature modules.
@@ -1134,6 +1133,22 @@ export class BobbinClient {
 		}
 	}
 
+	/** Finds public actors by handle or display name for DID-backed filters. */
+	async searchActorsTypeahead(query: string, options: RequestOptions = {}): Promise<ActorTypeaheadResult[]> {
+		const q = query.trim()
+		if (q.length < 2) return []
+		const params = { q, limit: 8 }
+		const rpc = new Client({ handler: simpleFetchHandler({ service: PUBLIC_BSKY_SERVICE, fetch: this.#fetch }) })
+		const data = await this.#cached(
+			`public:${PUBLIC_BSKY_SERVICE}:app.bsky.actor.searchActorsTypeahead`,
+			params,
+			options,
+			STALE_TIMES.search,
+			(signal) => rpc.call(AppBskyActorSearchActorsTypeahead, { params, signal }),
+		)
+		return data.actors
+	}
+
 	/** Queries a knot's public owner through Bobbin's documented parameter overlay. */
 	getKnotOwner(knot: string, options: RequestOptions = {}) {
 		assertScopeIdentifier(knot, 'knot identifier')
@@ -1679,6 +1694,7 @@ function contentDispositionFilename(value: string | null): string | undefined {
 		try {
 			return decodeURIComponent(encoded.trim())
 		} catch {
+			/* Malformed encoded filenames remain usable in their original form. */
 			return encoded.trim()
 		}
 	}

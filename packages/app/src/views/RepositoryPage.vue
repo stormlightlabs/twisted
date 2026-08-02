@@ -316,6 +316,7 @@ function safeWebUrl(value: string | undefined): string | undefined {
 		const url = new URL(value)
 		return url.protocol === 'https:' ? url.href : undefined
 	} catch {
+		/* Invalid external URLs are omitted from repository metadata. */
 		return undefined
 	}
 }

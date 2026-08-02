@@ -35,6 +35,7 @@ export function loadRecentActivity(storage: Pick<Storage, 'getItem'> | undefined
 		if (!Array.isArray(value)) return []
 		return value.filter(isRecentDestination).slice(0, MAX_RECENT_DESTINATIONS)
 	} catch {
+		/* Corrupt browser history is discarded. */
 		return []
 	}
 }
@@ -108,6 +109,7 @@ function repositoryLabel(repository: string): string {
 	try {
 		return part ? decodeURIComponent(part) : 'Repository'
 	} catch {
+		/* Malformed route segments remain useful as fallback labels. */
 		return part ?? 'Repository'
 	}
 }

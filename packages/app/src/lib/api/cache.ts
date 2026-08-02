@@ -139,6 +139,7 @@ export class RequestCache {
 			await this.#persistentReset
 			return await (await this.#persistent)?.get<T>(key)
 		} catch {
+			/* Persistent cache reads are optional; callers can load from the network. */
 			return undefined
 		}
 	}

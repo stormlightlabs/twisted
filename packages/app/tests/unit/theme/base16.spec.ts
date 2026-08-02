@@ -7,6 +7,8 @@ import {
 	loadThemePreferences,
 	mapSchemeToTokens,
 	parseBase16Scheme,
+	serializeBase16Json,
+	serializeBase16Yaml,
 	useTheme,
 } from '@/lib/theme'
 import { describe, expect, test } from 'vitest'
@@ -34,8 +36,12 @@ describe('Base16 themes', () => {
 		})
 	})
 
+	test('creates portable slugs from names with accented characters', () => {
+		expect(parseBase16Scheme({ ...eldritch, id: undefined, name: 'Rosé Pine Copy' }).id).toBe('rose-pine-copy')
+	})
+
 	test.each([
-		[null, 'JSON object'],
+		[null, 'object'],
 		[{ name: 'Incomplete', palette: { base00: '#000000' } }, 'base01'],
 		[{ ...eldritch, palette: { ...eldritch.palette, base0F: 'pink' } }, 'base0F'],
 		[{ ...eldritch, system: 'base24' }, 'not Base16'],
@@ -71,16 +77,16 @@ describe('Base16 themes', () => {
 		expect(document.documentElement.style.colorScheme).toBe('dark')
 	})
 
-	test('does not replace the active theme when an import is invalid', () => {
-		const { activeScheme, importTheme } = useTheme()
+	test('does not replace the active theme when a custom theme is invalid', () => {
+		const { activeScheme, saveCustomTheme } = useTheme()
 		const activeId = activeScheme.value.id
 
-		expect(() => importTheme({ name: 'Incomplete', base00: '#000000' })).toThrow('base01')
+		expect(() => saveCustomTheme({ name: 'Incomplete', base00: '#000000' })).toThrow('base01')
 		expect(activeScheme.value.id).toBe(activeId)
 	})
 
 	test('does not replace the active theme with an unreadable complete palette', () => {
-		const { activeScheme, importTheme } = useTheme()
+		const { activeScheme, saveCustomTheme } = useTheme()
 		const activeId = activeScheme.value.id
 		const unreadable = {
 			id: 'unreadable',
@@ -94,8 +100,24 @@ describe('Base16 themes', () => {
 			),
 		}
 
-		expect(() => importTheme(unreadable)).toThrow('Low contrast warning')
+		expect(() => saveCustomTheme(unreadable)).toThrow('Low contrast warning')
 		expect(activeScheme.value.id).toBe(activeId)
+	})
+
+	test('exports portable Base16 JSON and YAML without hash-prefixed colors', () => {
+		const json = JSON.parse(serializeBase16Json(eldritch)) as Record<string, unknown>
+		const yaml = serializeBase16Yaml(eldritch)
+
+		expect(json).toMatchObject({
+			system: 'base16',
+			name: eldritch.name,
+			slug: eldritch.id,
+			author: eldritch.author,
+			variant: eldritch.variant,
+		})
+		expect((json.palette as Record<string, string>).base00).toBe(eldritch.palette.base00.slice(1))
+		expect(yaml).toContain('system: "base16"')
+		expect(yaml).toContain(`  base0F: "${eldritch.palette.base0F.slice(1)}"`)
 	})
 })
 

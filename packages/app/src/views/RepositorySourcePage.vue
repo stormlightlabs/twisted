@@ -245,6 +245,7 @@ function safeUrl(value: string | undefined) {
 		const url = new URL(value)
 		return url.protocol === 'https:' ? url.href : undefined
 	} catch {
+		/* Invalid external URLs are omitted from source metadata. */
 		return undefined
 	}
 }

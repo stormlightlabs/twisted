@@ -4,8 +4,10 @@
 		<ion-content :fullscreen="true">
 			<main id="page-content" class="search-page page-frame page-frame--narrow">
 				<header class="search-page__heading">
-					<p class="section-label">Explore Tangled</p>
-					<h1>Find public work</h1>
+					<div>
+						<p class="section-label">Explore Tangled</p>
+						<h1>Find public work</h1>
+					</div>
 					<p>Search by topic, person, repository, or paste a public Tangled link.</p>
 				</header>
 
@@ -24,12 +26,12 @@
 
 					<details class="search-form__filters" :open="hasFilters">
 						<summary>Refine results</summary>
-						<div>
+						<div class="search-form__filter-grid">
 							<label>Type <input v-model="form.nsid" placeholder="sh.tangled.repo" /></label>
-							<label>Author DID <input v-model="form.author" placeholder="did:plc:…" /></label>
+							<actor-did-typeahead id="search-author" v-model="form.author" label="Author" />
 							<label>Repository DID <input v-model="form.repo" placeholder="did:plc:…" /></label>
-							<label>From <input v-model="form.since" type="date" /></label>
-							<label>Until <input v-model="form.until" type="date" /></label>
+							<app-date-picker id="search-from" v-model="form.since" label="From" />
+							<app-date-picker id="search-until" v-model="form.until" label="Until" />
 						</div>
 					</details>
 					<p v-if="filterError" class="search-form__error" role="alert">{{ filterError }}</p>
@@ -90,6 +92,8 @@
 import type { BobbinError, SearchParams, ValidatedSearchHit } from '@/lib/api'
 import { errorFromException, useBobbinClientProvider } from '@/lib/api'
 import CoverageNotice from '@/components/CoverageNotice.vue'
+import ActorDidTypeahead from '@/components/ActorDidTypeahead.vue'
+import AppDatePicker from '@/components/AppDatePicker.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RequestState from '@/components/RequestState.vue'
 import { localRecordLink } from '@/content/links'
@@ -102,23 +106,11 @@ import { IonContent, IonPage } from '@ionic/vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-interface SearchForm {
-	q: string
-	nsid: string
-	author: string
-	repo: string
-	since: string
-	until: string
-}
+type SearchForm = { q: string; nsid: string; author: string; repo: string; since: string; until: string }
 
-interface DisplayHit extends Omit<ValidatedSearchHit<Record<string, unknown>>, 'value'> {
-	value: Record<string, unknown>
-}
+type DisplayHit = Omit<ValidatedSearchHit<Record<string, unknown>>, 'value'> & { value: Record<string, unknown> }
 
-interface SearchData {
-	items: DisplayHit[]
-	cursor?: string
-}
+type SearchData = { items: DisplayHit[]; cursor?: string }
 
 const route = useRoute()
 const router = useRouter()
@@ -242,6 +234,7 @@ async function directDestination(input: ReturnType<typeof classifyIdentifier>, s
 				)
 				return links.repository(repo.uri)
 			} catch {
+				/* Preserve the more useful identity error when neither lookup succeeds. */
 				throw identityError
 			}
 		}
@@ -291,19 +284,25 @@ function resultLink(uri: string) {
 <style scoped>
 .search-page {
 	display: grid;
-	gap: var(--space-6);
+	gap: var(--space-5);
+}
+.search-page__heading {
+	display: grid;
+	grid-template-columns: minmax(0, 0.8fr) minmax(18rem, 1.2fr);
+	gap: var(--space-5);
+	align-items: end;
 }
 .search-page__heading h1 {
 	margin: 0;
 	font-family: var(--font-display);
-	font-size: clamp(2.75rem, 8vw, 5rem);
-	letter-spacing: -0.055em;
+	font-size: clamp(2rem, 5vw, 3rem);
+	letter-spacing: -0.04em;
 }
 .search-page__heading > p:last-child {
 	max-inline-size: 40rem;
+	margin: 0 0 var(--space-1);
 	color: var(--app-text-muted);
-	font-size: var(--text-lg);
-	line-height: 1.6;
+	line-height: 1.5;
 }
 .search-form {
 	display: grid;
@@ -315,15 +314,16 @@ function resultLink(uri: string) {
 	font-weight: 700;
 }
 .search-form__query {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
 	gap: var(--space-3);
 }
 .search-form input {
 	inline-size: 100%;
-	min-block-size: 3rem;
+	min-block-size: 44px;
 	border: 1px solid var(--app-border);
 	border-radius: var(--radius-sm);
-	padding-inline: var(--space-4);
+	padding-inline: var(--space-3);
 	color: var(--app-text);
 	background: var(--app-surface);
 }
@@ -339,18 +339,25 @@ function resultLink(uri: string) {
 	cursor: pointer;
 }
 .search-form__filters {
-	border-block-start: 1px solid var(--app-border);
-	padding-block-start: var(--space-3);
+	border: 1px solid var(--app-border);
+	border-radius: var(--radius-sm);
+	background: var(--app-surface);
 }
 .search-form__filters summary {
+	display: flex;
+	align-items: center;
 	min-block-size: 44px;
+	padding-inline: var(--space-3);
 	color: var(--app-accent);
+	font-weight: 700;
 	cursor: pointer;
 }
-.search-form__filters > div {
+.search-form__filter-grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: var(--space-4);
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--space-3);
+	border-block-start: 1px solid var(--app-border);
+	padding: var(--space-3);
 }
 .search-form__filters label {
 	display: grid;
@@ -427,11 +434,18 @@ function resultLink(uri: string) {
 	overflow-wrap: anywhere;
 }
 @media (max-width: 600px) {
-	.search-form__query {
-		flex-direction: column;
-	}
-	.search-form__filters > div {
+	.search-page__heading {
 		grid-template-columns: 1fr;
+		gap: var(--space-2);
+	}
+	.search-form__filter-grid {
+		grid-template-columns: 1fr;
+	}
+	.search-form__query {
+		gap: var(--space-2);
+	}
+	.search-form button {
+		padding-inline: var(--space-3);
 	}
 }
 </style>
