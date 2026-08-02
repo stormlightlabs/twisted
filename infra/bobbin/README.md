@@ -24,8 +24,8 @@ bun run infra:bobbin:clean
 This command removes only the `twisted-bobbin` builder but does not prune
 images, containers, volumes, or another project's build cache.
 
-Copy `.env.example` to `.env`, replace the two example upstream URLs, then
-start the previously built image:
+Copy `.env.example` to `.env`, review the upstream URLs, then start the
+previously built image:
 
 ```sh
 docker compose --env-file infra/bobbin/.env \
@@ -50,6 +50,36 @@ curl http://localhost:8090/xrpc/sh.tangled.bobbin.getCoverage
 `ready: false` means Bobbin is still replaying Hydrant events. Lists, counts,
 and search can be incomplete during that period, although single-record lookups
 can already work through Slingshot.
+
+## Stop and restart
+
+Stop both Bobbin and its Caddy gateway without removing either container:
+
+```sh
+docker compose --env-file infra/bobbin/.env \
+  -f infra/bobbin/compose.yaml stop
+```
+
+Start the stopped containers again:
+
+```sh
+docker compose --env-file infra/bobbin/.env \
+  -f infra/bobbin/compose.yaml start
+```
+
+Use `restart` when the environment file has not changed. Docker does not reload
+environment variables during a restart. After changing `.env`, recreate Bobbin
+while leaving the built image intact:
+
+```sh
+docker compose --env-file infra/bobbin/.env \
+  -f infra/bobbin/compose.yaml up --no-build -d --force-recreate bobbin
+```
+
+The example configuration uses the public Microcosm Slingshot service. The
+KLBR Hydrant origin currently returns `404` for the `/stream` path required by
+this pinned Bobbin build, so indexed lists, counts, and search remain incomplete
+until that endpoint becomes compatible or another Hydrant is configured.
 
 To adopt a newer Bobbin release, update the commit in `compose.yaml`, review
 `bobbin/example.toml` and `bobbin/crates/xrpc/src/lib.rs` at that commit, then

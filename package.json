@@ -14,6 +14,7 @@
 		"format:check": "prettier --check . --ignore-unknown",
 		"infra:bobbin:build": "sh infra/bobbin/scripts/build.sh",
 		"infra:bobbin:clean": "sh infra/bobbin/scripts/clean.sh",
+		"icons:generate": "bun run --cwd packages/icons generate",
 		"test:e2e": "bun run --cwd packages/app test:e2e",
 		"test:unit": "bun run --cwd packages/app test:unit",
 		"test:smoke": "bun run --cwd packages/app test:smoke",
