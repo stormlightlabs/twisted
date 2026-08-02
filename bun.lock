@@ -4,6 +4,10 @@
   "workspaces": {
     "": {
       "name": "twisted",
+    },
+    "packages/app": {
+      "name": "@twisted/app",
+      "version": "0.0.1",
       "dependencies": {
         "@atcute/client": "5.1.1",
         "@atcute/lexicons": "2.0.3",
@@ -335,6 +339,8 @@
     "@stencil/vue-output-target": ["@stencil/vue-output-target@0.10.7", "", { "peerDependencies": { "@stencil/core": ">=2.0.0 || >=3 || >= 4.0.0-beta.0 || >= 4.0.0", "vue": "^3.4.38", "vue-router": "^4.5.0" } }, "sha512-IYxDe+SLCkwhwsWRdynE31rTK1zN3hVwwojQ/V9lrN8Gnx4PTvrUQHiRno9jFo1dk+EaBZWX9gZSmXta0ZaZew=="],
 
     "@tootallnate/once": ["@tootallnate/once@2.0.1", "", {}, "sha512-HqmEUIGRJ5fSXchkVgR5F7qn48bDBzv0kWj/Kfu5e6uci4UlEeng4331LnBkWffb++Ei3FOVLxo8JJWMFBDMeQ=="],
+
+    "@twisted/app": ["@twisted/app@workspace:packages/app"],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.3", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg=="],
 

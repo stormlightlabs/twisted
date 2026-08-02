@@ -23,10 +23,10 @@ npm-debug.log*
 /.sourcemaps
 /.versions
 /.vscode/
-/coverage
-/dist
+**/coverage
+**/dist
 *.tsbuildinfo
-/node_modules
+**/node_modules
 /platforms
 /plugins
 /www
