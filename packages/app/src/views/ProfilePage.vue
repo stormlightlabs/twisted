@@ -92,6 +92,7 @@
 
 <script setup lang="ts">
 import { useBobbinClientProvider } from '@/lib/api'
+import { forgetRecentDestination, rememberRecentPerson } from '@/lib/activity/recent'
 import PageHeader from '@/components/PageHeader.vue'
 import RequestState from '@/components/RequestState.vue'
 import OwnedRepositories from '@/features/profiles/OwnedRepositories.vue'
@@ -101,7 +102,7 @@ import { links } from '@/lib/router/links'
 import { useObjectUrl } from '@vueuse/core'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
 import { openOutline } from 'ionicons/icons'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -112,6 +113,20 @@ const identityRequest = useRouteRequest(actor, (identifier, signal, attempt) =>
 		signal,
 		cache: attempt.cache,
 	}),
+)
+watch(
+	() => identityRequest.data.value,
+	(identity) => {
+		if (identity) rememberRecentPerson(actor.value, identity.handle)
+	},
+)
+watch(
+	() => identityRequest.error.value,
+	(error) => {
+		if (error && ['identity-not-found', 'invalid-request', 'not-found'].includes(error.kind)) {
+			forgetRecentDestination('person', actor.value)
+		}
+	},
 )
 const identity = computed(() => identityRequest.data.value!)
 const profileRequest = useRouteRequest(

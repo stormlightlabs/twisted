@@ -3,8 +3,8 @@
 		<ion-content class="app-menu">
 			<router-link :to="links.landing" class="app-menu__brand" aria-label="Twisted landing page">
 				<span class="app-menu__mark" aria-hidden="true">
-					<img alt="" src="/favicon.png" />
-					<span>T</span>
+					<img class="app-menu__logo app-menu__logo--light" alt="" src="/icons/logo-light.svg" />
+					<img class="app-menu__logo app-menu__logo--dark" alt="" src="/icons/logo-dark.svg" />
 				</span>
 				<span class="app-menu__brand-copy">
 					<strong>Twisted</strong>
@@ -59,23 +59,23 @@ const navigation = [
 	{
 		label: 'Explore',
 		items: [
-			{ label: 'Home', to: links.home, activePath: '/home', icon: homeOutline },
-			{ label: 'Search', to: links.search(), activePath: '/search', icon: searchOutline },
-			{ label: 'Profiles', to: links.profiles, activePath: '/profiles', icon: peopleOutline },
-			{ label: 'Repositories', to: links.repositories, activePath: '/repositories', icon: gitBranchOutline },
-			{ label: 'Strings', to: links.strings(), activePath: '/strings', icon: documentTextOutline },
+			{ label: 'Home', to: '/home', activePath: '/home', icon: homeOutline },
+			{ label: 'Search', to: '/search', activePath: '/search', icon: searchOutline },
+			{ label: 'Profiles', to: '/profiles', activePath: '/profiles', icon: peopleOutline },
+			{ label: 'Repositories', to: '/repositories', activePath: '/repositories', icon: gitBranchOutline },
+			{ label: 'Strings', to: '/strings', activePath: '/strings', icon: documentTextOutline },
 		],
 	},
 	{
 		label: 'Infrastructure',
 		items: [
-			{ label: 'Knots & spindles', to: links.infrastructure, activePath: '/infrastructure', icon: compassOutline },
-			{ label: 'Public keys', to: links.publicKeys(), activePath: '/diagnostics/keys', icon: helpBuoyOutline },
+			{ label: 'Knots & spindles', to: '/infrastructure', activePath: '/infrastructure', icon: compassOutline },
+			{ label: 'Public keys', to: '/diagnostics/keys', activePath: '/diagnostics/keys', icon: helpBuoyOutline },
 		],
 	},
 	{
 		label: 'Application',
-		items: [{ label: 'Settings', to: links.settings, activePath: '/settings', icon: settingsOutline }],
+		items: [{ label: 'Settings', to: '/settings', activePath: '/settings', icon: settingsOutline }],
 	},
 ] as const
 
@@ -93,7 +93,7 @@ function isActive(path: string): boolean {
 	display: flex;
 	align-items: center;
 	gap: var(--space-3);
-	padding: calc(var(--safe-top) + var(--space-6)) var(--space-5) var(--space-6);
+	padding: calc(var(--safe-top) + var(--space-4)) var(--space-4) var(--space-5);
 	color: var(--app-text);
 	text-decoration: none;
 }
@@ -118,46 +118,28 @@ function isActive(path: string): boolean {
 	display: grid;
 	place-items: center;
 	flex: 0 0 auto;
-	inline-size: 2.5rem;
-	block-size: 2.5rem;
-	border: 1px solid var(--app-accent);
-	border-radius: var(--radius-sm);
+	inline-size: 2rem;
+	block-size: 2rem;
 	color: var(--app-accent);
 	font-family: var(--font-display);
 	font-size: var(--text-xl);
 	font-weight: 800;
-	transform: rotate(-3deg);
 }
 
-.app-menu__mark img,
-.app-menu__mark > span {
+.app-menu__logo {
 	position: absolute;
-	transition:
-		opacity 150ms ease-out,
-		transform 150ms ease-out;
-}
-
-.app-menu__mark img {
-	inline-size: 1.85rem;
-	block-size: 1.85rem;
+	inline-size: 2rem;
+	block-size: 2rem;
 	object-fit: contain;
 }
-
-.app-menu__mark > span {
+.app-menu__logo--light {
 	opacity: 0;
-	transform: scale(0.8);
 }
-
-.app-menu__brand:hover .app-menu__mark img,
-.app-menu__brand:focus-visible .app-menu__mark img {
-	opacity: 0;
-	transform: scale(0.8);
-}
-
-.app-menu__brand:hover .app-menu__mark > span,
-.app-menu__brand:focus-visible .app-menu__mark > span {
+:global(html[data-theme-variant='light']) .app-menu__logo--light {
 	opacity: 1;
-	transform: scale(1);
+}
+:global(html[data-theme-variant='light']) .app-menu__logo--dark {
+	opacity: 0;
 }
 
 .app-menu__group {
@@ -165,7 +147,7 @@ function isActive(path: string): boolean {
 }
 
 .app-menu__group + .app-menu__group {
-	margin-block-start: var(--space-5);
+	margin-block-start: var(--space-4);
 }
 
 .app-menu__group > p {
@@ -211,7 +193,7 @@ function isActive(path: string): boolean {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--space-3);
-	margin: var(--space-8) var(--space-6) calc(var(--safe-bottom) + var(--space-5));
+	margin: var(--space-6) var(--space-5) calc(var(--safe-bottom) + var(--space-4));
 	font-size: var(--text-xs);
 }
 

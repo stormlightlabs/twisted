@@ -43,8 +43,8 @@
 	--space-8: 3rem;
 	--space-10: 4rem;
 	--space-12: 6rem;
-	--radius-sm: 0.5rem;
-	--radius-md: 0.875rem;
+	--radius-sm: 0.25rem;
+	--radius-md: 0.5rem;
 	--safe-top: env(safe-area-inset-top, 0px);
 	--safe-right: env(safe-area-inset-right, 0px);
 	--safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -110,15 +110,15 @@ a {
 
 ion-split-pane {
 	--border: 1px solid var(--app-border);
-	--side-max-width: 17.5rem;
-	--side-min-width: 17.5rem;
-	--side-width: 17.5rem;
+	--side-max-width: 15.5rem;
+	--side-min-width: 15.5rem;
+	--side-width: 15.5rem;
 }
 
 ion-menu {
-	--width: 17.5rem;
-	--min-width: 17.5rem;
-	--max-width: 17.5rem;
+	--width: 15.5rem;
+	--min-width: 15.5rem;
+	--max-width: 15.5rem;
 }
 
 ion-toolbar {
@@ -141,8 +141,8 @@ ion-back-button {
 .page-frame {
 	inline-size: min(100%, 84rem);
 	margin-inline: auto;
-	padding: clamp(var(--space-6), 5vw, var(--space-10)) max(var(--space-5), var(--safe-right))
-		calc(var(--space-12) + var(--safe-bottom)) max(var(--space-5), var(--safe-left));
+	padding: clamp(var(--space-4), 3vw, var(--space-6)) max(var(--space-4), var(--safe-right))
+		calc(var(--space-8) + var(--safe-bottom)) max(var(--space-4), var(--safe-left));
 }
 
 .page-frame > *,

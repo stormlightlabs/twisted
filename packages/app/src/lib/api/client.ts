@@ -228,17 +228,28 @@ export class BobbinClient {
 	}
 
 	/** Resolves a handle or DID through Microcosm's typed identity query. */
-	resolveIdentity(
+	async resolveIdentity(
 		identifier: ComBadExampleIdentityResolveMiniDoc.$params['identifier'],
 		options: RequestOptions = {},
 	): Promise<ComBadExampleIdentityResolveMiniDoc.$output> {
-		return this.#cached(
-			'com.bad-example.identity.resolveMiniDoc',
-			{ identifier },
-			options,
-			STALE_TIMES.identity,
-			(signal) => this.#rpc.call(ComBadExampleIdentityResolveMiniDoc, { params: { identifier }, signal }),
-		)
+		try {
+			return await this.#cached(
+				'com.bad-example.identity.resolveMiniDoc',
+				{ identifier },
+				options,
+				STALE_TIMES.identity,
+				(signal) => this.#rpc.call(ComBadExampleIdentityResolveMiniDoc, { params: { identifier }, signal }),
+			)
+		} catch (error) {
+			const normalized = errorFromException(error)
+			if (!identifier.startsWith('did:') && normalized.kind === 'upstream-unavailable') {
+				throw new BobbinError('identity-not-found', `No identity resolves from ${identifier}`, {
+					cause: normalized,
+					status: normalized.status,
+				})
+			}
+			throw normalized
+		}
 	}
 
 	/** Fetches and validates one Tangled actor profile record. */

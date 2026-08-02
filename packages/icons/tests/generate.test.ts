@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, test } from 'bun:test'
 import sharp from 'sharp'
-import { generateIcons, getIconRecipes } from '../src/generate'
+import { generateIcons, generateThemeLogos, getIconRecipes, getThemeLogoRecipes } from '../src/generate'
 
 const workspaceRoot = path.resolve(import.meta.dir, '../../..')
-const source = path.join(workspaceRoot, 'packages/app/public/favicon.png')
+const source = path.join(workspaceRoot, 'packages/app/public/base.svg')
 const temporaryDirectories: string[] = []
 
 afterAll(async () => {
@@ -40,6 +40,18 @@ describe('generateIcons', () => {
 				src: `/icons/${recipe.filename}`,
 				type: 'image/png',
 			})
+		}
+	})
+
+	test('creates explicit light and dark SVG logo variants', async () => {
+		const outputDirectory = await mkdtemp(path.join(tmpdir(), 'twisted-logos-'))
+		temporaryDirectories.push(outputDirectory)
+		await generateThemeLogos(source, outputDirectory)
+
+		for (const recipe of getThemeLogoRecipes()) {
+			const output = await readFile(path.join(outputDirectory, recipe.filename), 'utf8')
+			expect(output).toContain(recipe.color)
+			expect(output).not.toContain('currentColor')
 		}
 	})
 })

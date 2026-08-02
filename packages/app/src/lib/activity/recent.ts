@@ -7,11 +7,13 @@ const MAX_RECENT_DESTINATIONS = 8
 
 export type RecentDestinationKind = 'person' | 'repository' | 'search'
 
-export interface RecentDestination {
+export type RecentDestination = {
+	detail?: string
 	kind: RecentDestinationKind
 	label: string
 	target: string
 	visitedAt: number
+	verified?: true
 }
 
 type RecentStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
@@ -39,12 +41,37 @@ export function loadRecentActivity(storage: Pick<Storage, 'getItem'> | undefined
 
 export function rememberRecentRoute(route: RouteLocationNormalizedLoaded): void {
 	const destination = destinationFromRoute(route)
-	if (!destination) return
+	if (destination) rememberDestination(destination)
+}
 
-	recentDestinations.value = [
-		destination,
-		...recentDestinations.value.filter((item) => item.kind !== destination.kind || item.target !== destination.target),
-	].slice(0, MAX_RECENT_DESTINATIONS)
+/** Remembers a profile only after its identity has resolved successfully. */
+export function rememberRecentPerson(target: string, handle: string): void {
+	rememberDestination({
+		kind: 'person',
+		label: handle === 'handle.invalid' ? target : `@${handle.replace(/^@/, '')}`,
+		target,
+		visitedAt: Date.now(),
+		verified: true,
+	})
+}
+
+/** Remembers a repository using its readable name while retaining its canonical rkey. */
+export function rememberRecentRepository(target: string, name: string): void {
+	rememberDestination({
+		detail: repositoryLabel(target),
+		kind: 'repository',
+		label: name.trim() || 'Repository',
+		target,
+		visitedAt: Date.now(),
+		verified: true,
+	})
+}
+
+/** Removes a failed destination that may have been saved by an older Twisted release. */
+export function forgetRecentDestination(kind: Exclude<RecentDestinationKind, 'search'>, target: string): void {
+	const next = recentDestinations.value.filter((item) => item.kind !== kind || item.target !== target)
+	if (next.length === recentDestinations.value.length) return
+	recentDestinations.value = next
 	persistRecentActivity()
 }
 
@@ -68,43 +95,11 @@ export function useRecentActivity() {
 }
 
 function destinationFromRoute(route: RouteLocationNormalizedLoaded): RecentDestination | undefined {
-	const actor = routeParameter(route.params.actor)
-	if (
-		actor &&
-		isActorIdentifier(actor) &&
-		['profile', 'actor-activity', 'actor-relationships'].includes(String(route.name))
-	) {
-		return {
-			kind: 'person',
-			label: actor.startsWith('did:') ? actor : `@${actor.replace(/^@/, '')}`,
-			target: actor,
-			visitedAt: Date.now(),
-		}
-	}
-
-	const repository = routeParameter(route.params.repo)
-	if (repository?.startsWith('at://')) {
-		return { kind: 'repository', label: repositoryLabel(repository), target: repository, visitedAt: Date.now() }
-	}
-
 	const query = typeof route.query.q === 'string' ? route.query.q.trim() : ''
 	if (route.name === 'search' && query) {
 		return { kind: 'search', label: query, target: query, visitedAt: Date.now() }
 	}
 
-	return undefined
-}
-
-function isActorIdentifier(value: string): boolean {
-	return (
-		/^did:[a-z0-9]+:[^\s/]+$/i.test(value) ||
-		/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/i.test(value.replace(/^@/, ''))
-	)
-}
-
-function routeParameter(value: unknown): string | undefined {
-	if (typeof value === 'string' && value.trim()) return value
-	if (Array.isArray(value)) return value.join('/')
 	return undefined
 }
 
@@ -127,8 +122,17 @@ function isRecentDestination(value: unknown): value is RecentDestination {
 		typeof item.target === 'string' &&
 		item.target.length > 0 &&
 		typeof item.visitedAt === 'number' &&
-		Number.isFinite(item.visitedAt)
+		Number.isFinite(item.visitedAt) &&
+		(item.kind === 'search' || item.verified === true)
 	)
+}
+
+function rememberDestination(destination: RecentDestination): void {
+	recentDestinations.value = [
+		destination,
+		...recentDestinations.value.filter((item) => item.kind !== destination.kind || item.target !== destination.target),
+	].slice(0, MAX_RECENT_DESTINATIONS)
+	persistRecentActivity()
 }
 
 function persistRecentActivity(): void {

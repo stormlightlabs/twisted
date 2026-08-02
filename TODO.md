@@ -198,7 +198,9 @@ metadata, and recoverable failures.
 **What was built:** Added polite pagination announcements, named offline and
 update states, 44-pixel controls, zoom-safe viewport settings, reduced-motion
 coverage, low-contrast import warnings, and narrow-grid overflow guards. Source
-blobs now use theme-aware Shiki syntax highlighting without injecting HTML.
+blobs use theme-aware Shiki syntax highlighting without injecting HTML. The app
+shell and discovery views now use a denser forge-style layout, and the final
+repository placeholder has been replaced with owner-based browsing.
 
 **Blocked by:** T08-T23
 

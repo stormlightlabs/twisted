@@ -16,7 +16,8 @@ describe('HomePage', () => {
 			{ path: '/infrastructure', name: 'infrastructure', component: emptyPage },
 		])
 
-		expect(wrapper.get('h1').text()).toBe('Pick up where you left off.')
+		expect(wrapper.get('#dashboard-search').attributes('placeholder')).toContain('repository')
+		expect(wrapper.get('#recent-heading').text()).toBe('Recently opened')
 		expect(warning).not.toHaveBeenCalled()
 	})
 })

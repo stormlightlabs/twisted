@@ -115,6 +115,7 @@ export function applyScheme(scheme: Base16Scheme, root: HTMLElement = document.d
 		root.style.setProperty(property, value)
 	}
 	root.dataset.theme = scheme.id
+	root.dataset.themeVariant = scheme.variant
 	root.style.colorScheme = scheme.variant
 
 	if (root === document.documentElement) {

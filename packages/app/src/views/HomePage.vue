@@ -4,10 +4,6 @@
 		<ion-content :fullscreen="true">
 			<main id="page-content" class="dashboard page-frame">
 				<header class="dashboard__header">
-					<p class="section-label">Your Tangled home</p>
-					<h1>Pick up where you left off.</h1>
-					<p>Return to something you opened recently, or start a new search.</p>
-
 					<form class="dashboard__search" role="search" @submit.prevent="search">
 						<label for="dashboard-search">Search Tangled</label>
 						<div>
@@ -37,8 +33,11 @@
 							<router-link :to="recentDestinationLink(destination)">
 								<ion-icon :icon="recentIcon(destination.kind)" aria-hidden="true" />
 								<span>
-									<small>{{ recentKind(destination.kind) }}</small>
 									<strong>{{ destination.label }}</strong>
+									<small>
+										{{ recentKind(destination.kind)
+										}}<template v-if="destination.detail"> · {{ destination.detail }}</template>
+									</small>
 								</span>
 								<ion-icon :icon="arrowForwardOutline" aria-hidden="true" />
 							</router-link>
@@ -109,31 +108,16 @@ function recentKind(kind: RecentDestinationKind): string {
 <style scoped>
 .dashboard {
 	display: grid;
-	gap: clamp(var(--space-10), 7vw, var(--space-12));
+	align-content: start;
+	gap: var(--space-8);
 }
 .dashboard__header {
-	max-inline-size: 54rem;
-}
-.dashboard__header h1 {
-	max-inline-size: 11ch;
-	margin: 0;
-	font-family: var(--font-display);
-	font-size: clamp(3rem, 6vw, 5.5rem);
-	letter-spacing: -0.06em;
-	line-height: 0.95;
-	text-wrap: balance;
-}
-.dashboard__header > p:last-of-type {
-	max-inline-size: 38rem;
-	color: var(--app-text-muted);
-	font-size: var(--text-lg);
-	line-height: 1.6;
+	max-inline-size: 64rem;
 }
 .dashboard__search {
 	display: grid;
 	gap: var(--space-2);
 	max-inline-size: 46rem;
-	margin-block-start: var(--space-8);
 }
 .dashboard__search label {
 	font-size: var(--text-sm);
@@ -143,9 +127,9 @@ function recentKind(kind: RecentDestinationKind): string {
 	display: grid;
 	grid-template-columns: auto 1fr auto;
 	align-items: center;
-	min-block-size: 3.75rem;
+	min-block-size: 2.875rem;
 	border: 1px solid var(--app-border);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-sm);
 	background: var(--app-surface);
 	overflow: hidden;
 }
@@ -176,7 +160,7 @@ function recentKind(kind: RecentDestinationKind): string {
 }
 .dashboard__recent {
 	display: grid;
-	gap: var(--space-5);
+	gap: var(--space-3);
 }
 .dashboard__section-heading {
 	display: flex;
@@ -184,7 +168,7 @@ function recentKind(kind: RecentDestinationKind): string {
 	justify-content: space-between;
 	gap: var(--space-5);
 	border-block-end: 1px solid var(--app-border);
-	padding-block-end: var(--space-4);
+	padding-block-end: var(--space-3);
 }
 .dashboard__section-heading h2,
 .dashboard__explore h2 {
@@ -202,24 +186,26 @@ function recentKind(kind: RecentDestinationKind): string {
 }
 .recent-list {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: var(--space-3);
+	gap: 0;
 	margin: 0;
 	padding: 0;
+	border-block-start: 1px solid var(--app-border);
 	list-style: none;
 }
 .recent-list a {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
-	gap: var(--space-4);
-	min-block-size: 5.5rem;
-	border: 1px solid var(--app-border);
-	border-radius: var(--radius-md);
-	padding: var(--space-4);
+	gap: var(--space-3);
+	min-block-size: 4rem;
+	border-block-end: 1px solid var(--app-border);
+	padding: var(--space-3) var(--space-2);
 	color: var(--app-text);
-	background: var(--app-surface);
+	background: transparent;
 	text-decoration: none;
+}
+.recent-list a:hover {
+	background: var(--app-surface);
 }
 .recent-list a > ion-icon:first-child {
 	color: var(--app-accent);
@@ -265,9 +251,9 @@ function recentKind(kind: RecentDestinationKind): string {
 .dashboard__explore {
 	display: grid;
 	grid-template-columns: minmax(12rem, 0.65fr) minmax(20rem, 1.35fr);
-	gap: var(--space-8);
+	gap: var(--space-6);
 	border-block-start: 1px solid var(--app-border);
-	padding-block-start: var(--space-6);
+	padding-block-start: var(--space-5);
 }
 .dashboard__explore nav {
 	display: grid;
@@ -276,7 +262,7 @@ function recentKind(kind: RecentDestinationKind): string {
 	display: grid;
 	grid-template-columns: minmax(10rem, 0.8fr) minmax(12rem, 1.2fr);
 	gap: var(--space-4);
-	min-block-size: 4.5rem;
+	min-block-size: 3.75rem;
 	border-block-end: 1px solid var(--app-border);
 	color: var(--app-text);
 	text-decoration: none;

@@ -63,12 +63,11 @@ const presentation = computed(() => (props.error === undefined ? undefined : pre
 .request-state {
 	display: flex;
 	align-items: flex-start;
-	gap: var(--space-4);
+	gap: var(--space-3);
 	max-inline-size: 44rem;
-	border: 1px solid var(--app-border);
-	border-radius: var(--radius-md);
-	padding: var(--space-5);
-	background: var(--app-surface);
+	border-inline-start: 3px solid var(--app-warning);
+	padding: var(--space-3) var(--space-4);
+	background: transparent;
 }
 
 .request-state > ion-icon {
@@ -108,10 +107,8 @@ const presentation = computed(() => (props.error === undefined ? undefined : pre
 }
 
 .request-state--inline {
-	border-inline-start: 3px solid var(--app-warning);
 	border-block: 0;
 	border-inline-end: 0;
-	border-radius: 0;
 	padding-block: var(--space-3);
 	background: transparent;
 }

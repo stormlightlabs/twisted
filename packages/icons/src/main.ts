@@ -2,9 +2,9 @@
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generateIcons } from './generate'
+import { generateIcons, generateThemeLogos } from './generate'
 
-type CommandOptions = { background: string; input: string; outputDirectory: string }
+type CommandOptions = { background: string; foreground: string; input: string; outputDirectory: string }
 
 function option(arguments_: readonly string[], name: string): string | undefined {
 	const index = arguments_.indexOf(name)
@@ -19,9 +19,10 @@ function parseOptions(rawArguments: readonly string[]): CommandOptions {
 
 	return {
 		background: option(arguments_, '--background') ?? '#212337',
+		foreground: option(arguments_, '--foreground') ?? '#ebfafa',
 		input: positionalInput
 			? path.resolve(workspaceRoot, positionalInput)
-			: path.join(workspaceRoot, 'packages/app/public/favicon.png'),
+			: path.join(workspaceRoot, 'packages/app/public/base.svg'),
 		outputDirectory: requestedOutput
 			? path.resolve(workspaceRoot, requestedOutput)
 			: path.join(workspaceRoot, 'packages/app/public/icons'),
@@ -30,10 +31,15 @@ function parseOptions(rawArguments: readonly string[]): CommandOptions {
 
 /** Runs the icon generator command with explicit arguments for testability. */
 export async function main(rawArguments: readonly string[] = process.argv.slice(2)): Promise<void> {
-	const recipes = await generateIcons(parseOptions(rawArguments))
+	const options = parseOptions(rawArguments)
+	const [recipes, logos] = await Promise.all([
+		generateIcons(options),
+		generateThemeLogos(options.input, options.outputDirectory),
+	])
 	for (const recipe of recipes) {
 		console.log(`${recipe.filename}\t${recipe.size}x${recipe.size}\t${recipe.purpose}`)
 	}
+	for (const logo of logos) console.log(`${logo.filename}\t${logo.variant}\t${logo.color}`)
 }
 
 function isMainModule(): boolean {

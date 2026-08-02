@@ -40,6 +40,15 @@ function repoRecord() {
 }
 
 describe('BobbinClient', () => {
+	test('presents an unresolved handle as a missing identity', async () => {
+		const fetch = fetchMock().mockResolvedValue(
+			jsonResponse({ error: 'UpstreamFailure', message: 'handle did not resolve' }, { status: 502 }),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.resolveIdentity('desertthunder.defv')).rejects.toMatchObject({ kind: 'identity-not-found' })
+	})
+
 	test('accepts public knot hosts without allowing insecure or path-scoped origins', () => {
 		expect(normalizeKnotService('knot.example')).toBe('https://knot.example')
 		expect(normalizeKnotService('https://knot.example/')).toBe('https://knot.example')

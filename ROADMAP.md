@@ -64,7 +64,10 @@ content, labels, totals, collaborators, and recent code updates. They also make
 the repository record and repository DID easy to distinguish and copy. The
 repository experience now includes branch and tag shortcuts, commit patches,
 base-to-head comparisons, readable highlighted diffs, Shiki-highlighted source
-blobs, and streamed archive downloads. The public landing page and shared
+blobs, and streamed archive downloads. Repository discovery resolves an owner
+handle or DID and lists public repositories, while complete repository AT-URIs
+open directly. Recent history stores only successfully resolved destinations
+and presents repository names before their rkeys. The public landing page and shared
 messages speak to readers rather than exposing implementation details. Shared
 content components sanitize Markdown and route supported record links to local
 views. Every planned domain has a stable deep link and complete read view.

@@ -4,6 +4,7 @@ import { ClientValidationError } from '@atcute/client'
 export type BobbinErrorKind =
 	| 'aborted'
 	| 'invalid-request'
+	| 'identity-not-found'
 	| 'malformed-response'
 	| 'network'
 	| 'offline'

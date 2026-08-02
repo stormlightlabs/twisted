@@ -22,6 +22,7 @@ export const links = {
 		params: { repo, relationship },
 	}),
 	repositories: { name: 'repositories' } satisfies RouteLocationRaw,
+	repositoriesFor: (owner: string): RouteLocationRaw => ({ name: 'repositories', query: { owner } }),
 	repository: (repo: string): RouteLocationRaw => ({ name: 'repository', params: { repo } }),
 	source: (repo: string, ref?: string, path?: string, view?: 'blob'): RouteLocationRaw => ({
 		name: 'repository-source',

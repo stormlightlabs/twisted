@@ -195,11 +195,12 @@ import PageHeader from '@/components/PageHeader.vue'
 import RecordHeader from '@/components/RecordHeader.vue'
 import RequestState from '@/components/RequestState.vue'
 import { parseAtUri } from '@/content/links'
+import { forgetRecentDestination, rememberRecentRepository } from '@/lib/activity/recent'
 import { useCopy } from '@/lib/browser'
 import { useRouteRequest } from '@/lib/requests'
 import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -213,6 +214,17 @@ const repositoryRequest = useRouteRequest(repo, (identifier, signal, attempt) =>
 	}),
 )
 const repository = computed(() => repositoryRequest.data.value)
+watch(repository, (record) => {
+	if (record) rememberRecentRepository(record.uri, record.value.name ?? '')
+})
+watch(
+	() => repositoryRequest.error.value,
+	(error) => {
+		if (error && ['invalid-request', 'not-found'].includes(error.kind)) {
+			forgetRecentDestination('repository', repo.value)
+		}
+	},
+)
 const ownerDid = computed(() => parseAtUri(repo.value)?.authority)
 const repositoryDid = computed(() => repository.value?.value.repoDid ?? '')
 const repositoryLocation = computed<RepositoryLocation | undefined>(() => {

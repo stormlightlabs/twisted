@@ -9,6 +9,11 @@ const presentations: Record<BobbinErrorKind, RequestErrorPresentation> = {
 		message: 'One or more identifiers or filters are not valid.',
 		retryable: false,
 	},
+	'identity-not-found': {
+		title: 'Profile not found',
+		message: 'No Tangled profile resolves from this handle. Check the spelling or try a DID.',
+		retryable: false,
+	},
 	'malformed-response': {
 		title: 'This content could not be displayed',
 		message: 'The response was incomplete or in an unexpected format.',
