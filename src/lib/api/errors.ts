@@ -31,11 +31,7 @@ export class BobbinError extends Error {
 	}
 }
 
-interface ErrorResponse {
-	status: number
-	headers: Headers
-	data: { error: string; message?: string }
-}
+type ErrorResponse = { status: number; headers: Headers; data: { error: string; message?: string } }
 
 /** Converts an unsuccessful XRPC response into Twisted's stable error model. */
 export function errorFromResponse(response: ErrorResponse): BobbinError {
@@ -51,7 +47,7 @@ export function errorFromResponse(response: ErrorResponse): BobbinError {
 	if (status === 429) {
 		return new BobbinError('rate-limited', message, {
 			status,
-			retryAfterMs: parseRetryAfter(response.headers.get('retry-after')),
+			retryAfterMs: parseRetryAfterMs(response.headers.get('retry-after')),
 		})
 	}
 	if (status === 502) {
@@ -67,6 +63,9 @@ export function errorFromException(error: unknown): BobbinError {
 		return error
 	}
 	if (error instanceof ClientValidationError) {
+		if (error.target === 'params' || error.target === 'input') {
+			return new BobbinError('invalid-request', 'The Bobbin request is invalid', { cause: error })
+		}
 		return new BobbinError('malformed-response', 'Bobbin returned malformed data', { cause: error })
 	}
 	if (isAbortError(error)) {
@@ -86,7 +85,7 @@ function isAbortError(error: unknown): boolean {
 	)
 }
 
-function parseRetryAfter(value: string | null): number | undefined {
+export function parseRetryAfterMs(value: string | null): number | undefined {
 	if (value === null) {
 		return undefined
 	}

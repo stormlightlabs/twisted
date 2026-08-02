@@ -34,6 +34,13 @@ function repoRecord() {
 }
 
 describe('BobbinClient', () => {
+	test('accepts Bobbin list responses with a null cursor', async () => {
+		const fetch = fetchMock().mockResolvedValue(jsonResponse({ items: [], cursor: null }))
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.listRepos('did:plc:person')).resolves.toEqual({ items: [], cursor: undefined })
+	})
+
 	test('removes blank placeholders from older actor profiles before validation', async () => {
 		const profileUri = 'at://did:plc:person/sh.tangled.actor.profile/self'
 		const fetch = fetchMock().mockResolvedValue(

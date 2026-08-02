@@ -72,6 +72,8 @@ import {
 import type { BobbinCoverage } from './contracts'
 import { BobbinError, errorFromException, errorFromResponse } from './errors'
 import { createRequestKey, RequestCache, STALE_TIMES } from './cache'
+import { createRateLimitedFetch } from './request-scheduler'
+import { createNormalizedResponseFetch } from './response-normalizer'
 
 /** A Bobbin record view after its embedded value has passed schema validation. */
 export type ValidatedRecordView<T> = { uri: string; cid?: string; value: T }
@@ -198,6 +200,8 @@ type SearchHit = { uri: string; cid?: string; nsid: string; score: number; value
 
 type BobbinSearchResponse = { cursor?: string; hits: Array<SearchHit> }
 
+const defaultBobbinFetch = createRateLimitedFetch((input, init) => globalThis.fetch(input, init))
+
 /**
  * The read-only XRPC boundary used by Twisted views and feature modules.
  *
@@ -213,7 +217,7 @@ export class BobbinClient {
 	constructor(options: BobbinClientOptions = {}) {
 		this.service = normalizeBobbinService(options.service ?? DEFAULT_BOBBIN_SERVICE)
 		this.#cache = options.cache ?? new RequestCache()
-		this.#fetch = options.fetch ?? globalThis.fetch
+		this.#fetch = createNormalizedResponseFetch(options.fetch ?? defaultBobbinFetch)
 		this.#rpc = new Client({ handler: simpleFetchHandler({ service: this.service, fetch: this.#fetch }) })
 	}
 
@@ -680,7 +684,7 @@ export class BobbinClient {
 	): Promise<SuccessData<TResponse>> {
 		try {
 			return await this.#cache.get(
-				createRequestKey(nsid, parameters),
+				createRequestKey(`${this.service}:${nsid}`, parameters),
 				(signal) => this.#request(() => request(signal)),
 				{ force: options.cache === 'reload', signal: options.signal, staleTimeMs },
 			)

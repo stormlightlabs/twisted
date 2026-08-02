@@ -49,8 +49,8 @@ describe('Twisted foundation', () => {
 		cy.get('.mobile-tabs').should('be.visible')
 		cy.get('.mobile-tabs a').should('have.length', 4)
 		cy.get('ion-menu-button').should('be.visible')
-		cy.contains('h2', 'This identifier is not supported')
-		cy.contains('a', 'Return home').should('be.visible').click()
+		cy.contains('strong', 'Check this request')
+		cy.get('.mobile-tabs').contains('Home').click()
 		cy.location('pathname').should('equal', '/home')
 		cy.contains('h1', 'Pick up where you left off.')
 		cy.get('.mobile-tabs').should('be.visible')
@@ -87,5 +87,51 @@ describe('Twisted foundation', () => {
 		cy.visit('/not/a/twisted/domain', { failOnStatusCode: false })
 		cy.contains('h1', 'This thread ends here.')
 		cy.contains('a', 'Search Tangled').should('have.attr', 'href', '/search')
+	})
+
+	it('keeps a repository useful through rate limits and empty list cursors', () => {
+		const repo = 'at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.repo/e2e-recovery'
+		let languageAttempts = 0
+		cy.intercept('GET', '**/xrpc/sh.tangled.repo.getRepo*', {
+			body: {
+				uri: repo,
+				cid: 'bafyreicrfpnvmlnd7x5nvfsytxpehmpirnzx7u6kzwxebtdkd5npjxbsmy',
+				value: {
+					$type: 'sh.tangled.repo',
+					createdAt: '2026-05-08T04:35:08Z',
+					knot: 'knot1.tangled.sh',
+					name: 'tempest',
+					repoDid: 'did:plc:35u5warrxshfvhnjsurjprn6',
+				},
+			},
+		})
+		cy.intercept('GET', '**/xrpc/sh.tangled.repo.languages*', (request) => {
+			languageAttempts += 1
+			request.reply(
+				languageAttempts === 1
+					? { statusCode: 429, headers: { 'retry-after': '0' }, body: { error: 'RateLimitExceeded' } }
+					: { body: { ref: 'HEAD', languages: [] } },
+			)
+		})
+		cy.intercept('GET', '**/xrpc/sh.tangled.repo.tree*', { body: { ref: 'HEAD', files: [] } })
+		cy.intercept('GET', '**/xrpc/sh.tangled.feed.countStars*', { body: { count: 0, distinctAuthors: 0 } })
+		cy.intercept('GET', '**/xrpc/sh.tangled.repo.countIssues*', { body: { count: 0, distinctAuthors: 0 } })
+		cy.intercept('GET', '**/xrpc/sh.tangled.repo.countPulls*', { body: { count: 0, distinctAuthors: 0 } })
+		cy.intercept('GET', '**/xrpc/sh.tangled.repo.listCollaborators*', { body: { items: [], cursor: null } })
+		cy.intercept('GET', '**/xrpc/sh.tangled.label.listDefinitions*', { body: { items: [], cursor: null } })
+		cy.intercept('GET', '**/xrpc/sh.tangled.git.listRefUpdates*', { body: { items: [], cursor: null } })
+
+		cy.visit(`/repositories/${encodeURIComponent(repo)}`)
+		cy.contains('h1', 'tempest', { timeout: 10_000 }).should('be.visible')
+		cy.contains('No language summary is available for the current source.', { timeout: 10_000 }).should('exist')
+		cy.contains('No public collaborators are listed.').should('exist')
+		cy.get('.request-state').then(($states) => {
+			const malformedPanels = [...$states]
+				.filter((state) => state.textContent?.includes('This content could not be displayed'))
+				.map((state) => state.closest('section')?.querySelector('h2')?.textContent?.trim() ?? 'Repository totals')
+			expect(malformedPanels).to.deep.equal([])
+		})
+		cy.contains('Too many requests').should('not.exist')
+		cy.then(() => expect(languageAttempts).to.equal(2))
 	})
 })

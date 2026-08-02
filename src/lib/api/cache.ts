@@ -8,22 +8,25 @@ export const STALE_TIMES = {
 	search: 15_000,
 } as const
 
-export interface CacheRequestOptions {
-	force?: boolean
-	signal?: AbortSignal
-	staleTimeMs: number
+export type CacheRequestOptions = { force?: boolean; signal?: AbortSignal; staleTimeMs: number }
+
+export type PersistentCacheEntry<T = unknown> = { data: T; key: string; updatedAt: number }
+
+export type PersistentCacheStore = {
+	clear(): Promise<void>
+	delete(key: string): Promise<void>
+	get<T>(key: string): Promise<PersistentCacheEntry<T> | undefined>
+	set<T>(entry: PersistentCacheEntry<T>): Promise<void>
 }
 
-interface PendingRequest<T> {
-	controller: AbortController
-	promise: Promise<T>
-	settled: boolean
-	subscribers: number
-}
+export type PersistentCacheSource = PersistentCacheStore | Promise<PersistentCacheStore | undefined>
 
-interface CacheEntry<T> {
+type PendingRequest<T> = { controller: AbortController; promise: Promise<T>; settled: boolean; subscribers: number }
+
+type CacheEntry<T> = {
 	data?: T
 	hasData: boolean
+	ignorePersistent?: boolean
 	pending?: PendingRequest<T>
 	updatedAt: number
 }
@@ -35,9 +38,12 @@ interface CacheEntry<T> {
 export class RequestCache {
 	readonly #entries = new Map<string, CacheEntry<unknown>>()
 	readonly #now: () => number
+	readonly #persistent?: Promise<PersistentCacheStore | undefined>
+	#persistentReset?: Promise<void>
 
-	constructor(now: () => number = Date.now) {
+	constructor(now: () => number = Date.now, persistent?: PersistentCacheSource) {
 		this.#now = now
+		this.#persistent = persistent ? Promise.resolve(persistent).catch(() => undefined) : undefined
 	}
 
 	get<T>(key: string, load: (signal: AbortSignal) => Promise<T>, options: CacheRequestOptions): Promise<T> {
@@ -54,26 +60,24 @@ export class RequestCache {
 
 		if (entry.pending === undefined) {
 			const controller = new AbortController()
-			const loadPromise = new Promise<T>((resolve, reject) => {
-				try {
-					void load(controller.signal).then(resolve, reject)
-				} catch (error) {
-					reject(error)
-				}
-			})
-			const pending: PendingRequest<T> = { controller, promise: loadPromise, settled: false, subscribers: 0 }
-			pending.promise = loadPromise
-				.then((data) => {
+			const promise = this.#resolve(key, entry, load, options, controller.signal)
+				.then(async ({ data, persist, updatedAt }) => {
 					if (controller.signal.aborted) throw abortError()
 					entry.data = data
 					entry.hasData = true
-					entry.updatedAt = this.#now()
+					entry.ignorePersistent = false
+					entry.updatedAt = updatedAt
+					if (persist) void this.#writePersistent({ data, key, updatedAt })
 					return data
 				})
 				.finally(() => {
-					pending.settled = true
-					if (entry.pending === pending) entry.pending = undefined
+					const current = entry.pending
+					if (current?.controller === controller) {
+						current.settled = true
+						entry.pending = undefined
+					}
 				})
+			const pending = { controller, promise, settled: false, subscribers: 0 }
 			entry.pending = pending
 		}
 
@@ -87,12 +91,80 @@ export class RequestCache {
 
 	invalidate(key: string): void {
 		const entry = this.#entries.get(key)
-		if (entry !== undefined) entry.updatedAt = Number.NEGATIVE_INFINITY
+		if (entry !== undefined) {
+			entry.updatedAt = Number.NEGATIVE_INFINITY
+			entry.ignorePersistent = true
+		}
+		void this.#deletePersistent(key)
 	}
 
 	clear(): void {
 		for (const entry of this.#entries.values()) entry.pending?.controller.abort()
 		this.#entries.clear()
+		const reset = this.#clearPersistent()
+		this.#persistentReset = reset
+		void reset.finally(() => {
+			if (this.#persistentReset === reset) this.#persistentReset = undefined
+		})
+	}
+
+	async #resolve<T>(
+		key: string,
+		entry: CacheEntry<T>,
+		load: (signal: AbortSignal) => Promise<T>,
+		options: CacheRequestOptions,
+		signal: AbortSignal,
+	): Promise<{ data: T; persist: boolean; updatedAt: number }> {
+		if (this.#persistent === undefined || options.force || entry.ignorePersistent) {
+			if (signal.aborted) throw abortError()
+			const data = await load(signal)
+			return { data, persist: true, updatedAt: this.#now() }
+		}
+
+		if (!options.force && !entry.ignorePersistent) {
+			const stored = await this.#readPersistent<T>(key)
+			if (signal.aborted) throw abortError()
+			if (stored && this.#now() - stored.updatedAt <= options.staleTimeMs) {
+				return { data: stored.data, persist: false, updatedAt: stored.updatedAt }
+			}
+		}
+
+		if (signal.aborted) throw abortError()
+		const data = await load(signal)
+		return { data, persist: true, updatedAt: this.#now() }
+	}
+
+	async #readPersistent<T>(key: string): Promise<PersistentCacheEntry<T> | undefined> {
+		try {
+			await this.#persistentReset
+			return await (await this.#persistent)?.get<T>(key)
+		} catch {
+			return undefined
+		}
+	}
+
+	async #writePersistent<T>(entry: PersistentCacheEntry<T>): Promise<void> {
+		try {
+			await (await this.#persistent)?.set(entry)
+		} catch {
+			// Persistent storage is an optimization; memory remains authoritative.
+		}
+	}
+
+	async #deletePersistent(key: string): Promise<void> {
+		try {
+			await (await this.#persistent)?.delete(key)
+		} catch {
+			// A failed disk cleanup must not affect requests.
+		}
+	}
+
+	async #clearPersistent(): Promise<void> {
+		try {
+			await (await this.#persistent)?.clear()
+		} catch {
+			// A failed disk cleanup must not affect requests.
+		}
 	}
 
 	#entry<T>(key: string): CacheEntry<T> {

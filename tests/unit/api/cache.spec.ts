@@ -1,3 +1,4 @@
+import type { PersistentCacheEntry, PersistentCacheStore } from '@/lib/api'
 import { CursorGuard, RequestCache, createRequestKey } from '@/lib/api'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -12,6 +13,52 @@ function deferred<T>() {
 }
 
 describe('RequestCache', () => {
+	test('reuses fresh persistent data across cache instances', async () => {
+		let now = 1_000
+		const records = new Map<string, PersistentCacheEntry>()
+		const store: PersistentCacheStore = {
+			get: async <T>(key: string) => records.get(key) as PersistentCacheEntry<T> | undefined,
+			set: async <T>(entry: PersistentCacheEntry<T>) => {
+				records.set(entry.key, entry)
+			},
+			delete: async (key: string) => {
+				records.delete(key)
+			},
+			clear: async () => {
+				records.clear()
+			},
+		}
+		const firstLoad = vi.fn().mockResolvedValue({ name: 'Twisted' })
+		const first = new RequestCache(() => now, store)
+
+		await expect(first.get('repo', firstLoad, { staleTimeMs: 100 })).resolves.toEqual({ name: 'Twisted' })
+		expect(records.get('repo')).toEqual({ data: { name: 'Twisted' }, key: 'repo', updatedAt: 1_000 })
+
+		now = 1_050
+		const secondLoad = vi.fn().mockResolvedValue({ name: 'New' })
+		const second = new RequestCache(() => now, store)
+		await expect(second.get('repo', secondLoad, { staleTimeMs: 100 })).resolves.toEqual({ name: 'Twisted' })
+		expect(secondLoad).not.toHaveBeenCalled()
+
+		now = 1_101
+		await expect(second.get('repo', secondLoad, { staleTimeMs: 100 })).resolves.toEqual({ name: 'New' })
+		expect(records.get('repo')?.updatedAt).toBe(1_101)
+	})
+
+	test('keeps requests working when persistent storage fails', async () => {
+		const failure = new Error('Storage unavailable')
+		const store: PersistentCacheStore = {
+			get: vi.fn().mockRejectedValue(failure),
+			set: vi.fn().mockRejectedValue(failure),
+			delete: vi.fn().mockRejectedValue(failure),
+			clear: vi.fn().mockRejectedValue(failure),
+		}
+		const cache = new RequestCache(Date.now, store)
+
+		await expect(cache.get('repo', async () => 'network data', { staleTimeMs: 100 })).resolves.toBe('network data')
+		expect(cache.peek('repo')).toBe('network data')
+	})
+
 	test('shares one in-flight request between identical callers', async () => {
 		const pending = deferred<string>()
 		const load = vi.fn(() => pending.promise)

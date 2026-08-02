@@ -212,10 +212,10 @@ a useful shareable URL. Do not expose opaque cursors as human identifiers.
   theme, and platform integration.
 - Use Vue composables and component-local state. Add a global state library only
   if implementation proves that shared state cannot stay simple.
-- Cache successful GET responses in memory by NSID plus normalized parameters.
-  Deduplicate concurrent requests and use short, explicit stale times. Never
-  persist API payloads until the product defines cache invalidation and privacy
-  behavior.
+- Cache successful public GET responses by service, NSID, and normalized
+  parameters. Deduplicate concurrent requests and use short, explicit stale
+  times. Keep a bounded persistent cache in IndexedDB on the web and SQLite in
+  native apps. A blocked or unavailable database must fall back to memory.
 - Each request accepts an `AbortSignal`. Route changes cancel obsolete work.
 - Cursor lists append pages without changing earlier item order and prevent
   duplicate requests for the same cursor.

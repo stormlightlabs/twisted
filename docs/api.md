@@ -90,11 +90,7 @@ following local exception beside the API client until upstream publishes that
 lexicon:
 
 ```ts
-export interface BobbinCoverage {
-	ready: boolean
-	eventsProcessed: number
-	lastCursor: number
-}
+export type BobbinCoverage = { ready: boolean; eventsProcessed: number; lastCursor: number }
 ```
 
 Bobbin also exposes `com.bad-example.identity.resolveMiniDoc` for resolving a
@@ -309,10 +305,7 @@ limit.
 XRPC errors use this JSON shape:
 
 ```ts
-interface XrpcErrorBody {
-	error: string
-	message?: string
-}
+type XrpcErrorBody = { error: string; message?: string }
 ```
 
 Handle these classes in the client boundary:
@@ -326,6 +319,30 @@ Handle these classes in the client boundary:
 | `503`       | Bobbin shed the request under memory pressure                            | Offer retry; keep cached UI data                       |
 | Other `5xx` | Bobbin failure                                                           | Show a generic service error and preserve navigation   |
 
-Treat aborts as canceled navigation, not user-visible failures. Never retry
-`400` or `404` automatically. Use bounded retries with backoff for `429`, `502`,
-and `503`; honor `Retry-After` when present.
+Treat aborts as canceled navigation, not user-visible failures. Twisted spaces
+request starts by 250 ms so a page with several panels does not flood the
+hosted edge. It retries `429`, `502`, and `503` once when the delay is at most
+five seconds, honoring `Retry-After` when present. Longer delays remain visible
+to the page's retry control. It never retries `400` or `404` automatically.
+
+Bobbin currently returns `cursor: null` for some empty lists, while the
+generated schemas model an absent cursor. The response boundary removes that
+one known exception before generated validation; it does not loosen validation
+for other fields.
+
+## Response cache
+
+Twisted caches successful public GET responses with the API service, operation,
+and normalized parameters in each key. Entries keep the short stale times
+defined by the API client, so changing the API service cannot reuse data from a
+different server.
+
+The browser stores up to 500 entries in IndexedDB through Dexie. Android and iOS
+store the same bounded cache in SQLite. If persistent storage is blocked,
+unavailable, or contains an invalid entry, requests continue with the in-memory
+cache. Repository downloads, entries larger than 1 MB, and other values that
+cannot be represented as JSON remain memory-only.
+
+`@capacitor-community/sqlite` includes SQLCipher in its native packages even
+when a database is unencrypted. Native releases must follow the plugin's
+encryption export-compliance guidance.

@@ -1,6 +1,8 @@
 import type { InjectionKey } from 'vue'
 import { inject } from 'vue'
 import { useBobbinService } from '@/lib/settings/service'
+import { getPersistentCacheStore } from '@/lib/storage'
+import { RequestCache } from './cache'
 import { createBobbinClient } from './client'
 import type { BobbinClient } from './client'
 
@@ -15,7 +17,7 @@ function defaultProvider(): BobbinClient {
 	const service = useBobbinService().service.value
 	if (activeClient === undefined || service !== activeService) {
 		activeService = service
-		activeClient = createBobbinClient({ service })
+		activeClient = createBobbinClient({ service, cache: new RequestCache(Date.now, getPersistentCacheStore()) })
 	}
 	return activeClient
 }

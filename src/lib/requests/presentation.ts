@@ -1,10 +1,6 @@
 import type { BobbinError, BobbinErrorKind } from '@/lib/api'
 
-export interface RequestErrorPresentation {
-	message: string
-	retryable: boolean
-	title: string
-}
+export type RequestErrorPresentation = { message: string; retryable: boolean; title: string }
 
 const presentations: Record<BobbinErrorKind, RequestErrorPresentation> = {
 	aborted: { title: 'Request canceled', message: 'The previous request is no longer needed.', retryable: false },
