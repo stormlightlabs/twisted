@@ -10,6 +10,7 @@ vi.mock('@/features/repositories/PatchViewer.vue', () => ({
 }))
 
 const repo = 'at://did:plc:owner/sh.tangled.repo/twisted'
+const repositoryLocation = { did: 'did:plc:repository', knot: 'knot.example' }
 const routes = [
 	{ path: '/repositories/:repo', name: 'repository', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/source', name: 'repository-source', component: { template: '<div />' } },
@@ -58,11 +59,11 @@ describe('RepositoryDiffPage', () => {
 
 		expect(wrapper.text()).toContain('Changes needed to move from main to feature.')
 		expect(wrapper.get('.stub-patch').text()).toBe('readable patch')
-		expect(getRepositoryCompare).toHaveBeenCalledWith(repo, 'main', 'feature', expect.any(Object))
+		expect(getRepositoryCompare).toHaveBeenCalledWith(repositoryLocation, 'main', 'feature', expect.any(Object))
 
 		await wrapper.get('.swap-button').trigger('click')
 		await flushPromises()
 		expect(wrapper.vm.$route.query).toEqual({ base: 'feature', head: 'main' })
-		expect(getRepositoryCompare).toHaveBeenLastCalledWith(repo, 'feature', 'main', expect.any(Object))
+		expect(getRepositoryCompare).toHaveBeenLastCalledWith(repositoryLocation, 'feature', 'main', expect.any(Object))
 	})
 })

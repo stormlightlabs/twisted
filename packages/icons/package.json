@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"check": "tsc --noEmit",
-		"generate": "bun src/cli.ts",
+		"generate": "bun src/main.ts",
 		"test": "bun test"
 	},
 	"dependencies": {

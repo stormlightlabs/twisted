@@ -102,21 +102,8 @@ valid subjects.
 
 ### T18 - Read stars, follows, vouches, and collaborators
 
-**Status:** Complete
-
-**What to build:** Add relationship views for repo stars, actor follows and
-vouches, and repo collaborators, with links to both ends of each edge.
-
-**Blocked by:** T09, T11
-
-**Acceptance criteria:**
-
-- [x] Inbound and actor-authored directions have distinct labels.
-- [x] Counts, distinct-author counts, lists, and cursors render consistently.
-- [x] Missing profiles or repos do not hide the relationship record.
-- [x] Profile and repo summaries link to the full relationship views.
-
-**Verification:** `bun run test:unit --run && bun run build`
+Added relationship views for repo stars, actor follows and vouches, and repo
+collaborators, with links to both ends of each edge.
 
 ### T19 - Read pipelines, statuses, and artifacts
 
@@ -138,21 +125,8 @@ status history, artifact metadata, and streamed artifact downloads.
 
 ### T20 - Read labels and Tangled strings
 
-**Status:** Complete
-
-**What was built:** Added label definition and operation views plus string
-listing, detail, comment, and reaction flows.
-
-**Blocked by:** T07, T11
-
-**Acceptance criteria:**
-
-- [x] Label scope, definition, operation author, target, and history are inspectable.
-- [x] Repo label links open their definition when available.
-- [x] Strings render safely and expose their valid discussion subjects.
-- [x] Arbitrary scope identifiers are encoded and validated at the API boundary.
-
-**Verification:** `bun run test:unit --run && bun run build`
+Added label definition and operation views plus string listing, detail, comment, and
+reaction flows.
 
 ### T21 - Read knots, spindles, memberships, and public keys
 

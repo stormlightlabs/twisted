@@ -23,30 +23,43 @@
 </template>
 
 <script setup lang="ts">
+import type { ValidatedRecordView } from '@/lib/api'
 import { useBobbinClientProvider } from '@/lib/api'
 import RequestState from '@/components/RequestState.vue'
 import { useRouteRequest } from '@/lib/requests'
+import type { ShTangledRepo } from '@atcute/tangled'
 import { computed } from 'vue'
 import RepositoryCard from './RepositoryCard.vue'
 
-const props = defineProps<{ repositories: readonly string[] }>()
+const props = defineProps<{ did: string; pds: string; repositories: readonly string[] }>()
 const getClient = useBobbinClientProvider()
-const source = computed(() => props.repositories.join('\u0000'))
-const request = useRouteRequest(source, async (_source, signal) => {
-	const results = await Promise.allSettled(
-		props.repositories.map((identifier) =>
-			identifier.startsWith('at://')
-				? getClient().getRepo(identifier as Parameters<ReturnType<typeof getClient>['getRepo']>[0], { signal })
-				: getClient().getRepoByRepoDid(identifier as Parameters<ReturnType<typeof getClient>['getRepoByRepoDid']>[0], {
-						signal,
-					}),
-		),
-	)
-	return results.map((result, index) => ({
-		identifier: props.repositories[index],
-		repository: result.status === 'fulfilled' ? result.value : undefined,
+const source = computed(() => JSON.stringify([props.did, props.pds, props.repositories]))
+const request = useRouteRequest(source, async (_source, signal, attempt) => {
+	const repositories = await loadOwnerRepositories(signal, attempt.cache)
+	const byUri = new Map(repositories.map((repository) => [repository.uri, repository]))
+	const byRepoDid = new Map<string, ValidatedRecordView<ShTangledRepo.Main>>()
+	for (const repository of repositories) {
+		if (repository.value.repoDid) byRepoDid.set(repository.value.repoDid, repository)
+	}
+
+	return props.repositories.map((identifier) => ({
+		identifier,
+		repository: identifier.startsWith('at://') ? byUri.get(identifier) : byRepoDid.get(identifier),
 	}))
 })
+
+async function loadOwnerRepositories(signal: AbortSignal, cache: 'default' | 'reload') {
+	const repositories: ValidatedRecordView<ShTangledRepo.Main>[] = []
+	let cursor: string | undefined
+	let pages = 0
+	do {
+		const page = await getClient().listPdsRepos(props.did, props.pds, { cache, cursor, limit: 100, signal })
+		repositories.push(...page.items)
+		cursor = page.cursor
+		pages += 1
+	} while (cursor && pages < 100)
+	return repositories
+}
 </script>
 
 <style scoped>

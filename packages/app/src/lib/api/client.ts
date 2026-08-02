@@ -3,108 +3,13 @@ import type { BaseSchema, InferInput } from '@atcute/lexicons/validations'
 import * as v from '@atcute/lexicons/validations'
 import { is } from '@atcute/lexicons'
 import { ComBadExampleIdentityResolveMiniDoc } from '@atcute/microcosm'
-import { ComAtprotoRepoGetRecord } from '@atcute/atproto'
-import {
-	ShTangledFeedComment,
-	ShTangledFeedCountComments,
-	ShTangledFeedCountReactions,
-	ShTangledFeedCountStars,
-	ShTangledFeedCountStarsBy,
-	ShTangledFeedListComments,
-	ShTangledFeedListCommentsBy,
-	ShTangledFeedListReactions,
-	ShTangledFeedListReactionsBy,
-	ShTangledFeedListStars,
-	ShTangledFeedListStarsBy,
-	ShTangledFeedReaction,
-	ShTangledFeedStar,
-	ShTangledGitListRefUpdates,
-	ShTangledGitListRefUpdatesBy,
-	ShTangledGitRefUpdate,
-	ShTangledGraphFollow,
-	ShTangledGraphCountFollows,
-	ShTangledGraphCountFollowsBy,
-	ShTangledGraphCountVouches,
-	ShTangledGraphCountVouchesBy,
-	ShTangledGraphListFollows,
-	ShTangledGraphListFollowsBy,
-	ShTangledGraphListVouches,
-	ShTangledGraphListVouchesBy,
-	ShTangledGraphVouch,
-	ShTangledKnotListMembersBy,
-	ShTangledKnot,
-	ShTangledKnotListKnots,
-	ShTangledKnotListMembers,
-	ShTangledLabelDefinition,
-	ShTangledLabelListDefinitions,
-	ShTangledLabelListOps,
-	ShTangledLabelListOpsBy,
-	ShTangledLabelOp,
-	ShTangledPipeline,
-	ShTangledPipelineListPipelines,
-	ShTangledPipelineListPipelinesBy,
-	ShTangledPipelineListStatuses,
-	ShTangledPipelineListStatusesBy,
-	ShTangledPipelineStatus,
-	ShTangledActorGetProfile,
-	ShTangledActorProfile,
-	ShTangledRepo,
-	ShTangledRepoArchive,
-	ShTangledRepoArtifact,
-	ShTangledRepoBlob,
-	ShTangledRepoBranches,
-	ShTangledRepoCompare,
-	ShTangledRepoCountIssues,
-	ShTangledRepoCountPulls,
-	ShTangledRepoCountCollaborators,
-	ShTangledRepoCountCollaboratorsBy,
-	ShTangledRepoDiff,
-	ShTangledRepoGetDefaultBranch,
-	ShTangledRepoGetIssue,
-	ShTangledRepoGetPull,
-	ShTangledRepoGetRepoByRepoDid,
-	ShTangledRepoGetRepos,
-	ShTangledRepoGetRepo,
-	ShTangledRepoIssue,
-	ShTangledRepoIssueComment,
-	ShTangledRepoIssueListStates,
-	ShTangledRepoIssueListStatesBy,
-	ShTangledRepoIssueState,
-	ShTangledRepoLanguages,
-	ShTangledRepoLog,
-	ShTangledRepoListArtifactsBy,
-	ShTangledRepoListArtifacts,
-	ShTangledRepoListCollaborators,
-	ShTangledRepoListCollaboratorsBy,
-	ShTangledRepoListIssues,
-	ShTangledRepoListIssuesBy,
-	ShTangledRepoListPulls,
-	ShTangledRepoListPullsBy,
-	ShTangledRepoListRepos,
-	ShTangledRepoPull,
-	ShTangledRepoPullComment,
-	ShTangledRepoPullListStatuses,
-	ShTangledRepoPullListStatusesBy,
-	ShTangledRepoPullStatus,
-	ShTangledRepoTree,
-	ShTangledRepoTags,
-	ShTangledSearchQuery,
-	ShTangledSpindle,
-	ShTangledSpindleMember,
-	ShTangledSpindleListMembers,
-	ShTangledSpindleListMembersBy,
-	ShTangledSpindleListSpindles,
-	ShTangledPublicKey,
-	ShTangledPublicKeyListKeys,
-	ShTangledString,
-	ShTangledStringListStrings,
-} from '@atcute/tangled'
+import { ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords } from '@atcute/atproto'
+import * as Tngl from '@atcute/tangled'
 import {
 	bobbinCoverageSchema,
 	bobbinKnotListKeysSchema,
 	bobbinKnotOwnerSchema,
 	bobbinKnotVersionSchema,
-	bobbinRepoBlobSchema,
 	DEFAULT_BOBBIN_SERVICE,
 } from './contracts'
 import type { BobbinCoverage } from './contracts'
@@ -112,6 +17,7 @@ import { BobbinError, errorFromException, errorFromResponse } from './errors'
 import { createRequestKey, RequestCache, STALE_TIMES } from './cache'
 import { createRateLimitedFetch } from './request-scheduler'
 import { createNormalizedResponseFetch } from './response-normalizer'
+import { createCatalogFallbackFetch } from './catalog-fallback'
 
 /** A Bobbin record view after its embedded value has passed schema validation. */
 export type ValidatedRecordView<T> = { uri: string; cid?: string; value: T }
@@ -121,11 +27,16 @@ export type CursorPage<T> = { items: T[]; cursor?: string }
 
 export type CountSummary = { count: number; distinctAuthors: number }
 
-export type IssueListItem = Omit<ShTangledRepoListIssues.IssueListItem, 'value'> & { value: ShTangledRepoIssue.Main }
+export type IssueListItem = Omit<Tngl.ShTangledRepoListIssues.IssueListItem, 'value'> & {
+	value: Tngl.ShTangledRepoIssue.Main
+}
 
-export type PullListItem = Omit<ShTangledRepoListPulls.PullListItem, 'value'> & { value: ShTangledRepoPull.Main }
+export type PullListItem = Omit<Tngl.ShTangledRepoListPulls.PullListItem, 'value'> & {
+	value: Tngl.ShTangledRepoPull.Main
+}
 
-export type TangledComment = ShTangledFeedComment.Main | ShTangledRepoIssueComment.Main | ShTangledRepoPullComment.Main
+export type TangledComment =
+	Tngl.ShTangledFeedComment.Main | Tngl.ShTangledRepoIssueComment.Main | Tngl.ShTangledRepoPullComment.Main
 
 export const actorActivityKinds = [
 	'comments',
@@ -159,6 +70,9 @@ export type AuthoredRelationshipKind = 'collaborators' | 'follows' | 'stars' | '
 
 export type RepositoryCounts = { issues: number; pulls: number; stars: number }
 
+/** The knot and repository DID needed to read Git data without routing it through Bobbin. */
+export type RepositoryLocation = { did: Tngl.ShTangledRepoBlob.$params['repo']; knot: string }
+
 export const MAX_TEXT_BLOB_BYTES = 512 * 1024
 export const MAX_RENDERED_PATCH_BYTES = 512 * 1024
 
@@ -166,7 +80,7 @@ export type RepositoryPatch =
 	| { kind: 'patch'; bytes: number; text: string; contentType?: string; filename?: string }
 	| { kind: 'too-large'; bytes?: number; contentType?: string; filename?: string }
 
-export type RepositoryArchiveFormat = Extract<ShTangledRepoArchive.$params['format'], 'tar.gz' | 'zip'>
+export type RepositoryArchiveFormat = Extract<Tngl.ShTangledRepoArchive.$params['format'], 'tar.gz' | 'zip'>
 
 export type RepositoryArchiveOptions = RequestOptions & {
 	format?: RepositoryArchiveFormat
@@ -217,7 +131,7 @@ export type RepositoryRefOptions = RequestOptions & { cursor?: string; limit?: n
 
 export type RepositoryLogOptions = RepositoryRefOptions & { path?: string; ref: string }
 
-type ActorDid = ShTangledRepoListIssuesBy.$params['subject']
+type ActorDid = Tngl.ShTangledRepoListIssuesBy.$params['subject']
 
 /** Constructor options for a configurable, testable Bobbin boundary. */
 export type BobbinClientOptions = { cache?: RequestCache; service?: string | URL; fetch?: typeof globalThis.fetch }
@@ -229,12 +143,12 @@ export type RequestOptions = { cache?: 'default' | 'reload'; signal?: AbortSigna
 export type ListReposOptions = RequestOptions & { cursor?: string; limit?: number; order?: 'asc' | 'desc' }
 
 export type IssueListOptions = ListReposOptions & {
-	author?: ShTangledRepoListIssues.$params['author']
+	author?: Tngl.ShTangledRepoListIssues.$params['author']
 	state?: 'open' | 'closed'
 }
 
 export type PullListOptions = ListReposOptions & {
-	author?: ShTangledRepoListPulls.$params['author']
+	author?: Tngl.ShTangledRepoListPulls.$params['author']
 	status?: 'open' | 'closed' | 'merged'
 }
 
@@ -248,7 +162,7 @@ export interface ValidatedSearchHit<T> {
 }
 
 /** Parameters for Bobbin's full-text search query. */
-export type SearchParams = ShTangledSearchQuery.$params
+export type SearchParams = Tngl.ShTangledSearchQuery.$params
 
 type XrpcResponse<T> =
 	| { ok: true; data: T; status: number; headers: Headers }
@@ -277,7 +191,9 @@ export class BobbinClient {
 	constructor(options: BobbinClientOptions = {}) {
 		this.service = normalizeBobbinService(options.service ?? DEFAULT_BOBBIN_SERVICE)
 		this.#cache = options.cache ?? new RequestCache()
-		this.#fetch = createNormalizedResponseFetch(options.fetch ?? defaultBobbinFetch)
+		this.#fetch = createNormalizedResponseFetch(
+			createCatalogFallbackFetch(options.fetch ?? defaultBobbinFetch, { primaryService: this.service }),
+		)
 		this.#rpc = new Client({ handler: simpleFetchHandler({ service: this.service, fetch: this.#fetch }) })
 	}
 
@@ -285,6 +201,29 @@ export class BobbinClient {
 	getCoverage(options: RequestOptions = {}): Promise<BobbinCoverage> {
 		return this.#cached('sh.tangled.bobbin.getCoverage', {}, options, STALE_TIMES.coverage, (signal) =>
 			this.#rpc.call(bobbinCoverageSchema, { signal }),
+		)
+	}
+
+	/** Returns coverage for the Bobbin that currently serves catalog queries. */
+	async getCatalogCoverage(options: RequestOptions = {}): Promise<BobbinCoverage> {
+		if (this.service === DEFAULT_BOBBIN_SERVICE) return this.getCoverage(options)
+		try {
+			const primary = await this.getCoverage(options)
+			if (primary.ready) return primary
+		} catch (error) {
+			if (errorFromException(error).kind === 'aborted') throw error
+		}
+
+		return this.#cached(
+			`catalog:${DEFAULT_BOBBIN_SERVICE}:sh.tangled.bobbin.getCoverage`,
+			{},
+			options,
+			STALE_TIMES.coverage,
+			(signal) =>
+				new Client({ handler: simpleFetchHandler({ service: DEFAULT_BOBBIN_SERVICE, fetch: this.#fetch }) }).call(
+					bobbinCoverageSchema,
+					{ signal },
+				),
 		)
 	}
 
@@ -304,16 +243,16 @@ export class BobbinClient {
 
 	/** Fetches and validates one Tangled actor profile record. */
 	async getProfile(
-		actor: ShTangledActorGetProfile.$params['actor'],
+		actor: Tngl.ShTangledActorGetProfile.$params['actor'],
 		options: RequestOptions = {},
-	): Promise<ValidatedRecordView<ShTangledActorProfile.Main>> {
+	): Promise<ValidatedRecordView<Tngl.ShTangledActorProfile.Main>> {
 		const view = await this.#cached('sh.tangled.actor.getProfile', { actor }, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledActorGetProfile, { params: { actor }, signal }),
+			this.#rpc.call(Tngl.ShTangledActorGetProfile, { params: { actor }, signal }),
 		)
 
 		return validateRecordView(
 			{ ...view, value: normalizeProfilePlaceholders(view.value) },
-			ShTangledActorProfile.mainSchema,
+			Tngl.ShTangledActorProfile.mainSchema,
 			'actor profile',
 		)
 	}
@@ -358,182 +297,216 @@ export class BobbinClient {
 
 	/** Fetches and validates one Tangled repository record. */
 	async getRepo(
-		repo: ShTangledRepoGetRepo.$params['repo'],
+		repo: Tngl.ShTangledRepoGetRepo.$params['repo'],
 		options: RequestOptions = {},
-	): Promise<ValidatedRecordView<ShTangledRepo.Main>> {
+	): Promise<ValidatedRecordView<Tngl.ShTangledRepo.Main>> {
 		const view = await this.#cached('sh.tangled.repo.getRepo', { repo }, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledRepoGetRepo, { params: { repo }, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoGetRepo, { params: { repo }, signal }),
 		)
 
-		return validateRecordView(view, ShTangledRepo.mainSchema, 'repository')
+		return validateRecordView(view, Tngl.ShTangledRepo.mainSchema, 'repository')
 	}
 
 	/** Fetches and validates one repository by its repository DID. */
 	async getRepoByRepoDid(
-		repoDid: ShTangledRepoGetRepoByRepoDid.$params['repoDid'],
+		repoDid: Tngl.ShTangledRepoGetRepoByRepoDid.$params['repoDid'],
 		options: RequestOptions = {},
-	): Promise<ValidatedRecordView<ShTangledRepo.Main>> {
+	): Promise<ValidatedRecordView<Tngl.ShTangledRepo.Main>> {
 		const view = await this.#cached(
 			'sh.tangled.repo.getRepoByRepoDid',
 			{ repoDid },
 			options,
 			STALE_TIMES.record,
-			(signal) => this.#rpc.call(ShTangledRepoGetRepoByRepoDid, { params: { repoDid }, signal }),
+			(signal) => this.#rpc.call(Tngl.ShTangledRepoGetRepoByRepoDid, { params: { repoDid }, signal }),
 		)
 
-		return validateRecordView(view, ShTangledRepo.mainSchema, 'repository')
+		return validateRecordView(view, Tngl.ShTangledRepo.mainSchema, 'repository')
 	}
 
 	/** Fetches and validates repository records in one ordered batch. */
 	async getRepos(
-		repos: ShTangledRepoGetRepos.$params['repos'],
+		repos: Tngl.ShTangledRepoGetRepos.$params['repos'],
 		options: RequestOptions = {},
-	): Promise<ValidatedRecordView<ShTangledRepo.Main>[]> {
+	): Promise<ValidatedRecordView<Tngl.ShTangledRepo.Main>[]> {
 		const data = await this.#cached('sh.tangled.repo.getRepos', { repos }, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledRepoGetRepos, { params: { repos }, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoGetRepos, { params: { repos }, signal }),
 		)
 
-		return data.items.map((item) => validateRecordView(item, ShTangledRepo.mainSchema, 'repository'))
+		return data.items.map((item) => validateRecordView(item, Tngl.ShTangledRepo.mainSchema, 'repository'))
 	}
 
 	/** Lists an actor's repositories and validates every embedded record. */
 	async listRepos(
-		subject: ShTangledRepoListRepos.$params['subject'],
+		subject: Tngl.ShTangledRepoListRepos.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledRepo.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledRepo.Main>>> {
 		const parameters = { subject, cursor: options.cursor, limit: options.limit, order: options.order }
 		const data = await this.#cached('sh.tangled.repo.listRepos', parameters, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoListRepos, { params: parameters, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoListRepos, { params: parameters, signal }),
 		)
 
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledRepo.mainSchema, 'repository list item')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledRepo.mainSchema, 'repository list item')),
+			cursor: data.cursor,
+		}
+	}
+
+	/** Lists repository records directly from an actor's PDS without requiring Bobbin ingestion. */
+	async listPdsRepos(
+		subject: string,
+		pds: string,
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledRepo.Main>>> {
+		const service = normalizePublicPds(pds)
+		const parameters: ComAtprotoRepoListRecords.$params = {
+			repo: subject as ComAtprotoRepoListRecords.$params['repo'],
+			collection: 'sh.tangled.repo',
+			cursor: options.cursor,
+			limit: clampPageSize(options.limit),
+			reverse: options.order !== 'asc',
+		}
+		const data = await this.#cached(
+			`pds:${service}:com.atproto.repo.listRecords`,
+			parameters,
+			options,
+			STALE_TIMES.list,
+			(signal) =>
+				new Client({ handler: simpleFetchHandler({ service, fetch: this.#fetch }) }).call(ComAtprotoRepoListRecords, {
+					params: parameters,
+					signal,
+				}),
+		)
+
+		return {
+			items: data.records.map((item) =>
+				validateRecordView(item, Tngl.ShTangledRepo.mainSchema, 'PDS repository record'),
+			),
 			cursor: data.cursor,
 		}
 	}
 
 	async getIssue(
-		issue: ShTangledRepoGetIssue.$params['issue'],
+		issue: Tngl.ShTangledRepoGetIssue.$params['issue'],
 		options: RequestOptions = {},
-	): Promise<ValidatedRecordView<ShTangledRepoIssue.Main>> {
+	): Promise<ValidatedRecordView<Tngl.ShTangledRepoIssue.Main>> {
 		const view = await this.#cached('sh.tangled.repo.getIssue', { issue }, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledRepoGetIssue, { params: { issue }, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoGetIssue, { params: { issue }, signal }),
 		)
-		return validateRecordView(view, ShTangledRepoIssue.mainSchema, 'issue')
+		return validateRecordView(view, Tngl.ShTangledRepoIssue.mainSchema, 'issue')
 	}
 
 	async listIssues(
-		subject: ShTangledRepoListIssues.$params['subject'],
+		subject: Tngl.ShTangledRepoListIssues.$params['subject'],
 		options: IssueListOptions = {},
 	): Promise<CursorPage<IssueListItem>> {
 		const params = pickListParams(subject, options, { author: options.author, state: options.state })
 		const data = await this.#cached('sh.tangled.repo.listIssues', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoListIssues, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoListIssues, { params, signal }),
 		)
 		return {
 			items: data.items.map((item) => ({
 				...item,
-				value: validateEmbeddedRecord(ShTangledRepoIssue.mainSchema, item.value, `issue ${item.uri}`),
+				value: validateEmbeddedRecord(Tngl.ShTangledRepoIssue.mainSchema, item.value, `issue ${item.uri}`),
 			})),
 			cursor: data.cursor,
 		}
 	}
 
 	async getPull(
-		pull: ShTangledRepoGetPull.$params['pull'],
+		pull: Tngl.ShTangledRepoGetPull.$params['pull'],
 		options: RequestOptions = {},
-	): Promise<ValidatedRecordView<ShTangledRepoPull.Main>> {
+	): Promise<ValidatedRecordView<Tngl.ShTangledRepoPull.Main>> {
 		const view = await this.#cached('sh.tangled.repo.getPull', { pull }, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledRepoGetPull, { params: { pull }, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoGetPull, { params: { pull }, signal }),
 		)
-		return validateRecordView(view, ShTangledRepoPull.mainSchema, 'pull request')
+		return validateRecordView(view, Tngl.ShTangledRepoPull.mainSchema, 'pull request')
 	}
 
 	async listPulls(
-		subject: ShTangledRepoListPulls.$params['subject'],
+		subject: Tngl.ShTangledRepoListPulls.$params['subject'],
 		options: PullListOptions = {},
 	): Promise<CursorPage<PullListItem>> {
 		const params = pickListParams(subject, options, { author: options.author, status: options.status })
 		const data = await this.#cached('sh.tangled.repo.listPulls', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoListPulls, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoListPulls, { params, signal }),
 		)
 		return {
 			items: data.items.map((item) => ({
 				...item,
-				value: validateEmbeddedRecord(ShTangledRepoPull.mainSchema, item.value, `pull request ${item.uri}`),
+				value: validateEmbeddedRecord(Tngl.ShTangledRepoPull.mainSchema, item.value, `pull request ${item.uri}`),
 			})),
 			cursor: data.cursor,
 		}
 	}
 
 	async listComments(
-		subject: ShTangledFeedListComments.$params['subject'],
+		subject: Tngl.ShTangledFeedListComments.$params['subject'],
 		options: ListReposOptions = {},
 	): Promise<CursorPage<ValidatedRecordView<TangledComment>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.feed.listComments', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledFeedListComments, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledFeedListComments, { params, signal }),
 		)
 		return { items: data.items.map((item) => validateCommentView(item)), cursor: data.cursor }
 	}
 
 	async listReactions(
-		subject: ShTangledFeedListReactions.$params['subject'],
+		subject: Tngl.ShTangledFeedListReactions.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledFeedReaction.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledFeedReaction.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.feed.listReactions', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledFeedListReactions, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledFeedListReactions, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledFeedReaction.mainSchema, 'reaction')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledFeedReaction.mainSchema, 'reaction')),
 			cursor: data.cursor,
 		}
 	}
 
 	async listIssueStates(
-		subject: ShTangledRepoIssueListStates.$params['subject'],
+		subject: Tngl.ShTangledRepoIssueListStates.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledRepoIssueState.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledRepoIssueState.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.repo.issue.listStates', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoIssueListStates, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoIssueListStates, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledRepoIssueState.mainSchema, 'issue state')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledRepoIssueState.mainSchema, 'issue state')),
 			cursor: data.cursor,
 		}
 	}
 
 	async listPullStatuses(
-		subject: ShTangledRepoPullListStatuses.$params['subject'],
+		subject: Tngl.ShTangledRepoPullListStatuses.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledRepoPullStatus.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledRepoPullStatus.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.repo.pull.listStatuses', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoPullListStatuses, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoPullListStatuses, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledRepoPullStatus.mainSchema, 'pull status')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledRepoPullStatus.mainSchema, 'pull status')),
 			cursor: data.cursor,
 		}
 	}
 
 	countComments(
-		subject: ShTangledFeedCountComments.$params['subject'],
+		subject: Tngl.ShTangledFeedCountComments.$params['subject'],
 		options: RequestOptions = {},
 	): Promise<CountSummary> {
 		return this.#count('sh.tangled.feed.countComments', subject, options, (signal) =>
-			this.#rpc.call(ShTangledFeedCountComments, { params: { subject }, signal }),
+			this.#rpc.call(Tngl.ShTangledFeedCountComments, { params: { subject }, signal }),
 		)
 	}
 
 	countReactions(
-		subject: ShTangledFeedCountReactions.$params['subject'],
+		subject: Tngl.ShTangledFeedCountReactions.$params['subject'],
 		options: RequestOptions = {},
 	): Promise<CountSummary> {
 		return this.#count('sh.tangled.feed.countReactions', subject, options, (signal) =>
-			this.#rpc.call(ShTangledFeedCountReactions, { params: { subject }, signal }),
+			this.#rpc.call(Tngl.ShTangledFeedCountReactions, { params: { subject }, signal }),
 		)
 	}
 
@@ -546,182 +519,223 @@ export class BobbinClient {
 		const params = { subject, cursor: options.cursor, limit: options.limit ?? 10, order: options.order ?? 'desc' }
 		switch (kind) {
 			case 'comments':
-				return this.#actorRecords(kind, params, options, ShTangledFeedComment.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledFeedListCommentsBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledFeedComment.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledFeedListCommentsBy, { params, signal }),
 				)
 			case 'reactions':
-				return this.#actorRecords(kind, params, options, ShTangledFeedReaction.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledFeedListReactionsBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledFeedReaction.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledFeedListReactionsBy, { params, signal }),
 				)
 			case 'stars':
-				return this.#actorRecords(kind, params, options, ShTangledFeedStar.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledFeedListStarsBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledFeedStar.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledFeedListStarsBy, { params, signal }),
 				)
 			case 'follows':
-				return this.#actorRecords(kind, params, options, ShTangledGraphFollow.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledGraphListFollowsBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledGraphFollow.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledGraphListFollowsBy, { params, signal }),
 				)
 			case 'vouches':
-				return this.#actorRecords(kind, params, options, ShTangledGraphVouch.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledGraphListVouchesBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledGraphVouch.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledGraphListVouchesBy, { params, signal }),
 				)
 			case 'issues': {
 				const filtered = { ...params, state: options.state }
-				return this.#actorRecords(kind, filtered, options, ShTangledRepoIssue.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledRepoListIssuesBy, { params: filtered, signal }),
+				return this.#actorRecords(kind, filtered, options, Tngl.ShTangledRepoIssue.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledRepoListIssuesBy, { params: filtered, signal }),
 				)
 			}
 			case 'pulls': {
 				const filtered = { ...params, status: options.status }
-				return this.#actorRecords(kind, filtered, options, ShTangledRepoPull.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledRepoListPullsBy, { params: filtered, signal }),
+				return this.#actorRecords(kind, filtered, options, Tngl.ShTangledRepoPull.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledRepoListPullsBy, { params: filtered, signal }),
 				)
 			}
 			case 'issue-states':
-				return this.#actorRecords(kind, params, options, ShTangledRepoIssueState.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledRepoIssueListStatesBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledRepoIssueState.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledRepoIssueListStatesBy, { params, signal }),
 				)
 			case 'pull-statuses':
-				return this.#actorRecords(kind, params, options, ShTangledRepoPullStatus.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledRepoPullListStatusesBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledRepoPullStatus.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledRepoPullListStatusesBy, { params, signal }),
 				)
 			case 'ref-updates':
-				return this.#actorRecords(kind, params, options, ShTangledGitRefUpdate.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledGitListRefUpdatesBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledGitRefUpdate.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledGitListRefUpdatesBy, { params, signal }),
 				)
 			case 'collaborators':
 				return this.#actorRecords(kind, params, options, undefined, (signal) =>
-					this.#rpc.call(ShTangledRepoListCollaboratorsBy, { params, signal }),
+					this.#rpc.call(Tngl.ShTangledRepoListCollaboratorsBy, { params, signal }),
 				)
 			case 'label-operations':
-				return this.#actorRecords(kind, params, options, ShTangledLabelOp.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledLabelListOpsBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledLabelOp.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledLabelListOpsBy, { params, signal }),
 				)
 			case 'pipelines':
-				return this.#actorRecords(kind, params, options, ShTangledPipeline.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledPipelineListPipelinesBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledPipeline.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledPipelineListPipelinesBy, { params, signal }),
 				)
 			case 'pipeline-statuses':
-				return this.#actorRecords(kind, params, options, ShTangledPipelineStatus.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledPipelineListStatusesBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledPipelineStatus.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledPipelineListStatusesBy, { params, signal }),
 				)
 			case 'artifacts':
-				return this.#actorRecords(kind, params, options, ShTangledRepoArtifact.mainSchema, (signal) =>
-					this.#rpc.call(ShTangledRepoListArtifactsBy, { params, signal }),
+				return this.#actorRecords(kind, params, options, Tngl.ShTangledRepoArtifact.mainSchema, (signal) =>
+					this.#rpc.call(Tngl.ShTangledRepoListArtifactsBy, { params, signal }),
 				)
 			case 'knot-memberships':
 				return this.#actorRecords(kind, params, options, undefined, (signal) =>
-					this.#rpc.call(ShTangledKnotListMembersBy, { params, signal }),
+					this.#rpc.call(Tngl.ShTangledKnotListMembersBy, { params, signal }),
 				)
 			case 'spindle-memberships':
 				return this.#actorRecords(kind, params, options, undefined, (signal) =>
-					this.#rpc.call(ShTangledSpindleListMembersBy, { params, signal }),
+					this.#rpc.call(Tngl.ShTangledSpindleListMembersBy, { params, signal }),
 				)
 		}
 	}
 
-	getRepositoryLanguages(repo: ShTangledRepoLanguages.$params['repo'], options: RequestOptions = {}) {
-		return this.#cached('sh.tangled.repo.languages', { repo, ref: 'HEAD' }, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledRepoLanguages, { params: { repo, ref: 'HEAD' }, signal }),
+	getRepositoryLanguages(repository: RepositoryLocation, options: RequestOptions = {}) {
+		const params = { repo: repository.did, ref: 'HEAD' }
+		return this.#cached(
+			this.#knotCacheKey(repository, 'sh.tangled.repo.languages'),
+			params,
+			options,
+			STALE_TIMES.record,
+			(signal) => this.#knotRpc(repository).call(Tngl.ShTangledRepoLanguages, { params, signal }),
 		)
 	}
 
 	getRepositoryTree(
-		repo: ShTangledRepoTree.$params['repo'],
+		repository: RepositoryLocation,
 		params: { path?: string; ref?: string } = {},
 		options: RequestOptions = {},
 	) {
-		const request = { repo, ref: params.ref ?? 'HEAD', path: params.path ?? '' }
-		return this.#cached('sh.tangled.repo.tree', request, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledRepoTree, { params: request, signal }),
+		const request = { repo: repository.did, ref: params.ref ?? 'HEAD', path: params.path ?? '' }
+		return this.#cached(
+			this.#knotCacheKey(repository, 'sh.tangled.repo.tree'),
+			request,
+			options,
+			STALE_TIMES.record,
+			(signal) => this.#knotRpc(repository).call(Tngl.ShTangledRepoTree, { params: request, signal }),
 		)
 	}
 
 	getRepositoryBlob(
-		repo: string,
-		ref: ShTangledRepoBlob.$params['ref'],
-		path: ShTangledRepoBlob.$params['path'],
+		repository: RepositoryLocation,
+		ref: Tngl.ShTangledRepoBlob.$params['ref'],
+		path: Tngl.ShTangledRepoBlob.$params['path'],
 		options: RequestOptions = {},
 	) {
-		const params = { repo, ref, path, raw: false }
-		return this.#cached('sh.tangled.repo.blob', params, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(bobbinRepoBlobSchema, { params, signal }),
+		const params: Tngl.ShTangledRepoBlob.$params = { repo: repository.did, ref, path, raw: false }
+		return this.#cached(
+			this.#knotCacheKey(repository, 'sh.tangled.repo.blob'),
+			params,
+			options,
+			STALE_TIMES.record,
+			(signal) => this.#knotRpc(repository).call(Tngl.ShTangledRepoBlob, { params, signal }),
 		)
 	}
 
-	getRepositoryDefaultBranch(repo: string, options: RequestOptions = {}) {
-		return this.#cached('sh.tangled.repo.getDefaultBranch', { repo }, options, STALE_TIMES.record, (signal) =>
-			this.#rpc.call(ShTangledRepoGetDefaultBranch, { params: { repo }, signal }),
+	getRepositoryDefaultBranch(repository: RepositoryLocation, options: RequestOptions = {}) {
+		const params = { repo: repository.did }
+		return this.#cached(
+			this.#knotCacheKey(repository, 'sh.tangled.repo.getDefaultBranch'),
+			params,
+			options,
+			STALE_TIMES.record,
+			(signal) => this.#knotRpc(repository).call(Tngl.ShTangledRepoGetDefaultBranch, { params, signal }),
 		)
 	}
 
 	async listRepositoryBranches(
-		repo: string,
+		repository: RepositoryLocation,
 		options: RepositoryRefOptions = {},
 	): Promise<CursorPage<RepositoryBranch>> {
 		const limit = clampPageSize(options.limit)
 		const cursor = parseOffsetCursor(options.cursor)
-		const params = { repo, cursor: cursor ? String(cursor) : undefined, limit: limit + 1 }
-		const blob = await this.#cached('sh.tangled.repo.branches', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoBranches, { as: 'blob', params, signal }),
+		const params = { repo: repository.did, cursor: cursor ? String(cursor) : undefined, limit: limit + 1 }
+		const blob = await this.#cached(
+			this.#knotCacheKey(repository, 'sh.tangled.repo.branches'),
+			params,
+			options,
+			STALE_TIMES.list,
+			(signal) => this.#knotRpc(repository).call(Tngl.ShTangledRepoBranches, { as: 'blob', params, signal }),
 		)
 		const branches = parseBranches(await parseJsonBlob(blob, 'branches'))
 		return { items: branches.slice(0, limit), cursor: branches.length > limit ? String(cursor + limit) : undefined }
 	}
 
-	async listRepositoryTags(repo: string, options: RepositoryRefOptions = {}): Promise<CursorPage<RepositoryTag>> {
+	async listRepositoryTags(
+		repository: RepositoryLocation,
+		options: RepositoryRefOptions = {},
+	): Promise<CursorPage<RepositoryTag>> {
 		const limit = clampPageSize(options.limit)
 		const cursor = parseOffsetCursor(options.cursor)
-		const params = { repo, cursor: cursor ? String(cursor) : undefined, limit: limit + 1 }
-		const blob = await this.#cached('sh.tangled.repo.tags', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoTags, { as: 'blob', params, signal }),
+		const params = { repo: repository.did, cursor: cursor ? String(cursor) : undefined, limit: limit + 1 }
+		const blob = await this.#cached(
+			this.#knotCacheKey(repository, 'sh.tangled.repo.tags'),
+			params,
+			options,
+			STALE_TIMES.list,
+			(signal) => this.#knotRpc(repository).call(Tngl.ShTangledRepoTags, { as: 'blob', params, signal }),
 		)
 		const tags = parseTags(await parseJsonBlob(blob, 'tags'))
 		return { items: tags.slice(0, limit), cursor: tags.length > limit ? String(cursor + limit) : undefined }
 	}
 
-	async getRepositoryLog(repo: string, options: RepositoryLogOptions): Promise<RepositoryLogPage> {
+	async getRepositoryLog(repository: RepositoryLocation, options: RepositoryLogOptions): Promise<RepositoryLogPage> {
 		const limit = Math.min(100, Math.max(1, options.limit ?? 20))
-		const page = Math.max(1, Number.parseInt(options.cursor ?? '1', 10) || 1)
-		const params = { repo, ref: options.ref, path: options.path ?? '', cursor: String(page), limit }
-		const blob = await this.#cached('sh.tangled.repo.log', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoLog, { as: 'blob', params, signal }),
+		const page = Math.max(0, Number.parseInt(options.cursor ?? '0', 10) || 0)
+		const params = { repo: repository.did, ref: options.ref, path: options.path ?? '', cursor: options.cursor, limit }
+		const blob = await this.#cached(
+			this.#knotCacheKey(repository, 'sh.tangled.repo.log'),
+			params,
+			options,
+			STALE_TIMES.list,
+			(signal) => this.#knotRpc(repository).call(Tngl.ShTangledRepoLog, { as: 'blob', params, signal }),
 		)
 		return parseRepositoryLog(await parseJsonBlob(blob, 'commit history'), options.ref, page, limit)
 	}
 
-	getRepositoryDiff(repo: string, ref: string, options: RequestOptions = {}): Promise<RepositoryPatch> {
-		const params = { repo, ref }
-		if (!is(ShTangledRepoDiff.mainSchema.params, params)) {
+	getRepositoryDiff(
+		repository: RepositoryLocation,
+		ref: string,
+		options: RequestOptions = {},
+	): Promise<RepositoryPatch> {
+		const params = { repo: repository.did, ref }
+		if (!is(Tngl.ShTangledRepoDiff.mainSchema.params, params)) {
 			return Promise.reject(new BobbinError('invalid-request', 'The repository revision is invalid'))
 		}
-		return this.#getRepositoryPatch(this.repositoryDiffUrl(repo, ref), options)
+		return this.#getRepositoryPatch(this.repositoryDiffUrl(repository, ref), options)
 	}
 
 	getRepositoryCompare(
-		repo: string,
+		repository: RepositoryLocation,
 		base: string,
 		head: string,
 		options: RequestOptions = {},
 	): Promise<RepositoryPatch> {
-		const params = { repo, rev1: base, rev2: head }
-		if (!is(ShTangledRepoCompare.mainSchema.params, params)) {
+		const params = { repo: repository.did, rev1: base, rev2: head }
+		if (!is(Tngl.ShTangledRepoCompare.mainSchema.params, params)) {
 			return Promise.reject(new BobbinError('invalid-request', 'The comparison revisions are invalid'))
 		}
-		return this.#getRepositoryPatch(this.repositoryCompareUrl(repo, base, head), options)
+		return this.#getRepositoryPatch(this.repositoryCompareUrl(repository, base, head), options)
 	}
 
-	repositoryDiffUrl(repo: string, ref: string): string {
-		return this.#repositoryQueryUrl('sh.tangled.repo.diff', { repo, ref })
+	repositoryDiffUrl(repository: RepositoryLocation, ref: string): string {
+		return this.#repositoryQueryUrl(repository, 'sh.tangled.repo.diff', { repo: repository.did, ref })
 	}
 
-	repositoryCompareUrl(repo: string, base: string, head: string): string {
-		return this.#repositoryQueryUrl('sh.tangled.repo.compare', { repo, rev1: base, rev2: head })
+	repositoryCompareUrl(repository: RepositoryLocation, base: string, head: string): string {
+		return this.#repositoryQueryUrl(repository, 'sh.tangled.repo.compare', {
+			repo: repository.did,
+			rev1: base,
+			rev2: head,
+		})
 	}
 
-	repositoryBlobUrl(repo: string, ref: string, path: string): string {
-		const url = new URL('/xrpc/sh.tangled.repo.blob', this.service)
-		url.searchParams.set('repo', repo)
+	repositoryBlobUrl(repository: RepositoryLocation, ref: string, path: string): string {
+		const url = new URL('/xrpc/sh.tangled.repo.blob', normalizeKnotService(repository.knot))
+		url.searchParams.set('repo', repository.did)
 		url.searchParams.set('ref', ref)
 		url.searchParams.set('path', path)
 		url.searchParams.set('raw', 'true')
@@ -731,86 +745,89 @@ export class BobbinClient {
 	async listRepositoryCollaborators(
 		subject: ActorDid,
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ShTangledRepoListCollaborators.ListItem>> {
+	): Promise<CursorPage<Tngl.ShTangledRepoListCollaborators.ListItem>> {
 		const params = pickListParams(subject, { limit: 8, ...options })
 		const data = await this.#cached('sh.tangled.repo.listCollaborators', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoListCollaborators, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoListCollaborators, { params, signal }),
 		)
 		return { items: [...data.items], cursor: data.cursor }
 	}
 
 	async listStars(
-		subject: ShTangledFeedListStars.$params['subject'],
+		subject: Tngl.ShTangledFeedListStars.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledFeedStar.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledFeedStar.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.feed.listStars', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledFeedListStars, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledFeedListStars, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledFeedStar.mainSchema, 'star')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledFeedStar.mainSchema, 'star')),
 			cursor: data.cursor,
 		}
 	}
 
 	async listFollows(
-		subject: ShTangledGraphListFollows.$params['subject'],
+		subject: Tngl.ShTangledGraphListFollows.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledGraphFollow.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledGraphFollow.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.graph.listFollows', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledGraphListFollows, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledGraphListFollows, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledGraphFollow.mainSchema, 'follow')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledGraphFollow.mainSchema, 'follow')),
 			cursor: data.cursor,
 		}
 	}
 
 	async listVouches(
-		subject: ShTangledGraphListVouches.$params['subject'],
+		subject: Tngl.ShTangledGraphListVouches.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledGraphVouch.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledGraphVouch.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.graph.listVouches', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledGraphListVouches, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledGraphListVouches, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledGraphVouch.mainSchema, 'vouch')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledGraphVouch.mainSchema, 'vouch')),
 			cursor: data.cursor,
 		}
 	}
 
-	countStars(subject: ShTangledFeedCountStars.$params['subject'], options: RequestOptions = {}): Promise<CountSummary> {
+	countStars(
+		subject: Tngl.ShTangledFeedCountStars.$params['subject'],
+		options: RequestOptions = {},
+	): Promise<CountSummary> {
 		return this.#count('sh.tangled.feed.countStars', subject, options, (signal) =>
-			this.#rpc.call(ShTangledFeedCountStars, { params: { subject }, signal }),
+			this.#rpc.call(Tngl.ShTangledFeedCountStars, { params: { subject }, signal }),
 		)
 	}
 
 	countFollows(
-		subject: ShTangledGraphCountFollows.$params['subject'],
+		subject: Tngl.ShTangledGraphCountFollows.$params['subject'],
 		options: RequestOptions = {},
 	): Promise<CountSummary> {
 		return this.#count('sh.tangled.graph.countFollows', subject, options, (signal) =>
-			this.#rpc.call(ShTangledGraphCountFollows, { params: { subject }, signal }),
+			this.#rpc.call(Tngl.ShTangledGraphCountFollows, { params: { subject }, signal }),
 		)
 	}
 
 	countVouches(
-		subject: ShTangledGraphCountVouches.$params['subject'],
+		subject: Tngl.ShTangledGraphCountVouches.$params['subject'],
 		options: RequestOptions = {},
 	): Promise<CountSummary> {
 		return this.#count('sh.tangled.graph.countVouches', subject, options, (signal) =>
-			this.#rpc.call(ShTangledGraphCountVouches, { params: { subject }, signal }),
+			this.#rpc.call(Tngl.ShTangledGraphCountVouches, { params: { subject }, signal }),
 		)
 	}
 
 	countCollaborators(
-		subject: ShTangledRepoCountCollaborators.$params['subject'],
+		subject: Tngl.ShTangledRepoCountCollaborators.$params['subject'],
 		options: RequestOptions = {},
 	): Promise<CountSummary> {
 		return this.#count('sh.tangled.repo.countCollaborators', subject, options, (signal) =>
-			this.#rpc.call(ShTangledRepoCountCollaborators, { params: { subject }, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoCountCollaborators, { params: { subject }, signal }),
 		)
 	}
 
@@ -822,19 +839,19 @@ export class BobbinClient {
 		switch (kind) {
 			case 'stars':
 				return this.#count('sh.tangled.feed.countStarsBy', subject, options, (signal) =>
-					this.#rpc.call(ShTangledFeedCountStarsBy, { params: { subject }, signal }),
+					this.#rpc.call(Tngl.ShTangledFeedCountStarsBy, { params: { subject }, signal }),
 				)
 			case 'follows':
 				return this.#count('sh.tangled.graph.countFollowsBy', subject, options, (signal) =>
-					this.#rpc.call(ShTangledGraphCountFollowsBy, { params: { subject }, signal }),
+					this.#rpc.call(Tngl.ShTangledGraphCountFollowsBy, { params: { subject }, signal }),
 				)
 			case 'vouches':
 				return this.#count('sh.tangled.graph.countVouchesBy', subject, options, (signal) =>
-					this.#rpc.call(ShTangledGraphCountVouchesBy, { params: { subject }, signal }),
+					this.#rpc.call(Tngl.ShTangledGraphCountVouchesBy, { params: { subject }, signal }),
 				)
 			case 'collaborators':
 				return this.#count('sh.tangled.repo.countCollaboratorsBy', subject, options, (signal) =>
-					this.#rpc.call(ShTangledRepoCountCollaboratorsBy, { params: { subject }, signal }),
+					this.#rpc.call(Tngl.ShTangledRepoCountCollaboratorsBy, { params: { subject }, signal }),
 				)
 		}
 	}
@@ -842,39 +859,41 @@ export class BobbinClient {
 	async listRepositoryLabels(subject: string, options: RequestOptions = {}) {
 		const params = { subject, limit: 12, order: 'asc' }
 		const data = await this.#cached('sh.tangled.label.listDefinitions', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledLabelListDefinitions, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledLabelListDefinitions, { params, signal }),
 		)
-		return data.items.map((item) => validateRecordView(item, ShTangledLabelDefinition.mainSchema, 'label definition'))
+		return data.items.map((item) =>
+			validateRecordView(item, Tngl.ShTangledLabelDefinition.mainSchema, 'label definition'),
+		)
 	}
 
 	async listLabelDefinitions(
 		subject: string,
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledLabelDefinition.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledLabelDefinition.Main>>> {
 		assertScopeIdentifier(subject, 'label scope')
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.label.listDefinitions', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledLabelListDefinitions, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledLabelListDefinitions, { params, signal }),
 		)
 		return {
 			items: data.items.map((item) =>
-				validateRecordView(item, ShTangledLabelDefinition.mainSchema, 'label definition'),
+				validateRecordView(item, Tngl.ShTangledLabelDefinition.mainSchema, 'label definition'),
 			),
 			cursor: data.cursor,
 		}
 	}
 
 	async listLabelOperations(
-		subject: ShTangledLabelListOps.$params['subject'],
+		subject: Tngl.ShTangledLabelListOps.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledLabelOp.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledLabelOp.Main>>> {
 		assertScopeIdentifier(subject, 'label scope')
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.label.listOps', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledLabelListOps, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledLabelListOps, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledLabelOp.mainSchema, 'label operation')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledLabelOp.mainSchema, 'label operation')),
 			cursor: data.cursor,
 		}
 	}
@@ -882,28 +901,30 @@ export class BobbinClient {
 	async listPipelines(
 		subject: string,
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledPipeline.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledPipeline.Main>>> {
 		assertScopeIdentifier(subject, 'pipeline subject')
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.pipeline.listPipelines', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledPipelineListPipelines, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledPipelineListPipelines, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledPipeline.mainSchema, 'pipeline')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledPipeline.mainSchema, 'pipeline')),
 			cursor: data.cursor,
 		}
 	}
 
 	async listPipelineStatuses(
-		subject: ShTangledPipelineListStatuses.$params['subject'],
+		subject: Tngl.ShTangledPipelineListStatuses.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledPipelineStatus.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledPipelineStatus.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.pipeline.listStatuses', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledPipelineListStatuses, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledPipelineListStatuses, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledPipelineStatus.mainSchema, 'pipeline status')),
+			items: data.items.map((item) =>
+				validateRecordView(item, Tngl.ShTangledPipelineStatus.mainSchema, 'pipeline status'),
+			),
 			cursor: data.cursor,
 		}
 	}
@@ -911,14 +932,14 @@ export class BobbinClient {
 	async listArtifacts(
 		subject: string,
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledRepoArtifact.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledRepoArtifact.Main>>> {
 		assertScopeIdentifier(subject, 'artifact subject')
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.repo.listArtifacts', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledRepoListArtifacts, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledRepoListArtifacts, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledRepoArtifact.mainSchema, 'artifact')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledRepoArtifact.mainSchema, 'artifact')),
 			cursor: data.cursor,
 		}
 	}
@@ -926,36 +947,42 @@ export class BobbinClient {
 	async listStrings(
 		subject: string,
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledString.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledString.Main>>> {
 		assertScopeIdentifier(subject, 'string scope')
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.string.listStrings', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledStringListStrings, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledStringListStrings, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledString.mainSchema, 'string')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledString.mainSchema, 'string')),
 			cursor: data.cursor,
 		}
 	}
 
 	getString(uri: string, options: RequestOptions = {}) {
-		return this.#getPublicRecord(uri, 'sh.tangled.string', ShTangledString.mainSchema, 'string', options)
+		return this.#getPublicRecord(uri, 'sh.tangled.string', Tngl.ShTangledString.mainSchema, 'string', options)
 	}
 
 	getArtifact(uri: string, options: RequestOptions = {}) {
-		return this.#getPublicRecord(uri, 'sh.tangled.repo.artifact', ShTangledRepoArtifact.mainSchema, 'artifact', options)
+		return this.#getPublicRecord(
+			uri,
+			'sh.tangled.repo.artifact',
+			Tngl.ShTangledRepoArtifact.mainSchema,
+			'artifact',
+			options,
+		)
 	}
 
 	getPipeline(uri: string, options: RequestOptions = {}) {
-		return this.#getPublicRecord(uri, 'sh.tangled.pipeline', ShTangledPipeline.mainSchema, 'pipeline', options)
+		return this.#getPublicRecord(uri, 'sh.tangled.pipeline', Tngl.ShTangledPipeline.mainSchema, 'pipeline', options)
 	}
 
 	async listRepositoryRefUpdates(subject: ActorDid, options: RequestOptions = {}) {
 		const params = { subject, limit: 6, order: 'desc' as const }
 		const data = await this.#cached('sh.tangled.git.listRefUpdates', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledGitListRefUpdates, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledGitListRefUpdates, { params, signal }),
 		)
-		return data.items.map((item) => validateRecordView(item, ShTangledGitRefUpdate.mainSchema, 'ref update'))
+		return data.items.map((item) => validateRecordView(item, Tngl.ShTangledGitRefUpdate.mainSchema, 'ref update'))
 	}
 
 	async getRepositoryCounts(subject: ActorDid, options: RequestOptions = {}): Promise<RepositoryCounts> {
@@ -963,30 +990,43 @@ export class BobbinClient {
 			this.#cached(nsid, { subject }, options, STALE_TIMES.list, call)
 		const [stars, issues, pulls] = await Promise.all([
 			request('sh.tangled.feed.countStars', (signal) =>
-				this.#rpc.call(ShTangledFeedCountStars, { params: { subject }, signal }),
+				this.#rpc.call(Tngl.ShTangledFeedCountStars, { params: { subject }, signal }),
 			),
 			request('sh.tangled.repo.countIssues', (signal) =>
-				this.#rpc.call(ShTangledRepoCountIssues, { params: { subject }, signal }),
+				this.#rpc.call(Tngl.ShTangledRepoCountIssues, { params: { subject }, signal }),
 			),
 			request('sh.tangled.repo.countPulls', (signal) =>
-				this.#rpc.call(ShTangledRepoCountPulls, { params: { subject }, signal }),
+				this.#rpc.call(Tngl.ShTangledRepoCountPulls, { params: { subject }, signal }),
 			),
 		])
 		return { stars: stars.count, issues: issues.count, pulls: pulls.count }
 	}
 
 	repositoryArchiveUrl(
-		repo: ShTangledRepoArchive.$params['repo'],
+		repository: RepositoryLocation,
 		format: RepositoryArchiveFormat = 'tar.gz',
 		ref = 'HEAD',
 		prefix?: string,
 	): string {
-		return this.#repositoryQueryUrl('sh.tangled.repo.archive', { repo, ref, format, prefix })
+		return this.#repositoryQueryUrl(repository, 'sh.tangled.repo.archive', {
+			repo: repository.did,
+			ref,
+			format,
+			prefix,
+		})
 	}
 
-	async getRepositoryArchive(repo: string, options: RepositoryArchiveOptions = {}): Promise<RepositoryDownload> {
-		const params = { repo, ref: options.ref ?? 'HEAD', format: options.format ?? 'tar.gz', prefix: options.prefix }
-		if (!is(ShTangledRepoArchive.mainSchema.params, params)) {
+	async getRepositoryArchive(
+		repository: RepositoryLocation,
+		options: RepositoryArchiveOptions = {},
+	): Promise<RepositoryDownload> {
+		const params = {
+			repo: repository.did,
+			ref: options.ref ?? 'HEAD',
+			format: options.format ?? 'tar.gz',
+			prefix: options.prefix,
+		}
+		if (!is(Tngl.ShTangledRepoArchive.mainSchema.params, params)) {
 			throw new BobbinError('invalid-request', 'The archive request is invalid')
 		}
 
@@ -994,14 +1034,17 @@ export class BobbinClient {
 		if (options.range) headers.range = options.range
 
 		try {
-			const response = await this.#fetch(this.repositoryArchiveUrl(repo, params.format, params.ref, params.prefix), {
-				headers,
-				signal: options.signal,
-				cache: options.cache === 'reload' ? 'reload' : 'default',
-				credentials: 'omit',
-				mode: 'cors',
-				referrerPolicy: 'no-referrer',
-			})
+			const response = await this.#fetch(
+				this.repositoryArchiveUrl(repository, params.format, params.ref, params.prefix),
+				{
+					headers,
+					signal: options.signal,
+					cache: options.cache === 'reload' ? 'reload' : 'default',
+					credentials: 'omit',
+					mode: 'cors',
+					referrerPolicy: 'no-referrer',
+				},
+			)
 			if (!response.ok && response.status !== 304) throw await responseError(response)
 			return downloadMetadata(response)
 		} catch (error) {
@@ -1053,7 +1096,7 @@ export class BobbinClient {
 		schemas: TSchemas,
 		options: RequestOptions = {},
 	): Promise<CursorPage<ValidatedSearchHit<InferInput<TSchemas[keyof TSchemas]>>>> {
-		if (!is(ShTangledSearchQuery.mainSchema.params, params)) {
+		if (!is(Tngl.ShTangledSearchQuery.mainSchema.params, params)) {
 			throw new BobbinError('invalid-request', 'The search parameters are invalid')
 		}
 		const data = await this.#cached('sh.tangled.search.query', params, options, STALE_TIMES.search, (signal) =>
@@ -1106,15 +1149,15 @@ export class BobbinClient {
 	}
 
 	async listKnots(
-		subject: ShTangledKnotListKnots.$params['subject'],
+		subject: Tngl.ShTangledKnotListKnots.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledKnot.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledKnot.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.knot.listKnots', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledKnotListKnots, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledKnotListKnots, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledKnot.mainSchema, 'knot')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledKnot.mainSchema, 'knot')),
 			cursor: data.cursor,
 		}
 	}
@@ -1123,20 +1166,20 @@ export class BobbinClient {
 		assertScopeIdentifier(subject, 'knot identifier')
 		const params = pickListParams(subject, options)
 		return this.#cached('sh.tangled.knot.listMembers', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledKnotListMembers, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledKnotListMembers, { params, signal }),
 		)
 	}
 
 	async listSpindles(
-		subject: ShTangledSpindleListSpindles.$params['subject'],
+		subject: Tngl.ShTangledSpindleListSpindles.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledSpindle.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledSpindle.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.spindle.listSpindles', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledSpindleListSpindles, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledSpindleListSpindles, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledSpindle.mainSchema, 'spindle')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledSpindle.mainSchema, 'spindle')),
 			cursor: data.cursor,
 		}
 	}
@@ -1145,24 +1188,26 @@ export class BobbinClient {
 		assertScopeIdentifier(subject, 'spindle identifier')
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.spindle.listMembers', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledSpindleListMembers, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledSpindleListMembers, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledSpindleMember.mainSchema, 'spindle member')),
+			items: data.items.map((item) =>
+				validateRecordView(item, Tngl.ShTangledSpindleMember.mainSchema, 'spindle member'),
+			),
 			cursor: data.cursor,
 		}
 	}
 
 	async listPublicKeys(
-		subject: ShTangledPublicKeyListKeys.$params['subject'],
+		subject: Tngl.ShTangledPublicKeyListKeys.$params['subject'],
 		options: ListReposOptions = {},
-	): Promise<CursorPage<ValidatedRecordView<ShTangledPublicKey.Main>>> {
+	): Promise<CursorPage<ValidatedRecordView<Tngl.ShTangledPublicKey.Main>>> {
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.publicKey.listKeys', params, options, STALE_TIMES.list, (signal) =>
-			this.#rpc.call(ShTangledPublicKeyListKeys, { params, signal }),
+			this.#rpc.call(Tngl.ShTangledPublicKeyListKeys, { params, signal }),
 		)
 		return {
-			items: data.items.map((item) => validateRecordView(item, ShTangledPublicKey.mainSchema, 'public key')),
+			items: data.items.map((item) => validateRecordView(item, Tngl.ShTangledPublicKey.mainSchema, 'public key')),
 			cursor: data.cursor,
 		}
 	}
@@ -1306,8 +1351,22 @@ export class BobbinClient {
 		}
 	}
 
-	#repositoryQueryUrl(nsid: string, params: Record<string, string | undefined>): string {
-		const url = new URL(`/xrpc/${nsid}`, this.service)
+	#knotRpc(repository: RepositoryLocation): Client {
+		return new Client({
+			handler: simpleFetchHandler({ service: normalizeKnotService(repository.knot), fetch: this.#fetch }),
+		})
+	}
+
+	#knotCacheKey(repository: RepositoryLocation, nsid: string): string {
+		return `${normalizeKnotService(repository.knot)}:${nsid}`
+	}
+
+	#repositoryQueryUrl(
+		repository: RepositoryLocation,
+		nsid: string,
+		params: Record<string, string | undefined>,
+	): string {
+		const url = new URL(`/xrpc/${nsid}`, normalizeKnotService(repository.knot))
 		for (const [name, value] of Object.entries(params)) if (value !== undefined) url.searchParams.set(name, value)
 		return url.href
 	}
@@ -1341,6 +1400,16 @@ export function normalizeBobbinService(service: string | URL): string {
 		throw new TypeError('Data source addresses cannot contain credentials, a query, or a page fragment')
 	}
 
+	return url.toString().replace(/\/$/, '')
+}
+
+/** Normalizes a public knot host or URL before a direct repository request. */
+export function normalizeKnotService(service: string): string {
+	const candidate = /^https?:\/\//i.test(service) ? service : `https://${service}`
+	const url = new URL(candidate)
+	if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+		throw new BobbinError('invalid-request', 'The repository knot address is invalid')
+	}
 	return url.toString().replace(/\/$/, '')
 }
 
@@ -1385,11 +1454,11 @@ function validateCommentView(view: { uri: string; cid?: string; value: unknown }
 	const value = optionalRecord(view.value)
 	switch (value?.$type) {
 		case 'sh.tangled.feed.comment':
-			return validateRecordView(view, ShTangledFeedComment.mainSchema, 'comment')
+			return validateRecordView(view, Tngl.ShTangledFeedComment.mainSchema, 'comment')
 		case 'sh.tangled.repo.issue.comment':
-			return validateRecordView(view, ShTangledRepoIssueComment.mainSchema, 'legacy issue comment')
+			return validateRecordView(view, Tngl.ShTangledRepoIssueComment.mainSchema, 'legacy issue comment')
 		case 'sh.tangled.repo.pull.comment':
-			return validateRecordView(view, ShTangledRepoPullComment.mainSchema, 'legacy pull comment')
+			return validateRecordView(view, Tngl.ShTangledRepoPullComment.mainSchema, 'legacy pull comment')
 		default:
 			throw new BobbinError('malformed-response', 'Bobbin returned an unsupported comment record')
 	}

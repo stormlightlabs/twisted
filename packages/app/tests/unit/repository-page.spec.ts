@@ -2,17 +2,20 @@ import type { BobbinClient } from '@/lib/api'
 import { BOBBIN_CLIENT_PROVIDER, BobbinError } from '@/lib/api'
 import RepositoryPage from '@/views/RepositoryPage.vue'
 import { flushPromises } from '@vue/test-utils'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { mountIonicRoute } from './support/mount'
 
 const repoUri = 'at://did:plc:owner/sh.tangled.repo/twisted'
 const repoDid = 'did:plc:repository'
+const repositoryLocation = { did: repoDid, knot: 'knot.tangled.example' }
+let copiedText: string[] = []
 
 const routes = [
 	{ path: '/profiles/:actor', name: 'profile', component: { template: '<div />' } },
 	{ path: '/repositories/:repo', name: 'repository', component: RepositoryPage },
 	{ path: '/repositories/:repo/source', name: 'repository-source', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/commits', name: 'repository-commits', component: { template: '<div />' } },
+	{ path: '/repositories/:repo/commits/:hash', name: 'repository-commit', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/branches', name: 'repository-branches', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/tags', name: 'repository-tags', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/compare', name: 'repository-compare', component: { template: '<div />' } },
@@ -74,14 +77,12 @@ function client(overrides: Partial<BobbinClient> = {}): BobbinClient {
 					value: { $type: 'sh.tangled.label.definition', name: 'Bug' },
 				},
 			]),
-		listRepositoryRefUpdates: vi
+		getRepositoryLog: vi
 			.fn()
-			.mockResolvedValue([
-				{
-					uri: 'at://did:plc:owner/sh.tangled.git.refUpdate/update',
-					value: { ref: 'refs/heads/main', newSha: 'a'.repeat(40), committerDid: 'did:plc:owner' },
-				},
-			]),
+			.mockResolvedValue({
+				ref: 'HEAD',
+				items: [{ hash: 'a'.repeat(40), message: 'Ship the client', parents: [], author: { name: 'Ada' } }],
+			}),
 		repositoryArchiveUrl: vi.fn((_repo, format) => `https://api.example/archive.${format}`),
 		...overrides,
 	} as unknown as BobbinClient
@@ -89,11 +90,20 @@ function client(overrides: Partial<BobbinClient> = {}): BobbinClient {
 
 describe('RepositoryPage', () => {
 	beforeEach(() => {
+		copiedText = []
 		Object.defineProperty(navigator, 'clipboard', {
 			configurable: true,
-			value: { writeText: vi.fn().mockResolvedValue(undefined) },
+			value: { write: vi.fn().mockResolvedValue(undefined) },
+		})
+		Object.defineProperty(document, 'execCommand', {
+			configurable: true,
+			value: vi.fn(() => {
+				copiedText.push(document.querySelector('textarea')?.value ?? '')
+				return true
+			}),
 		})
 	})
+	afterEach(() => vi.unstubAllGlobals())
 
 	test('renders identity, independent overview data, safe actions, and README content', async () => {
 		const fakeClient = client()
@@ -110,19 +120,23 @@ describe('RepositoryPage', () => {
 		expect(wrapper.text()).toContain('did:plc:collaborator')
 		expect(wrapper.text()).toContain('Bug')
 		expect(wrapper.text()).toContain('Welcome')
-		expect(wrapper.text()).toContain('refs/heads/main')
+		expect(wrapper.text()).toContain('Ship the client')
+		expect(wrapper.text()).toContain('Ada')
 		expect(wrapper.text()).toContain('4 Issues')
 		expect(wrapper.findAll('.repository-actions a')).toHaveLength(5)
 		expect(wrapper.text()).toContain('View automation')
-		expect(fakeClient.getRepositoryLanguages).toHaveBeenCalledWith(repoUri, expect.any(Object))
-		expect(fakeClient.getRepositoryTree).toHaveBeenCalledWith(repoUri, { ref: 'HEAD' }, expect.any(Object))
-		expect(fakeClient.repositoryArchiveUrl).toHaveBeenCalledWith(repoUri, 'tar.gz')
-		expect(fakeClient.repositoryArchiveUrl).toHaveBeenCalledWith(repoUri, 'zip')
+		expect(fakeClient.getRepositoryLanguages).toHaveBeenCalledWith(repositoryLocation, expect.any(Object))
+		expect(fakeClient.getRepositoryTree).toHaveBeenCalledWith(repositoryLocation, { ref: 'HEAD' }, expect.any(Object))
+		expect(fakeClient.getRepositoryLog).toHaveBeenCalledWith(
+			repositoryLocation,
+			expect.objectContaining({ ref: 'HEAD', limit: 6 }),
+		)
+		expect(fakeClient.repositoryArchiveUrl).toHaveBeenCalledWith(repositoryLocation, 'tar.gz')
+		expect(fakeClient.repositoryArchiveUrl).toHaveBeenCalledWith(repositoryLocation, 'zip')
 
 		await wrapper.findAll('.repository-actions button')[0].trigger('click')
 		await wrapper.findAll('.repository-actions button')[1].trigger('click')
-		expect(navigator.clipboard.writeText).toHaveBeenCalledWith(repoDid)
-		expect(navigator.clipboard.writeText).toHaveBeenCalledWith(`https://tangled.org/${repoDid}`)
+		expect(copiedText).toEqual([repoDid, `https://tangled.org/${repoDid}`])
 	})
 
 	test('keeps the README available when another overview section fails', async () => {

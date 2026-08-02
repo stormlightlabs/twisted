@@ -5,8 +5,14 @@ This directory runs a private Bobbin instance from Tangled core commit
 
 Bobbin keeps its indexes in memory. It rebuilds them from Hydrant after every
 restart and uses Slingshot for identity resolution and individual record
-lookups. Tangled does not currently offer public Hydrant or Slingshot instances,
-so you must supply both service URLs.
+lookups. The example environment uses KLBR's Hydrant origin and Microcosm's
+public Slingshot service.
+
+Twisted uses Bobbin for public record metadata, lists, counts, activity, and
+search. After Bobbin returns a repository record, Twisted sends Git queries
+directly to the record's `knot` with its `repoDid`. Repository files, README
+content, languages, refs, history, diffs, and archives therefore do not depend
+on Bobbin's Git proxy or Hydrant replay.
 
 Build Bobbin with its isolated BuildKit builder:
 
@@ -47,9 +53,9 @@ Check ingestion progress with:
 curl http://localhost:8090/xrpc/sh.tangled.bobbin.getCoverage
 ```
 
-`ready: false` means Bobbin is still replaying Hydrant events. Lists, counts,
-and search can be incomplete during that period, although single-record lookups
-can already work through Slingshot.
+`ready: false` means Bobbin has not replayed Hydrant events. Lists, counts,
+activity, and search can be incomplete, although single-record lookups can
+already work through Slingshot and repository Git data can load from its knot.
 
 ## Stop and restart
 
@@ -76,10 +82,11 @@ docker compose --env-file infra/bobbin/.env \
   -f infra/bobbin/compose.yaml up --no-build -d --force-recreate bobbin
 ```
 
-The example configuration uses the public Microcosm Slingshot service. The
-KLBR Hydrant origin currently returns `404` for the `/stream` path required by
-this pinned Bobbin build, so indexed lists, counts, and search remain incomplete
-until that endpoint becomes compatible or another Hydrant is configured.
+The KLBR Hydrant origin currently returns `404` for the cursor-replayable
+`/stream` path required by this pinned Bobbin build. Indexed lists, counts,
+activity, and search therefore remain incomplete in the local stack. This does
+not prevent repository Git data from loading because the app reads it from the
+repository's knot.
 
 To adopt a newer Bobbin release, update the commit in `compose.yaml`, review
 `bobbin/example.toml` and `bobbin/crates/xrpc/src/lib.rs` at that commit, then

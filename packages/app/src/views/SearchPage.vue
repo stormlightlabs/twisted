@@ -137,7 +137,7 @@ const allHits = computed(() => [...(searchRequest.data.value?.items ?? []), ...a
 
 const coverageRequest = useRouteRequest(
 	() => getClient().service,
-	(_service, signal, attempt) => getClient().getCoverage({ signal, cache: attempt.cache }),
+	(_service, signal, attempt) => getClient().getCatalogCoverage({ signal, cache: attempt.cache }),
 )
 
 const searchRequest = useRouteRequest(

@@ -35,7 +35,7 @@ import type { ShTangledRepo } from '@atcute/tangled'
 import { computed, ref } from 'vue'
 import RepositoryCard from './RepositoryCard.vue'
 
-const props = defineProps<{ did: string }>()
+const props = defineProps<{ did: string; pds: string }>()
 const getClient = useBobbinClientProvider()
 const appended = ref<ValidatedRecordView<ShTangledRepo.Main>[]>([])
 const nextCursor = ref<string>()
@@ -48,11 +48,7 @@ const request = useRouteRequest(
 	async (did, signal, attempt) => {
 		appended.value = []
 		requestedCursors.clear()
-		const page = await getClient().listRepos(did as Parameters<ReturnType<typeof getClient>['listRepos']>[0], {
-			signal,
-			cache: attempt.cache,
-			limit: 20,
-		})
+		const page = await getClient().listPdsRepos(did, props.pds, { signal, cache: attempt.cache, limit: 20 })
 		nextCursor.value = page.cursor
 		return page.items
 	},
@@ -67,10 +63,7 @@ async function loadNext(): Promise<void> {
 	loadingNext.value = true
 	nextError.value = undefined
 	try {
-		const page = await getClient().listRepos(props.did as Parameters<ReturnType<typeof getClient>['listRepos']>[0], {
-			cursor,
-			limit: 20,
-		})
+		const page = await getClient().listPdsRepos(props.did, props.pds, { cursor, limit: 20 })
 		appended.value.push(...page.items)
 		nextCursor.value = page.cursor
 	} catch (error) {

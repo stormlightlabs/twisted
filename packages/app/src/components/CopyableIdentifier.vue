@@ -6,18 +6,15 @@
 </template>
 
 <script setup lang="ts">
+import { useCopy } from '@/lib/browser'
 import { ref } from 'vue'
 
 const props = withDefaults(defineProps<{ value: string; noun?: string }>(), { noun: 'identifier' })
 const label = ref(`Copy ${props.noun}`)
+const { copyText } = useCopy()
 
 async function copy(): Promise<void> {
-	try {
-		await navigator.clipboard.writeText(props.value)
-		label.value = 'Copied'
-	} catch {
-		label.value = 'Copy failed'
-	}
+	label.value = (await copyText(props.value)) ? 'Copied' : 'Copy failed'
 }
 </script>
 

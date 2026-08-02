@@ -88,7 +88,7 @@ import { IonContent, IonPage } from '@ionic/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-const { getClient, repo, repoDid, repoUri, repository, repositoryRequest, route } = useRepositoryRoute()
+const { getClient, repo, repoDid, repository, repositoryLocation, repositoryRequest, route } = useRepositoryRoute()
 const router = useRouter()
 const requestedRef = computed(() => String(route.query.ref ?? ''))
 const path = computed(() => String(route.query.path ?? '').replace(/^\/+|\/+$/g, ''))
@@ -97,18 +97,20 @@ watch(path, (value) => {
 	pathDraft.value = value
 })
 const repositoryBack = computed(() => router.resolve(links.repository(repo.value)).href)
-const defaultBranchRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri ? getClient().getRepositoryDefaultBranch(uri, { signal, cache: attempt.cache }) : Promise.resolve(undefined),
+const defaultBranchRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().getRepositoryDefaultBranch(location, { signal, cache: attempt.cache })
+		: Promise.resolve(undefined),
 )
 const currentRef = computed(() => requestedRef.value || defaultBranchRequest.data.value?.name || 'HEAD')
-const branchesRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri
-		? getClient().listRepositoryBranches(uri, { signal, cache: attempt.cache, limit: 99 })
+const branchesRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().listRepositoryBranches(location, { signal, cache: attempt.cache, limit: 99 })
 		: Promise.resolve({ items: [] }),
 )
-const tagsRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri
-		? getClient().listRepositoryTags(uri, { signal, cache: attempt.cache, limit: 99 })
+const tagsRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().listRepositoryTags(location, { signal, cache: attempt.cache, limit: 99 })
 		: Promise.resolve({ items: [] }),
 )
 const updatesRequest = useRouteRequest(repoDid, (did, signal, attempt) =>
@@ -117,12 +119,12 @@ const updatesRequest = useRouteRequest(repoDid, (did, signal, attempt) =>
 const branches = computed(() => branchesRequest.data.value?.items ?? [])
 const tags = computed(() => tagsRequest.data.value?.items ?? [])
 const updates = computed(() => updatesRequest.data.value ?? [])
-const logSource = computed(() => ({ uri: repoUri.value, ref: currentRef.value, path: path.value }))
+const logSource = computed(() => ({ location: repositoryLocation.value, ref: currentRef.value, path: path.value }))
 const logRequest = useRouteRequest(
 	logSource,
-	({ uri, ref: selectedRef, path: selectedPath }, signal, attempt) =>
-		uri
-			? getClient().getRepositoryLog(uri, {
+	({ location, ref: selectedRef, path: selectedPath }, signal, attempt) =>
+		location
+			? getClient().getRepositoryLog(location, {
 					ref: selectedRef,
 					path: selectedPath,
 					signal,
@@ -156,11 +158,11 @@ function applyPath() {
 }
 async function loadMore() {
 	const next = cursor.value
-	if (!next || loadingMore.value || consumedCursors.has(next) || !repoUri.value) return
+	if (!next || loadingMore.value || consumedCursors.has(next) || !repositoryLocation.value) return
 	loadingMore.value = true
 	moreError.value = undefined
 	try {
-		const page = await getClient().getRepositoryLog(repoUri.value, {
+		const page = await getClient().getRepositoryLog(repositoryLocation.value, {
 			ref: currentRef.value,
 			path: path.value,
 			cursor: next,

@@ -1,6 +1,6 @@
-GET {{bobbin_url}}/xrpc/sh.tangled.repo.getDefaultBranch
+GET {{knot_url}}/xrpc/sh.tangled.repo.getDefaultBranch
 [QueryStringParams]
-repo: {{repo_uri}}
+repo: {{route_repo_did}}
 
 HTTP 200
 [Asserts]

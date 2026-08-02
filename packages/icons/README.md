@@ -25,4 +25,5 @@ bun run icons:generate -- ./mark.png --output ./public/icons --background '#2123
 ```
 
 Every output is an opaque PNG. The command validates its dimensions before it
-finishes.
+finishes. The app references the generated files from `manifest.webmanifest`
+and uses the Apple touch icon from `index.html`.

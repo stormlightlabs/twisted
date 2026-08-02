@@ -1,4 +1,4 @@
-import { ShTangledKnotListKeys, ShTangledKnotVersion, ShTangledOwner, ShTangledRepoBlob } from '@atcute/tangled'
+import { ShTangledKnotListKeys, ShTangledKnotVersion, ShTangledOwner } from '@atcute/tangled'
 import * as v from '@atcute/lexicons/validations'
 
 /** The hosted Bobbin instance used unless a user configures another service. */
@@ -32,10 +32,4 @@ export const bobbinKnotVersionSchema = v.query('sh.tangled.knot.version', {
 export const bobbinKnotListKeysSchema = v.query('sh.tangled.knot.listKeys', {
 	params: v.object({ ...ShTangledKnotListKeys.mainSchema.params.shape, knot: v.string() }),
 	output: ShTangledKnotListKeys.mainSchema.output,
-})
-
-/** Bobbin resolves a repository record AT-URI before proxying this query to its knot. */
-export const bobbinRepoBlobSchema = v.query('sh.tangled.repo.blob', {
-	params: v.object({ ...ShTangledRepoBlob.mainSchema.params.shape, repo: v.string() }),
-	output: ShTangledRepoBlob.mainSchema.output,
 })

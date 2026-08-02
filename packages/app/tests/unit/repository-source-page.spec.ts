@@ -7,6 +7,7 @@ import { mountIonicRoute } from './support/mount'
 
 const repo = 'at://did:plc:owner/sh.tangled.repo/twisted'
 const repoDid = 'did:plc:repository'
+const repositoryLocation = { did: repoDid, knot: 'knot.example' }
 const routes = [
 	{ path: '/repositories/:repo', name: 'repository', component: { template: '<div />' } },
 	{ path: '/repositories/:repo/source', name: 'repository-source', component: RepositorySourcePage },
@@ -75,7 +76,12 @@ describe('RepositorySourcePage', () => {
 		expect(wrapper.get('.blob-toolbar a[download]').attributes('href')).toBe('https://api.example/raw')
 		await wrapper.get('.blob-toolbar button').trigger('click')
 		expect(wrapper.get('.code-lines').classes()).toContain('code-lines--wrap')
-		expect(fakeClient.getRepositoryBlob).toHaveBeenCalledWith(repo, 'main', 'src/main.ts', expect.any(Object))
+		expect(fakeClient.getRepositoryBlob).toHaveBeenCalledWith(
+			repositoryLocation,
+			'main',
+			'src/main.ts',
+			expect.any(Object),
+		)
 	})
 
 	test('keeps repository navigation available when a ref cannot be opened', async () => {

@@ -42,9 +42,9 @@
 								<div v-if="repository.value.spindle">
 									<dt>Spindle</dt>
 									<dd>
-										<router-link :to="links.spindle(repository.value.spindle)">{{
-											repository.value.spindle
-										}}</router-link>
+										<router-link :to="links.spindle(repository.value.spindle)">
+											{{ repository.value.spindle }}
+										</router-link>
 									</dd>
 								</div>
 							</dl>
@@ -68,12 +68,12 @@
 							noun="repository totals"
 							@retry="countsRequest.retry" />
 						<template v-if="countsRequest.data.value">
-							<router-link :to="links.issues(repository.uri)"
-								><strong>{{ countsRequest.data.value.issues }}</strong> Issues</router-link
-							>
-							<router-link :to="links.pulls(repository.uri)"
-								><strong>{{ countsRequest.data.value.pulls }}</strong> Pull requests</router-link
-							>
+							<router-link :to="links.issues(repository.uri)">
+								<strong>{{ countsRequest.data.value.issues }}</strong> Issues
+							</router-link>
+							<router-link :to="links.pulls(repository.uri)">
+								<strong>{{ countsRequest.data.value.pulls }}</strong> Pull requests
+							</router-link>
 							<router-link :to="links.repositoryRelationships(repository.uri, 'stars')">
 								<strong>{{ countsRequest.data.value.stars }}</strong> Stars
 							</router-link>
@@ -95,8 +95,8 @@
 								@retry="languagesRequest.retry" />
 							<ul v-if="languagesRequest.data.value?.languages.length" class="language-list">
 								<li v-for="language in languagesRequest.data.value.languages" :key="language.name">
-									<span>{{ language.name }}</span
-									><strong>{{ language.percentage }}%</strong>
+									<span>{{ language.name }}</span>
+									<strong>{{ language.percentage }}%</strong>
 								</li>
 							</ul>
 						</section>
@@ -161,23 +161,23 @@
 
 					<section class="overview-panel overview-panel--wide" aria-labelledby="updates-heading">
 						<header>
-							<h2 id="updates-heading">Recent code updates</h2>
+							<h2 id="updates-heading">Recent commits</h2>
 							<router-link :to="links.commits(repository.uri)">View history</router-link>
 						</header>
 						<request-state
 							:empty="updatesRequest.phase.value === 'empty'"
-							empty-message="No recent code updates are indexed."
+							empty-message="No commits were found on the default branch."
 							:error="updatesRequest.error.value"
 							:loading="updatesRequest.phase.value === 'loading'"
-							noun="code updates"
+							noun="commits"
 							@retry="updatesRequest.retry" />
-						<ol v-if="updatesRequest.data.value?.length" class="updates-list">
-							<li v-for="update in updatesRequest.data.value" :key="update.uri">
-								<strong>{{ update.value.ref }}</strong>
-								<code>{{ update.value.newSha.slice(0, 10) }}</code>
-								<router-link :to="links.profile(update.value.committerDid)">{{
-									update.value.committerDid
+						<ol v-if="updatesRequest.data.value?.items.length" class="updates-list">
+							<li v-for="commit in updatesRequest.data.value.items" :key="commit.hash">
+								<router-link :to="links.commit(repository.uri, commit.hash)">{{
+									firstLine(commit.message) || 'Commit without a message'
 								}}</router-link>
+								<span v-if="commit.author">{{ commit.author.name }}</span>
+								<code>{{ commit.hash.slice(0, 10) }}</code>
 							</li>
 						</ol>
 					</section>
@@ -188,12 +188,14 @@
 </template>
 
 <script setup lang="ts">
+import type { RepositoryLocation } from '@/lib/api'
 import { useBobbinClientProvider } from '@/lib/api'
 import MarkdownContent from '@/components/MarkdownContent.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecordHeader from '@/components/RecordHeader.vue'
 import RequestState from '@/components/RequestState.vue'
 import { parseAtUri } from '@/content/links'
+import { useCopy } from '@/lib/browser'
 import { useRouteRequest } from '@/lib/requests'
 import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
@@ -202,6 +204,7 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const getClient = useBobbinClientProvider()
+const { copyText } = useCopy()
 const repo = computed(() => String(route.params.repo ?? ''))
 const repositoryRequest = useRouteRequest(repo, (identifier, signal, attempt) =>
 	getClient().getRepo(identifier as Parameters<ReturnType<typeof getClient>['getRepo']>[0], {
@@ -212,7 +215,11 @@ const repositoryRequest = useRouteRequest(repo, (identifier, signal, attempt) =>
 const repository = computed(() => repositoryRequest.data.value)
 const ownerDid = computed(() => parseAtUri(repo.value)?.authority)
 const repositoryDid = computed(() => repository.value?.value.repoDid ?? '')
-const repositoryUri = computed(() => repository.value?.uri ?? '')
+const repositoryLocation = computed<RepositoryLocation | undefined>(() => {
+	const did = repository.value?.value.repoDid
+	const knot = repository.value?.value.knot
+	return did && knot ? { did, knot } : undefined
+})
 const repositoryName = computed(() => {
 	const name = repository.value?.value.name?.trim()
 	return name || parseAtUri(repo.value)?.rkey || 'Repository'
@@ -221,8 +228,12 @@ const canonicalUrl = computed(() => (repositoryDid.value ? `https://tangled.org/
 const cloneUrl = canonicalUrl
 const websiteUrl = computed(() => safeWebUrl(repository.value?.value.website))
 const sourceUrl = computed(() => safeWebUrl(repository.value?.value.source))
-const archiveTarUrl = computed(() => getClient().repositoryArchiveUrl(repositoryUri.value, 'tar.gz'))
-const archiveZipUrl = computed(() => getClient().repositoryArchiveUrl(repositoryUri.value, 'zip'))
+const archiveTarUrl = computed(() =>
+	repositoryLocation.value ? getClient().repositoryArchiveUrl(repositoryLocation.value, 'tar.gz') : '',
+)
+const archiveZipUrl = computed(() =>
+	repositoryLocation.value ? getClient().repositoryArchiveUrl(repositoryLocation.value, 'zip') : '',
+)
 const didCopyLabel = ref('Copy repository DID')
 const cloneCopyLabel = ref('Copy HTTPS clone URL')
 
@@ -235,14 +246,16 @@ const countsRequest = useRouteRequest(repositoryDid, (did, signal, attempt) =>
 		: Promise.resolve(undefined),
 )
 const languagesRequest = useRouteRequest(
-	repositoryUri,
-	(uri, signal, attempt) =>
-		uri ? getClient().getRepositoryLanguages(uri, { signal, cache: attempt.cache }) : Promise.resolve(undefined),
+	repositoryLocation,
+	(location, signal, attempt) =>
+		location
+			? getClient().getRepositoryLanguages(location, { signal, cache: attempt.cache })
+			: Promise.resolve(undefined),
 	{ isEmpty: (data) => !data?.languages.length },
 )
-const treeRequest = useRouteRequest(repositoryUri, (uri, signal, attempt) =>
-	uri
-		? getClient().getRepositoryTree(uri, { ref: 'HEAD' }, { signal, cache: attempt.cache })
+const treeRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().getRepositoryTree(location, { ref: 'HEAD' }, { signal, cache: attempt.cache })
 		: Promise.resolve(undefined),
 )
 const collaboratorsRequest = useRouteRequest(
@@ -263,16 +276,17 @@ const labelsRequest = useRouteRequest(
 	{ isEmpty: (data) => !data?.length },
 )
 const updatesRequest = useRouteRequest(
-	repositoryDid,
-	(did, signal, attempt) =>
-		did
-			? getClient().listRepositoryRefUpdates(
-					did as Parameters<ReturnType<typeof getClient>['listRepositoryRefUpdates']>[0],
-					{ signal, cache: attempt.cache },
-				)
+	repositoryLocation,
+	(location, signal, attempt) =>
+		location
+			? getClient().getRepositoryLog(location, { ref: 'HEAD', limit: 6, signal, cache: attempt.cache })
 			: Promise.resolve(undefined),
-	{ isEmpty: (data) => !data?.length },
+	{ isEmpty: (data) => !data?.items.length },
 )
+
+function firstLine(message: string): string {
+	return message.split('\n')[0]
+}
 
 async function copyRepoDid(): Promise<void> {
 	if (!repositoryDid.value) return
@@ -282,15 +296,6 @@ async function copyRepoDid(): Promise<void> {
 async function copyCloneUrl(): Promise<void> {
 	if (!cloneUrl.value) return
 	cloneCopyLabel.value = (await copyText(cloneUrl.value)) ? 'Clone URL copied' : 'Copy failed'
-}
-
-async function copyText(value: string): Promise<boolean> {
-	try {
-		await navigator.clipboard.writeText(value)
-		return true
-	} catch {
-		return false
-	}
 }
 
 function safeWebUrl(value: string | undefined): string | undefined {
@@ -453,10 +458,16 @@ function safeWebUrl(value: string | undefined): string | undefined {
 	list-style: none;
 }
 
-.language-list li,
-.updates-list li {
+.language-list li {
 	display: flex;
 	justify-content: space-between;
+	gap: var(--space-3);
+}
+
+.updates-list li {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 12rem 6.5rem;
+	align-items: baseline;
 	gap: var(--space-3);
 }
 
@@ -464,6 +475,15 @@ function safeWebUrl(value: string | undefined): string | undefined {
 .updates-list a,
 .updates-list code {
 	overflow-wrap: anywhere;
+}
+
+.updates-list span {
+	color: var(--app-text-muted);
+}
+
+.updates-list code {
+	justify-self: end;
+	white-space: nowrap;
 }
 
 .compact-empty {
@@ -487,6 +507,15 @@ function safeWebUrl(value: string | undefined): string | undefined {
 	.repository-actions,
 	.repository-counts {
 		grid-template-columns: 1fr;
+	}
+
+	.updates-list li {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.updates-list span {
+		grid-column: 1 / -1;
+		grid-row: 2;
 	}
 }
 </style>

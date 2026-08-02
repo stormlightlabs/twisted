@@ -169,7 +169,7 @@ const operationsRequest = useRouteRequest(
 	{ isEmpty: (page) => page.items.length === 0 },
 )
 const coverageRequest = useRouteRequest(scope, (_value, signal, attempt) =>
-	getClient().getCoverage({ signal, cache: attempt.cache }),
+	getClient().getCatalogCoverage({ signal, cache: attempt.cache }),
 )
 const definitionPages = useCursorPagination(
 	scope,

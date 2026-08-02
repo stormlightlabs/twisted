@@ -58,7 +58,7 @@ describe('T19-T21 read views', () => {
 						repoDid,
 					},
 				}),
-			getCoverage: vi.fn().mockResolvedValue({ ready: false, eventsProcessed: 4, lastCursor: 4 }),
+			getCatalogCoverage: vi.fn().mockResolvedValue({ ready: false, eventsProcessed: 4, lastCursor: 4 }),
 			listPipelines: vi.fn().mockResolvedValue({ items: [pipeline] }),
 			listArtifacts: vi.fn().mockResolvedValue({ items: [] }),
 			getPipeline: vi.fn().mockResolvedValue(pipeline),
@@ -107,7 +107,7 @@ describe('T19-T21 read views', () => {
 		const scope = 'repo scope / arbitrary'
 		const definitionUri = 'at://did:plc:owner/sh.tangled.label.definition/priority'
 		const client = {
-			getCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 10, lastCursor: 10 }),
+			getCatalogCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 10, lastCursor: 10 }),
 			listLabelDefinitions: vi
 				.fn()
 				.mockResolvedValue({
@@ -196,7 +196,7 @@ describe('T19-T21 read views', () => {
 
 	test('discloses roster freshness and renders knot owner, version, members, and copyable keys', async () => {
 		const client = {
-			getCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 10, lastCursor: 10 }),
+			getCatalogCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 10, lastCursor: 10 }),
 			getKnotOwner: vi.fn().mockResolvedValue({ owner: 'did:plc:owner' }),
 			getKnotVersion: vi.fn().mockResolvedValue({ version: '1.2.3', capabilities: ['knot-acl'] }),
 			listKnotMembers: vi

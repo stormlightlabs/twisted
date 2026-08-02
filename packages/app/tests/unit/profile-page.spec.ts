@@ -47,6 +47,8 @@ describe('ProfilePage', () => {
 	test('renders verified identity and metadata while preserving pinned repository order', async () => {
 		const first = repository('First pinned', 'did:plc:first')
 		const second = repository('Second pinned', 'did:plc:second')
+		const owned = repository('Owned', 'did:plc:owned')
+		const ownedLater = repository('Owned later', 'did:plc:later')
 		const client = {
 			resolveIdentity: vi
 				.fn()
@@ -65,11 +67,11 @@ describe('ProfilePage', () => {
 						pinnedRepositories: ['did:plc:first', 'did:plc:second'],
 					},
 				}),
-			getRepoByRepoDid: vi.fn((did: string) => Promise.resolve(did === 'did:plc:first' ? first : second)),
-			listRepos: vi
-				.fn()
-				.mockResolvedValueOnce({ items: [repository('Owned', 'did:plc:owned')], cursor: 'next' })
-				.mockResolvedValueOnce({ items: [repository('Owned later', 'did:plc:later')] }),
+			listPdsRepos: vi.fn((_did: string, _pds: string, options: { cursor?: string; limit?: number }) => {
+				if (options.limit === 100) return Promise.resolve({ items: [first, second] })
+				if (options.cursor === 'next') return Promise.resolve({ items: [ownedLater] })
+				return Promise.resolve({ items: [owned], cursor: 'next' })
+			}),
 		} as unknown as BobbinClient
 		const wrapper = await mountIonicRoute(ProfilePage, '/profiles/person.example', routes(), {
 			[BOBBIN_CLIENT_PROVIDER]: () => client,
@@ -97,7 +99,8 @@ describe('ProfilePage', () => {
 		await wrapper.get('.show-more').trigger('click')
 		await flushPromises()
 		expect(wrapper.text()).toContain('Owned later')
-		expect(client.listRepos).toHaveBeenCalledTimes(2)
+		expect(client.listPdsRepos).toHaveBeenCalledTimes(3)
+		expect(client.listPdsRepos).toHaveBeenCalledWith(actorDid, 'https://pds.example', expect.any(Object))
 	})
 
 	test('renders an avatar from a fetched blob instead of a blocked cross-origin URL', async () => {
@@ -116,7 +119,7 @@ describe('ProfilePage', () => {
 					},
 				}),
 			getProfileAvatar: vi.fn().mockResolvedValue(new Blob(['avatar'], { type: 'image/png' })),
-			listRepos: vi.fn().mockResolvedValue({ items: [] }),
+			listPdsRepos: vi.fn().mockResolvedValue({ items: [] }),
 		} as unknown as BobbinClient
 		const wrapper = await mountIonicRoute(ProfilePage, '/profiles/person.example', routes(), {
 			[BOBBIN_CLIENT_PROVIDER]: () => client,
@@ -140,7 +143,7 @@ describe('ProfilePage', () => {
 				.fn()
 				.mockResolvedValue({ did: actorDid, handle: 'person.example', pds: 'https://pds.example', signing_key: 'key' }),
 			getProfile: vi.fn().mockRejectedValue(new BobbinError('upstream-unavailable', 'unavailable')),
-			listRepos: vi.fn().mockResolvedValue({ items: [repository('Still here', 'did:plc:owned')] }),
+			listPdsRepos: vi.fn().mockResolvedValue({ items: [repository('Still here', 'did:plc:owned')] }),
 		} as unknown as BobbinClient
 		const wrapper = await mountIonicRoute(ProfilePage, '/profiles/person.example', routes(), {
 			[BOBBIN_CLIENT_PROVIDER]: () => client,

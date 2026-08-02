@@ -212,7 +212,7 @@ const repositoryRequest = useRouteRequest(repo, (identifier, signal, attempt) =>
 const repository = computed(() => repositoryRequest.data.value)
 const subject = computed(() => repository.value?.value.repoDid ?? '')
 const coverageRequest = useRouteRequest(repo, (_value, signal, attempt) =>
-	getClient().getCoverage({ signal, cache: attempt.cache }),
+	getClient().getCatalogCoverage({ signal, cache: attempt.cache }),
 )
 const pipelinesRequest = useRouteRequest(
 	subject,

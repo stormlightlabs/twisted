@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { safeCanonicalTangledUrl } from '@/content'
+import { useCopy } from '@/lib/browser'
 import { links } from '@/lib/router/links'
 import { IonIcon } from '@ionic/vue'
 import { copyOutline, openOutline } from 'ionicons/icons'
@@ -32,14 +33,10 @@ import { computed, ref } from 'vue'
 const props = defineProps<{ uri: string; collection: string; title?: string; author?: string; canonicalUrl?: string }>()
 const copyLabel = ref('Copy identifier')
 const canonical = computed(() => safeCanonicalTangledUrl(props.canonicalUrl))
+const { copyText } = useCopy()
 
 async function copyIdentifier(): Promise<void> {
-	try {
-		await navigator.clipboard.writeText(props.uri)
-		copyLabel.value = 'Copied'
-	} catch {
-		copyLabel.value = 'Copy failed'
-	}
+	copyLabel.value = (await copyText(props.uri)) ? 'Copied' : 'Copy failed'
 }
 </script>
 

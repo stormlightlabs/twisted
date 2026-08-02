@@ -28,7 +28,7 @@ describe('SearchPage', () => {
 			.mockResolvedValueOnce({ items: [repoHit('Third', 'at://did:plc:a/sh.tangled.repo/third')] })
 		const client = {
 			service: 'https://example.test',
-			getCoverage: vi.fn().mockResolvedValue({ ready: false, eventsProcessed: 1, lastCursor: 2 }),
+			getCatalogCoverage: vi.fn().mockResolvedValue({ ready: false, eventsProcessed: 1, lastCursor: 2 }),
 			search,
 		} as unknown as BobbinClient
 		const wrapper = await mountIonicRoute(
@@ -67,7 +67,7 @@ describe('SearchPage', () => {
 		const search = vi.fn()
 		const client = {
 			service: 'https://example.test',
-			getCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 1, lastCursor: 1 }),
+			getCatalogCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 1, lastCursor: 1 }),
 			search,
 		} as unknown as BobbinClient
 		const wrapper = await mountIonicRoute(
@@ -87,7 +87,7 @@ describe('SearchPage', () => {
 	test('shows a useful empty state', async () => {
 		const client = {
 			service: 'https://example.test',
-			getCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 1, lastCursor: 1 }),
+			getCatalogCoverage: vi.fn().mockResolvedValue({ ready: true, eventsProcessed: 1, lastCursor: 1 }),
 			search: vi.fn().mockResolvedValue({ items: [] }),
 		} as unknown as BobbinClient
 		const wrapper = await mountIonicRoute(

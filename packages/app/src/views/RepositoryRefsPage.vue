@@ -63,7 +63,7 @@ import { IonContent, IonPage } from '@ionic/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-const { getClient, repo, repoUri, repository, repositoryRequest, route } = useRepositoryRoute()
+const { getClient, repo, repository, repositoryLocation, repositoryRequest, route } = useRepositoryRoute()
 const router = useRouter()
 const isBranches = computed(() => route.name === 'repository-branches')
 const kind = computed(() => (isBranches.value ? 'branches' : 'tags'))
@@ -80,14 +80,14 @@ const repositoryBack = computed(() => router.resolve(links.repository(repo.value
 const defaultRef = computed(
 	() => items.value.find((item): item is RepositoryBranch => 'isDefault' in item && item.isDefault)?.name ?? 'HEAD',
 )
-const source = computed(() => ({ uri: repoUri.value, kind: kind.value }))
+const source = computed(() => ({ location: repositoryLocation.value, kind: kind.value }))
 const pageRequest = useRouteRequest(
 	source,
-	async ({ uri, kind: currentKind }, signal, attempt) => {
-		if (!uri) return { items: [] as (RepositoryBranch | RepositoryTag)[], cursor: undefined }
+	async ({ location, kind: currentKind }, signal, attempt) => {
+		if (!location) return { items: [] as (RepositoryBranch | RepositoryTag)[], cursor: undefined }
 		return currentKind === 'branches'
-			? getClient().listRepositoryBranches(uri, { signal, cache: attempt.cache, limit: 20 })
-			: getClient().listRepositoryTags(uri, { signal, cache: attempt.cache, limit: 20 })
+			? getClient().listRepositoryBranches(location, { signal, cache: attempt.cache, limit: 20 })
+			: getClient().listRepositoryTags(location, { signal, cache: attempt.cache, limit: 20 })
 	},
 	{ isEmpty: (page) => page.items.length === 0 },
 )
@@ -110,13 +110,13 @@ watch(
 
 async function loadMore() {
 	const next = cursor.value
-	if (!next || loadingMore.value || consumedCursors.has(next) || !repoUri.value) return
+	if (!next || loadingMore.value || consumedCursors.has(next) || !repositoryLocation.value) return
 	loadingMore.value = true
 	moreError.value = undefined
 	try {
 		const page = isBranches.value
-			? await getClient().listRepositoryBranches(repoUri.value, { cursor: next, limit: 20 })
-			: await getClient().listRepositoryTags(repoUri.value, { cursor: next, limit: 20 })
+			? await getClient().listRepositoryBranches(repositoryLocation.value, { cursor: next, limit: 20 })
+			: await getClient().listRepositoryTags(repositoryLocation.value, { cursor: next, limit: 20 })
 		consumedCursors.add(next)
 		const seen = new Set(items.value.map((item) => `${item.name}:${item.hash}`))
 		items.value.push(...page.items.filter((item) => !seen.has(`${item.name}:${item.hash}`)))

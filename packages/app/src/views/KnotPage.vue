@@ -140,7 +140,7 @@ const keysRequest = useRouteRequest(
 	{ isEmpty: (page) => page.keys.length === 0 },
 )
 const coverageRequest = useRouteRequest(knot, (_value, signal, attempt) =>
-	getClient().getCoverage({ signal, cache: attempt.cache }),
+	getClient().getCatalogCoverage({ signal, cache: attempt.cache }),
 )
 const memberPages = useCursorPagination(
 	knot,

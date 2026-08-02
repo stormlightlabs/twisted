@@ -51,15 +51,17 @@
 					<div class="settings-section__intro">
 						<span>02</span>
 						<div>
-							<h2 id="service-heading">Data source</h2>
-							<p>Advanced: choose where Twisted finds public Tangled content.</p>
+							<h2 id="service-heading">Bobbin</h2>
+							<p>
+								Choose a preferred Bobbin. Twisted uses Tangled’s public catalog while a custom Bobbin builds its index.
+							</p>
 						</div>
 					</div>
 					<form class="service-form" @submit.prevent="saveService">
-						<label for="service-url">Data source address</label>
+						<label for="service-url">Preferred Bobbin address</label>
 						<input id="service-url" v-model="serviceInput" inputmode="url" spellcheck="false" />
 						<div>
-							<button type="submit">Save data source</button>
+							<button type="submit">Save Bobbin</button>
 							<button type="button" class="button-secondary" @click="resetService">Restore default</button>
 						</div>
 						<p v-if="serviceMessage" :class="{ 'form-message--error': serviceError }" role="status">
@@ -73,7 +75,7 @@
 						<span>03</span>
 						<div>
 							<h2 id="about-heading">About</h2>
-							<p>Twisted gives you a focused way to browse public work on Tangled.</p>
+							<p>Twisted is a cross-platform client for Tangled.</p>
 						</div>
 					</div>
 					<dl class="about-list">
@@ -82,7 +84,7 @@
 							<dd>{{ activeScheme.name }}</dd>
 						</div>
 						<div>
-							<dt>Data source</dt>
+							<dt>Preferred Bobbin</dt>
 							<dd>{{ service }}</dd>
 						</div>
 						<div>
@@ -90,9 +92,9 @@
 							<dd class="about-list__links">
 								<a href="https://tangled.org/" rel="noopener noreferrer" target="_blank">Tangled</a>
 								<a href="https://docs.tangled.org/" rel="noopener noreferrer" target="_blank">Tangled docs</a>
-								<a href="https://tangled.org/desertthunder.dev/twisted" rel="noopener noreferrer" target="_blank"
-									>Twisted source</a
-								>
+								<a href="https://tangled.org/desertthunder.dev/twisted" rel="noopener noreferrer" target="_blank">
+									Source
+								</a>
 							</dd>
 						</div>
 					</dl>
@@ -140,7 +142,7 @@ function saveService(): void {
 	try {
 		serviceInput.value = updateService(serviceInput.value)
 		serviceError.value = false
-		serviceMessage.value = 'Data source saved.'
+		serviceMessage.value = 'Preferred Bobbin saved.'
 	} catch (error) {
 		serviceError.value = true
 		serviceMessage.value = error instanceof Error ? error.message : 'The service URL is invalid.'
@@ -151,7 +153,7 @@ function resetService(): void {
 	restoreDefault()
 	serviceInput.value = service.value
 	serviceError.value = false
-	serviceMessage.value = 'The default data source was restored.'
+	serviceMessage.value = 'The default Bobbin was restored.'
 }
 </script>
 

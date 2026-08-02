@@ -69,17 +69,21 @@
 										<a :href="link" rel="noopener noreferrer" target="_blank">{{ linkLabel(link) }}</a>
 									</li>
 									<li v-if="profile.bluesky && identity.handle !== 'handle.invalid'">
-										<a :href="`https://bsky.app/profile/${identity.did}`" rel="noopener noreferrer" target="_blank"
-											>Bluesky</a
-										>
+										<a :href="`https://bsky.app/profile/${identity.did}`" rel="noopener noreferrer" target="_blank">
+											Bluesky
+										</a>
 									</li>
 								</ul>
 							</div>
 						</div>
 					</section>
 
-					<pinned-repositories v-if="profile?.pinnedRepositories?.length" :repositories="profile.pinnedRepositories" />
-					<owned-repositories :did="identity.did" />
+					<pinned-repositories
+						v-if="profile?.pinnedRepositories?.length"
+						:did="identity.did"
+						:pds="identity.pds"
+						:repositories="profile.pinnedRepositories" />
+					<owned-repositories :did="identity.did" :pds="identity.pds" />
 				</template>
 			</main>
 		</ion-content>
@@ -94,9 +98,10 @@ import OwnedRepositories from '@/features/profiles/OwnedRepositories.vue'
 import PinnedRepositories from '@/features/profiles/PinnedRepositories.vue'
 import { useRouteRequest } from '@/lib/requests'
 import { links } from '@/lib/router/links'
+import { useObjectUrl } from '@vueuse/core'
 import { IonContent, IonIcon, IonPage } from '@ionic/vue'
 import { openOutline } from 'ionicons/icons'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -142,17 +147,7 @@ const avatarRequest = useRouteRequest(avatarRequestKey, async (_key, signal) => 
 	if (!currentIdentity || !cid) return undefined
 	return getClient().getProfileAvatar(currentIdentity.pds, currentIdentity.did, cid, { signal })
 })
-const avatarUrl = ref<string>()
-watch(
-	() => avatarRequest.data.value,
-	(blob) => {
-		if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value)
-		avatarUrl.value = blob ? URL.createObjectURL(blob) : undefined
-	},
-)
-onBeforeUnmount(() => {
-	if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value)
-})
+const avatarUrl = useObjectUrl(computed(() => avatarRequest.data.value))
 
 function linkLabel(link: string): string {
 	try {

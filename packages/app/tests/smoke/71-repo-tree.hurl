@@ -1,6 +1,6 @@
-GET {{bobbin_url}}/xrpc/sh.tangled.repo.tree
+GET {{knot_url}}/xrpc/sh.tangled.repo.tree
 [QueryStringParams]
-repo: {{repo_uri}}
+repo: {{route_repo_did}}
 ref: HEAD
 path:
 

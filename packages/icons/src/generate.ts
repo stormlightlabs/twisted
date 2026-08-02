@@ -4,32 +4,28 @@ import sharp from 'sharp'
 
 export type IconPurpose = 'any' | 'maskable' | 'apple-touch'
 
-export interface IconRecipe {
-	filename: string
-	size: number
-	markScale: number
-	purpose: IconPurpose
+export type IconRecipe = { filename: string; size: number; markScale: number; purpose: IconPurpose }
+
+export type GenerateIconsOptions = { background?: string; input: string; outputDirectory: string }
+
+/** Returns a fresh set of deterministic PWA icon recipes. */
+export function getIconRecipes(): readonly IconRecipe[] {
+	return [
+		{ filename: 'icon-192.png', size: 192, markScale: 0.78, purpose: 'any' },
+		{ filename: 'icon-512.png', size: 512, markScale: 0.78, purpose: 'any' },
+		{ filename: 'icon-maskable-192.png', size: 192, markScale: 0.56, purpose: 'maskable' },
+		{ filename: 'icon-maskable-512.png', size: 512, markScale: 0.56, purpose: 'maskable' },
+		{ filename: 'apple-touch-icon.png', size: 180, markScale: 0.74, purpose: 'apple-touch' },
+	]
 }
 
-export const ICON_RECIPES: readonly IconRecipe[] = [
-	{ filename: 'icon-192.png', size: 192, markScale: 0.78, purpose: 'any' },
-	{ filename: 'icon-512.png', size: 512, markScale: 0.78, purpose: 'any' },
-	{ filename: 'icon-maskable-192.png', size: 192, markScale: 0.56, purpose: 'maskable' },
-	{ filename: 'icon-maskable-512.png', size: 512, markScale: 0.56, purpose: 'maskable' },
-	{ filename: 'apple-touch-icon.png', size: 180, markScale: 0.74, purpose: 'apple-touch' },
-] as const
-
-export interface GenerateIconsOptions {
-	background?: string
-	input: string
-	outputDirectory: string
-}
-
+/** Generates and validates the installable web-app icons for one square source mark. */
 export async function generateIcons({
 	background = '#212337',
 	input,
 	outputDirectory,
 }: GenerateIconsOptions): Promise<IconRecipe[]> {
+	const recipes = getIconRecipes()
 	const source = sharp(input)
 	const metadata = await source.metadata()
 	if (!metadata.width || !metadata.height) throw new Error('The source icon has no measurable dimensions.')
@@ -37,7 +33,7 @@ export async function generateIcons({
 
 	await mkdir(outputDirectory, { recursive: true })
 	await Promise.all(
-		ICON_RECIPES.map(async (recipe) => {
+		recipes.map(async (recipe) => {
 			const markSize = Math.round(recipe.size * recipe.markScale)
 			const mark = await sharp(input)
 				.resize(markSize, markSize, { fit: 'contain' })
@@ -58,5 +54,5 @@ export async function generateIcons({
 		}),
 	)
 
-	return [...ICON_RECIPES]
+	return [...recipes]
 }

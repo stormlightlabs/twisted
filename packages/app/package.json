@@ -34,6 +34,7 @@
 		"@ionic/vue": "^8.0.0",
 		"@ionic/vue-router": "^8.0.0",
 		"@pierre/diffs": "1.2.12",
+		"@vueuse/core": "^14.4.0",
 		"dexie": "4.4.3",
 		"dompurify": "3.4.12",
 		"ionicons": "^7.0.0",
@@ -61,5 +62,5 @@
 		"vitest": "^0.34.6",
 		"vue-tsc": "^2.1.10"
 	},
-	"description": "A Tangled client for browsing public work"
+	"description": "A Tangled client for tightly knit social coding"
 }

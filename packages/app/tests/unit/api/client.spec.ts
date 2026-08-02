@@ -7,9 +7,15 @@ import {
 	MAX_RENDERED_PATCH_BYTES,
 	normalizeRepositoryPatch,
 	normalizeBobbinService,
+	normalizeKnotService,
 } from '@/lib/api'
+import type { RepositoryLocation } from '@/lib/api'
 
 const repoUri = 'at://did:plc:xg2vq45muivyy3xwatcehspu/sh.tangled.repo/3mho6hukiei22'
+const repositoryLocation = {
+	did: 'did:plc:4iw5fospv2asv3344au236ka',
+	knot: 'knot.example',
+} satisfies RepositoryLocation
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 	return new Response(JSON.stringify(body), {
@@ -34,11 +40,40 @@ function repoRecord() {
 }
 
 describe('BobbinClient', () => {
+	test('accepts public knot hosts without allowing insecure or path-scoped origins', () => {
+		expect(normalizeKnotService('knot.example')).toBe('https://knot.example')
+		expect(normalizeKnotService('https://knot.example/')).toBe('https://knot.example')
+		expect(() => normalizeKnotService('http://knot.example')).toThrow('repository knot address is invalid')
+		expect(() => normalizeKnotService('https://knot.example/private')).toThrow('repository knot address is invalid')
+	})
+
 	test('accepts Bobbin list responses with a null cursor', async () => {
 		const fetch = fetchMock().mockResolvedValue(jsonResponse({ items: [], cursor: null }))
 		const client = new BobbinClient({ fetch })
 
 		await expect(client.listRepos('did:plc:person')).resolves.toEqual({ items: [], cursor: undefined })
+	})
+
+	test('lists repository records directly from an actor PDS', async () => {
+		const fetch = fetchMock().mockResolvedValue(
+			jsonResponse({
+				cursor: 'next-page',
+				records: [
+					{ uri: repoUri, cid: 'bafyreicrfpnvmlnd7x5nvfsytxpehmpirnzx7u6kzwxebtdkd5npjxbsmy', value: repoRecord() },
+				],
+			}),
+		)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.listPdsRepos('did:plc:person', 'https://pds.example', { limit: 100 })).resolves.toEqual({
+			cursor: 'next-page',
+			items: [expect.objectContaining({ uri: repoUri, value: expect.objectContaining({ name: 'twisted' }) })],
+		})
+		const requestUrl = new URL(String(fetch.mock.calls[0][0]))
+		expect(requestUrl.origin).toBe('https://pds.example')
+		expect(requestUrl.pathname).toBe('/xrpc/com.atproto.repo.listRecords')
+		expect(requestUrl.searchParams.get('collection')).toBe('sh.tangled.repo')
+		expect(requestUrl.searchParams.get('repo')).toBe('did:plc:person')
 	})
 
 	test('removes blank placeholders from older actor profiles before validation', async () => {
@@ -346,11 +381,11 @@ describe('BobbinClient', () => {
 		expect(fetch.mock.calls.map((call) => new URL(String(call[0])).pathname.replace('/xrpc/', ''))).toEqual(endpoints)
 	})
 
-	test('builds read-only repository archive links without losing repository identity', () => {
+	test('builds read-only repository archive links against the repository knot', () => {
 		const client = new BobbinClient({ service: 'https://api.example' })
 
-		const archive = new URL(client.repositoryArchiveUrl('did:plc:4iw5fospv2asv3344au236ka', 'zip'))
-		expect(archive.origin).toBe('https://api.example')
+		const archive = new URL(client.repositoryArchiveUrl(repositoryLocation, 'zip'))
+		expect(archive.origin).toBe('https://knot.example')
 		expect(archive.pathname).toBe('/xrpc/sh.tangled.repo.archive')
 		expect(archive.searchParams.get('repo')).toBe('did:plc:4iw5fospv2asv3344au236ka')
 		expect(archive.searchParams.get('ref')).toBe('HEAD')
@@ -360,10 +395,11 @@ describe('BobbinClient', () => {
 	test('encodes patch refs and comparison direction at the API boundary', () => {
 		const client = new BobbinClient({ service: 'https://api.example' })
 		const ref = 'refs/heads/feature a&b'
-		const diff = new URL(client.repositoryDiffUrl(repoUri, ref))
-		const compare = new URL(client.repositoryCompareUrl(repoUri, 'main', ref))
+		const diff = new URL(client.repositoryDiffUrl(repositoryLocation, ref))
+		const compare = new URL(client.repositoryCompareUrl(repositoryLocation, 'main', ref))
 
-		expect(diff.searchParams.get('repo')).toBe(repoUri)
+		expect(diff.origin).toBe('https://knot.example')
+		expect(diff.searchParams.get('repo')).toBe(repositoryLocation.did)
 		expect(diff.searchParams.get('ref')).toBe(ref)
 		expect(compare.searchParams.get('rev1')).toBe('main')
 		expect(compare.searchParams.get('rev2')).toBe(ref)
@@ -418,7 +454,7 @@ describe('BobbinClient', () => {
 		const fetch = fetchMock().mockResolvedValue(new Response(stream, { headers: { 'content-type': 'text/x-diff' } }))
 		const client = new BobbinClient({ fetch })
 
-		await expect(client.getRepositoryDiff(repoUri, 'HEAD')).resolves.toEqual({
+		await expect(client.getRepositoryDiff(repositoryLocation, 'HEAD')).resolves.toEqual({
 			kind: 'too-large',
 			bytes: MAX_RENDERED_PATCH_BYTES + 1,
 			contentType: 'text/x-diff',
@@ -446,7 +482,7 @@ describe('BobbinClient', () => {
 		const client = new BobbinClient({ fetch })
 
 		await expect(
-			client.getRepositoryArchive(repoUri, {
+			client.getRepositoryArchive(repositoryLocation, {
 				format: 'zip',
 				ref: 'feature/a b',
 				prefix: 'twisted/',
@@ -526,18 +562,19 @@ describe('BobbinClient', () => {
 		expect(blobInit?.headers).toMatchObject({ range: 'bytes=0-9' })
 	})
 
-	test('uses Bobbin repository record identifiers for proxied blob queries', async () => {
+	test('uses the repository DID for direct knot blob queries', async () => {
 		const fetch = fetchMock().mockResolvedValue(
 			jsonResponse({ path: 'README.md', ref: 'HEAD', content: '# Tempest', encoding: 'utf-8', size: 9 }),
 		)
 		const client = new BobbinClient({ fetch })
 
-		await expect(client.getRepositoryBlob(repoUri, 'HEAD', 'README.md')).resolves.toMatchObject({
+		await expect(client.getRepositoryBlob(repositoryLocation, 'HEAD', 'README.md')).resolves.toMatchObject({
 			path: 'README.md',
 			content: '# Tempest',
 		})
 		const url = new URL(String(fetch.mock.calls[0][0]))
-		expect(url.searchParams.get('repo')).toBe(repoUri)
+		expect(url.origin).toBe('https://knot.example')
+		expect(url.searchParams.get('repo')).toBe(repositoryLocation.did)
 	})
 
 	test('fetches profile avatars as CORS blobs for COEP-safe object URLs', async () => {
@@ -575,7 +612,7 @@ describe('BobbinClient', () => {
 		)
 		const client = new BobbinClient({ fetch })
 
-		await expect(client.listRepositoryBranches('did:plc:repo', { limit: 1 })).resolves.toEqual({
+		await expect(client.listRepositoryBranches(repositoryLocation, { limit: 1 })).resolves.toEqual({
 			items: [
 				expect.objectContaining({
 					name: 'main',
@@ -598,13 +635,13 @@ describe('BobbinClient', () => {
 				commits: [{ this: hash, parent, message: 'Ship it', author: { Name: 'Grace', When: '2026-08-01T00:00:00Z' } }],
 				ref: 'main',
 				total: 3,
-				page: 1,
+				page: 0,
 				per_page: 1,
 			}),
 		)
 		const client = new BobbinClient({ fetch })
 
-		await expect(client.getRepositoryLog('did:plc:repo', { ref: 'main', limit: 1 })).resolves.toEqual({
+		await expect(client.getRepositoryLog(repositoryLocation, { ref: 'main', limit: 1 })).resolves.toEqual({
 			items: [
 				expect.objectContaining({
 					hash,
@@ -613,7 +650,7 @@ describe('BobbinClient', () => {
 					author: expect.objectContaining({ name: 'Grace' }),
 				}),
 			],
-			cursor: '2',
+			cursor: '1',
 			ref: 'main',
 			total: 3,
 		})
@@ -656,6 +693,24 @@ describe('BobbinClient', () => {
 			{ ready: true, eventsProcessed: 100, lastCursor: 120 },
 		])
 		expect(fetch).toHaveBeenCalledOnce()
+	})
+
+	test('reports coverage for the hosted catalog while a configured Bobbin is warming', async () => {
+		const fetch = fetchMock().mockImplementation(async (input) => {
+			const url = new URL(String(input))
+			return jsonResponse(
+				url.origin === 'http://localhost:8090'
+					? { ready: false, eventsProcessed: 0, lastCursor: 0 }
+					: { ready: true, eventsProcessed: 100, lastCursor: 120 },
+			)
+		})
+		const client = new BobbinClient({ fetch, service: 'http://localhost:8090' })
+
+		await expect(client.getCatalogCoverage()).resolves.toEqual({ ready: true, eventsProcessed: 100, lastCursor: 120 })
+		expect(fetch.mock.calls.map(([input]) => new URL(String(input)).origin)).toEqual([
+			'http://localhost:8090',
+			'https://api.tangled.org',
+		])
 	})
 
 	test('reloads a cached query only when requested', async () => {

@@ -1,6 +1,6 @@
-GET {{bobbin_url}}/xrpc/sh.tangled.repo.languages
+GET {{knot_url}}/xrpc/sh.tangled.repo.languages
 [QueryStringParams]
-repo: {{repo_uri}}
+repo: {{route_repo_did}}
 ref: HEAD
 
 HTTP 200

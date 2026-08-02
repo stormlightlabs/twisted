@@ -117,51 +117,59 @@ import { IonContent, IonPage } from '@ionic/vue'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-const { getClient, repo, repoDid, repoUri, repository, repositoryRequest, route } = useRepositoryRoute()
+const { getClient, repo, repoDid, repository, repositoryLocation, repositoryRequest, route } = useRepositoryRoute()
 const router = useRouter()
 const path = computed(() => String(route.query.path ?? '').replace(/^\/+|\/+$/g, ''))
 const requestedRef = computed(() => String(route.query.ref ?? ''))
 const requestedView = computed(() => (route.query.view === 'blob' ? 'blob' : 'tree'))
 const repositoryBack = computed(() => router.resolve(links.repository(repo.value)).href)
-const defaultBranchRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri ? getClient().getRepositoryDefaultBranch(uri, { signal, cache: attempt.cache }) : Promise.resolve(undefined),
+const defaultBranchRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().getRepositoryDefaultBranch(location, { signal, cache: attempt.cache })
+		: Promise.resolve(undefined),
 )
 const currentRef = computed(() => requestedRef.value || defaultBranchRequest.data.value?.name || 'HEAD')
-const branchesRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri
-		? getClient().listRepositoryBranches(uri, { signal, cache: attempt.cache, limit: 99 })
+const branchesRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().listRepositoryBranches(location, { signal, cache: attempt.cache, limit: 99 })
 		: Promise.resolve({ items: [] }),
 )
-const tagsRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri
-		? getClient().listRepositoryTags(uri, { signal, cache: attempt.cache, limit: 99 })
+const tagsRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().listRepositoryTags(location, { signal, cache: attempt.cache, limit: 99 })
 		: Promise.resolve({ items: [] }),
 )
 const branches = computed(() => branchesRequest.data.value?.items ?? [])
 const tags = computed(() => tagsRequest.data.value?.items ?? [])
 const contentSource = computed(() => ({
-	uri: repoUri.value,
+	location: repositoryLocation.value,
 	path: path.value,
 	ref: currentRef.value,
 	view: requestedView.value,
 }))
 const contentRequest = useRouteRequest(contentSource, async (source, signal, attempt) => {
-	if (!source.uri) return undefined
+	if (!source.location) return undefined
 	if (source.view === 'blob') {
 		return {
 			kind: 'blob' as const,
-			data: await getClient().getRepositoryBlob(source.uri, source.ref, source.path, { signal, cache: attempt.cache }),
+			data: await getClient().getRepositoryBlob(source.location, source.ref, source.path, {
+				signal,
+				cache: attempt.cache,
+			}),
 		}
 	}
 	const tree = await getClient().getRepositoryTree(
-		source.uri,
+		source.location,
 		{ path: source.path, ref: source.ref },
 		{ signal, cache: attempt.cache },
 	)
 	if (source.path && tree.files.length === 0 && tree.parent === source.path) {
 		return {
 			kind: 'blob' as const,
-			data: await getClient().getRepositoryBlob(source.uri, source.ref, source.path, { signal, cache: attempt.cache }),
+			data: await getClient().getRepositoryBlob(source.location, source.ref, source.path, {
+				signal,
+				cache: attempt.cache,
+			}),
 		}
 	}
 	return { kind: 'tree' as const, data: tree }
@@ -189,7 +197,11 @@ const breadcrumbs = computed(() => {
 		isFile: index === parts.length - 1 && content.value?.kind === 'blob',
 	}))
 })
-const rawUrl = computed(() => getClient().repositoryBlobUrl(repoUri.value, currentRef.value, path.value))
+const rawUrl = computed(() =>
+	repositoryLocation.value
+		? getClient().repositoryBlobUrl(repositoryLocation.value, currentRef.value, path.value)
+		: undefined,
+)
 const canonicalUrl = computed(() => {
 	const url = new URL(`https://tangled.org/${repoDid.value}`)
 	url.pathname += `/tree/${encodeURIComponent(currentRef.value)}/${path.value.split('/').map(encodeURIComponent).join('/')}`

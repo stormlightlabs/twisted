@@ -77,7 +77,7 @@ import { IonContent, IonPage } from '@ionic/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-const { getClient, repo, repoDid, repoUri, repository, repositoryRequest, route } = useRepositoryRoute()
+const { getClient, repo, repoDid, repository, repositoryLocation, repositoryRequest, route } = useRepositoryRoute()
 const router = useRouter()
 const isCompare = computed(() => route.name === 'repository-compare')
 const singleRef = computed(() => String(route.params.ref ?? ''))
@@ -91,14 +91,14 @@ watch([base, head], ([nextBase, nextHead]) => {
 })
 const repositoryBack = computed(() => router.resolve(links.repository(repo.value)).href)
 
-const branchesRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri
-		? getClient().listRepositoryBranches(uri, { signal, cache: attempt.cache, limit: 99 })
+const branchesRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().listRepositoryBranches(location, { signal, cache: attempt.cache, limit: 99 })
 		: Promise.resolve({ items: [] }),
 )
-const tagsRequest = useRouteRequest(repoUri, (uri, signal, attempt) =>
-	uri
-		? getClient().listRepositoryTags(uri, { signal, cache: attempt.cache, limit: 99 })
+const tagsRequest = useRouteRequest(repositoryLocation, (location, signal, attempt) =>
+	location
+		? getClient().listRepositoryTags(location, { signal, cache: attempt.cache, limit: 99 })
 		: Promise.resolve({ items: [] }),
 )
 const refOptions = computed(() => [
@@ -107,7 +107,7 @@ const refOptions = computed(() => [
 ])
 
 const patchSource = computed(() => ({
-	uri: repoUri.value,
+	location: repositoryLocation.value,
 	compare: isCompare.value,
 	base: base.value,
 	head: head.value,
@@ -116,13 +116,16 @@ const patchSource = computed(() => ({
 const patchRequest = useRouteRequest(
 	patchSource,
 	(source, signal, attempt): Promise<RepositoryPatch | undefined> => {
-		if (!source.uri) return Promise.resolve(undefined)
+		if (!source.location) return Promise.resolve(undefined)
 		if (source.compare) {
 			if (!source.base || !source.head) return Promise.resolve(undefined)
-			return getClient().getRepositoryCompare(source.uri, source.base, source.head, { signal, cache: attempt.cache })
+			return getClient().getRepositoryCompare(source.location, source.base, source.head, {
+				signal,
+				cache: attempt.cache,
+			})
 		}
 		if (!source.ref) return Promise.resolve(undefined)
-		return getClient().getRepositoryDiff(source.uri, source.ref, { signal, cache: attempt.cache })
+		return getClient().getRepositoryDiff(source.location, source.ref, { signal, cache: attempt.cache })
 	},
 	{ isEmpty: (value) => value === undefined || (value.kind === 'patch' && value.text.trim().length === 0) },
 )

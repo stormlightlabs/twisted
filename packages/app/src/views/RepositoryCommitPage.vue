@@ -83,15 +83,20 @@ import { IonContent, IonPage } from '@ionic/vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
-const { getClient, repo, repoUri, repositoryRequest, route } = useRepositoryRoute()
+const { getClient, repo, repositoryLocation, repositoryRequest, route } = useRepositoryRoute()
 const router = useRouter()
 const hash = computed(() => String(route.params.hash ?? ''))
-const source = computed(() => ({ uri: repoUri.value, hash: hash.value }))
+const source = computed(() => ({ location: repositoryLocation.value, hash: hash.value }))
 const commitRequest = useRouteRequest(
 	source,
-	async ({ uri, hash: requestedHash }, signal, attempt) => {
-		if (!uri || !requestedHash) return undefined
-		const page = await getClient().getRepositoryLog(uri, { ref: requestedHash, signal, cache: attempt.cache, limit: 1 })
+	async ({ location, hash: requestedHash }, signal, attempt) => {
+		if (!location || !requestedHash) return undefined
+		const page = await getClient().getRepositoryLog(location, {
+			ref: requestedHash,
+			signal,
+			cache: attempt.cache,
+			limit: 1,
+		})
 		return page.items.find((item) => item.hash === requestedHash) ?? page.items[0]
 	},
 	{ isEmpty: (commit) => commit === undefined },
