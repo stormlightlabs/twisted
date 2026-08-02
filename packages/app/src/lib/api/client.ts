@@ -3,6 +3,7 @@ import type { BaseSchema, InferInput } from '@atcute/lexicons/validations'
 import * as v from '@atcute/lexicons/validations'
 import { is } from '@atcute/lexicons'
 import { ComBadExampleIdentityResolveMiniDoc } from '@atcute/microcosm'
+import { ComAtprotoRepoGetRecord } from '@atcute/atproto'
 import {
 	ShTangledFeedComment,
 	ShTangledFeedCountComments,
@@ -31,13 +32,18 @@ import {
 	ShTangledGraphListVouchesBy,
 	ShTangledGraphVouch,
 	ShTangledKnotListMembersBy,
+	ShTangledKnot,
+	ShTangledKnotListKnots,
+	ShTangledKnotListMembers,
 	ShTangledLabelDefinition,
 	ShTangledLabelListDefinitions,
 	ShTangledLabelListOps,
 	ShTangledLabelListOpsBy,
 	ShTangledLabelOp,
 	ShTangledPipeline,
+	ShTangledPipelineListPipelines,
 	ShTangledPipelineListPipelinesBy,
+	ShTangledPipelineListStatuses,
 	ShTangledPipelineListStatusesBy,
 	ShTangledPipelineStatus,
 	ShTangledActorGetProfile,
@@ -67,6 +73,7 @@ import {
 	ShTangledRepoLanguages,
 	ShTangledRepoLog,
 	ShTangledRepoListArtifactsBy,
+	ShTangledRepoListArtifacts,
 	ShTangledRepoListCollaborators,
 	ShTangledRepoListCollaboratorsBy,
 	ShTangledRepoListIssues,
@@ -82,7 +89,15 @@ import {
 	ShTangledRepoTree,
 	ShTangledRepoTags,
 	ShTangledSearchQuery,
+	ShTangledSpindle,
+	ShTangledSpindleMember,
+	ShTangledSpindleListMembers,
 	ShTangledSpindleListMembersBy,
+	ShTangledSpindleListSpindles,
+	ShTangledPublicKey,
+	ShTangledPublicKeyListKeys,
+	ShTangledString,
+	ShTangledStringListStrings,
 } from '@atcute/tangled'
 import {
 	bobbinCoverageSchema,
@@ -171,6 +186,8 @@ export type RepositoryDownload = {
 	lastModified?: string
 	status: number
 }
+
+export type PublicRecordKind = 'artifact' | 'string'
 
 export type RepositorySignature = { email?: string; name: string; when?: string }
 
@@ -830,10 +847,28 @@ export class BobbinClient {
 		return data.items.map((item) => validateRecordView(item, ShTangledLabelDefinition.mainSchema, 'label definition'))
 	}
 
+	async listLabelDefinitions(
+		subject: string,
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledLabelDefinition.Main>>> {
+		assertScopeIdentifier(subject, 'label scope')
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.label.listDefinitions', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledLabelListDefinitions, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) =>
+				validateRecordView(item, ShTangledLabelDefinition.mainSchema, 'label definition'),
+			),
+			cursor: data.cursor,
+		}
+	}
+
 	async listLabelOperations(
 		subject: ShTangledLabelListOps.$params['subject'],
 		options: ListReposOptions = {},
 	): Promise<CursorPage<ValidatedRecordView<ShTangledLabelOp.Main>>> {
+		assertScopeIdentifier(subject, 'label scope')
 		const params = pickListParams(subject, options)
 		const data = await this.#cached('sh.tangled.label.listOps', params, options, STALE_TIMES.list, (signal) =>
 			this.#rpc.call(ShTangledLabelListOps, { params, signal }),
@@ -842,6 +877,77 @@ export class BobbinClient {
 			items: data.items.map((item) => validateRecordView(item, ShTangledLabelOp.mainSchema, 'label operation')),
 			cursor: data.cursor,
 		}
+	}
+
+	async listPipelines(
+		subject: string,
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledPipeline.Main>>> {
+		assertScopeIdentifier(subject, 'pipeline subject')
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.pipeline.listPipelines', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledPipelineListPipelines, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledPipeline.mainSchema, 'pipeline')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listPipelineStatuses(
+		subject: ShTangledPipelineListStatuses.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledPipelineStatus.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.pipeline.listStatuses', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledPipelineListStatuses, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledPipelineStatus.mainSchema, 'pipeline status')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listArtifacts(
+		subject: string,
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledRepoArtifact.Main>>> {
+		assertScopeIdentifier(subject, 'artifact subject')
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.repo.listArtifacts', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledRepoListArtifacts, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledRepoArtifact.mainSchema, 'artifact')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listStrings(
+		subject: string,
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledString.Main>>> {
+		assertScopeIdentifier(subject, 'string scope')
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.string.listStrings', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledStringListStrings, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledString.mainSchema, 'string')),
+			cursor: data.cursor,
+		}
+	}
+
+	getString(uri: string, options: RequestOptions = {}) {
+		return this.#getPublicRecord(uri, 'sh.tangled.string', ShTangledString.mainSchema, 'string', options)
+	}
+
+	getArtifact(uri: string, options: RequestOptions = {}) {
+		return this.#getPublicRecord(uri, 'sh.tangled.repo.artifact', ShTangledRepoArtifact.mainSchema, 'artifact', options)
+	}
+
+	getPipeline(uri: string, options: RequestOptions = {}) {
+		return this.#getPublicRecord(uri, 'sh.tangled.pipeline', ShTangledPipeline.mainSchema, 'pipeline', options)
 	}
 
 	async listRepositoryRefUpdates(subject: ActorDid, options: RequestOptions = {}) {
@@ -903,6 +1009,41 @@ export class BobbinClient {
 		}
 	}
 
+	async artifactDownloadUrl(uri: string, options: RequestOptions = {}): Promise<string> {
+		const record = await this.getArtifact(uri, options)
+		const author = parseRecordUri(uri).authority
+		const identity = await this.resolveIdentity(
+			author as ComBadExampleIdentityResolveMiniDoc.$params['identifier'],
+			options,
+		)
+		const blob = record.value.artifact
+		const cid = '$type' in blob ? blob.ref.$link : blob.cid
+		return publicBlobUrl(identity.pds, author, cid)
+	}
+
+	async getArtifactDownload(
+		uri: string,
+		options: RequestOptions & { range?: string } = {},
+	): Promise<RepositoryDownload> {
+		const url = await this.artifactDownloadUrl(uri, options)
+		const headers: Record<string, string> = {}
+		if (options.range) headers.range = options.range
+		try {
+			const response = await this.#fetch(url, {
+				headers,
+				signal: options.signal,
+				cache: options.cache === 'reload' ? 'reload' : 'default',
+				credentials: 'omit',
+				mode: 'cors',
+				referrerPolicy: 'no-referrer',
+			})
+			if (!response.ok && response.status !== 304) throw await responseError(response)
+			return downloadMetadata(response)
+		} catch (error) {
+			throw errorFromException(error)
+		}
+	}
+
 	/**
 	 * Searches Bobbin and requires a schema for each collection the caller accepts.
 	 * Unknown collections fail closed instead of exposing an unvalidated value.
@@ -941,6 +1082,7 @@ export class BobbinClient {
 
 	/** Queries a knot's public owner through Bobbin's documented parameter overlay. */
 	getKnotOwner(knot: string, options: RequestOptions = {}) {
+		assertScopeIdentifier(knot, 'knot identifier')
 		return this.#cached('sh.tangled.owner', { knot }, options, STALE_TIMES.diagnostics, (signal) =>
 			this.#rpc.call(bobbinKnotOwnerSchema, { params: { knot }, signal }),
 		)
@@ -948,6 +1090,7 @@ export class BobbinClient {
 
 	/** Queries a knot's public version through Bobbin's documented parameter overlay. */
 	getKnotVersion(knot: string, options: RequestOptions = {}) {
+		assertScopeIdentifier(knot, 'knot identifier')
 		return this.#cached('sh.tangled.knot.version', { knot }, options, STALE_TIMES.diagnostics, (signal) =>
 			this.#rpc.call(bobbinKnotVersionSchema, { params: { knot }, signal }),
 		)
@@ -955,10 +1098,102 @@ export class BobbinClient {
 
 	/** Lists a knot's public keys through Bobbin's documented parameter overlay. */
 	listKnotKeys(knot: string, params: { cursor?: string; limit?: number } = {}, options: RequestOptions = {}) {
+		assertScopeIdentifier(knot, 'knot identifier')
 		const parameters = { knot, ...params }
 		return this.#cached('sh.tangled.knot.listKeys', parameters, options, STALE_TIMES.list, (signal) =>
 			this.#rpc.call(bobbinKnotListKeysSchema, { params: parameters, signal }),
 		)
+	}
+
+	async listKnots(
+		subject: ShTangledKnotListKnots.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledKnot.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.knot.listKnots', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledKnotListKnots, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledKnot.mainSchema, 'knot')),
+			cursor: data.cursor,
+		}
+	}
+
+	listKnotMembers(subject: string, options: ListReposOptions = {}) {
+		assertScopeIdentifier(subject, 'knot identifier')
+		const params = pickListParams(subject, options)
+		return this.#cached('sh.tangled.knot.listMembers', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledKnotListMembers, { params, signal }),
+		)
+	}
+
+	async listSpindles(
+		subject: ShTangledSpindleListSpindles.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledSpindle.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.spindle.listSpindles', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledSpindleListSpindles, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledSpindle.mainSchema, 'spindle')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listSpindleMembers(subject: string, options: ListReposOptions = {}) {
+		assertScopeIdentifier(subject, 'spindle identifier')
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.spindle.listMembers', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledSpindleListMembers, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledSpindleMember.mainSchema, 'spindle member')),
+			cursor: data.cursor,
+		}
+	}
+
+	async listPublicKeys(
+		subject: ShTangledPublicKeyListKeys.$params['subject'],
+		options: ListReposOptions = {},
+	): Promise<CursorPage<ValidatedRecordView<ShTangledPublicKey.Main>>> {
+		const params = pickListParams(subject, options)
+		const data = await this.#cached('sh.tangled.publicKey.listKeys', params, options, STALE_TIMES.list, (signal) =>
+			this.#rpc.call(ShTangledPublicKeyListKeys, { params, signal }),
+		)
+		return {
+			items: data.items.map((item) => validateRecordView(item, ShTangledPublicKey.mainSchema, 'public key')),
+			cursor: data.cursor,
+		}
+	}
+
+	async #getPublicRecord<const TSchema extends BaseSchema>(
+		uri: string,
+		collection: string,
+		schema: TSchema,
+		context: string,
+		options: RequestOptions,
+	): Promise<ValidatedRecordView<InferInput<TSchema>>> {
+		const record = parseRecordUri(uri)
+		if (record.collection !== collection) throw new BobbinError('invalid-request', `The ${context} link is invalid`)
+		const identity = await this.resolveIdentity(
+			record.authority as ComBadExampleIdentityResolveMiniDoc.$params['identifier'],
+			options,
+		)
+		const pds = normalizePublicPds(identity.pds)
+		const params = { repo: record.authority, collection, rkey: record.rkey }
+		const data = await this.#cached(
+			`pds:${pds}:com.atproto.repo.getRecord`,
+			params,
+			options,
+			STALE_TIMES.record,
+			(signal) =>
+				new Client({ handler: simpleFetchHandler({ service: pds, fetch: this.#fetch }) }).call(
+					ComAtprotoRepoGetRecord,
+					{ params: params as ComAtprotoRepoGetRecord.$params, signal },
+				),
+		)
+		return validateRecordView(data, schema, context)
 	}
 
 	async #cached<TResponse extends XrpcResponse<unknown>>(
@@ -1107,6 +1342,35 @@ export function normalizeBobbinService(service: string | URL): string {
 	}
 
 	return url.toString().replace(/\/$/, '')
+}
+
+function normalizePublicPds(service: string): string {
+	const url = new URL(service)
+	if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+		throw new BobbinError('malformed-response', 'The public record host returned by identity resolution is invalid')
+	}
+	return url.toString().replace(/\/$/, '')
+}
+
+function parseRecordUri(uri: string): { authority: string; collection: string; rkey: string } {
+	const match = /^at:\/\/([^/\s]+)\/([a-z][a-z0-9.-]+)\/([a-zA-Z0-9._~:%-]+)$/.exec(uri)
+	if (!match || !is(v.didString(), match[1]) || !is(v.nsidString(), match[2]) || !is(v.recordKeyString(), match[3])) {
+		throw new BobbinError('invalid-request', 'The public record link is invalid')
+	}
+	return { authority: match[1], collection: match[2], rkey: match[3] }
+}
+
+function assertScopeIdentifier(subject: string, name: string): void {
+	if (!subject || subject.length > 2048 || /[\u0000-\u001f\u007f]/.test(subject)) {
+		throw new BobbinError('invalid-request', `The ${name} is invalid`)
+	}
+}
+
+function publicBlobUrl(pds: string, did: string, cid: string): string {
+	const url = new URL('/xrpc/com.atproto.sync.getBlob', normalizePublicPds(pds))
+	url.searchParams.set('did', did)
+	url.searchParams.set('cid', cid)
+	return url.href
 }
 
 function validateRecordView<const TSchema extends BaseSchema>(

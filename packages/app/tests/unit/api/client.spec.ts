@@ -147,6 +147,51 @@ describe('BobbinClient', () => {
 		expect(requestUrl.searchParams.get('limit')).toBe('10')
 	})
 
+	test('validates the T19-T21 indexed record families and preserves their cursors', async () => {
+		const fetch = fetchMock().mockImplementation(async () => jsonResponse({ items: [], cursor: 'next' }))
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.listPipelines('did:plc:repository')).resolves.toEqual({ items: [], cursor: 'next' })
+		await expect(client.listPipelineStatuses('at://did:plc:actor/sh.tangled.pipeline/3mho6hukiei22')).resolves.toEqual({
+			items: [],
+			cursor: 'next',
+		})
+		await expect(client.listArtifacts('did:plc:repository')).resolves.toEqual({ items: [], cursor: 'next' })
+		await expect(client.listLabelDefinitions('repo scope / with spaces')).resolves.toEqual({
+			items: [],
+			cursor: 'next',
+		})
+		await expect(client.listLabelOperations('repo scope / with spaces')).resolves.toEqual({ items: [], cursor: 'next' })
+		await expect(client.listStrings('repo scope / with spaces')).resolves.toEqual({ items: [], cursor: 'next' })
+		await expect(client.listKnots('did:plc:owner')).resolves.toEqual({ items: [], cursor: 'next' })
+		await expect(client.listSpindles('did:plc:owner')).resolves.toEqual({ items: [], cursor: 'next' })
+		await expect(client.listSpindleMembers('spindle.example')).resolves.toEqual({ items: [], cursor: 'next' })
+		await expect(client.listPublicKeys('did:plc:owner')).resolves.toEqual({ items: [], cursor: 'next' })
+
+		expect(fetch.mock.calls.map((call) => new URL(String(call[0])).pathname)).toEqual([
+			'/xrpc/sh.tangled.pipeline.listPipelines',
+			'/xrpc/sh.tangled.pipeline.listStatuses',
+			'/xrpc/sh.tangled.repo.listArtifacts',
+			'/xrpc/sh.tangled.label.listDefinitions',
+			'/xrpc/sh.tangled.label.listOps',
+			'/xrpc/sh.tangled.string.listStrings',
+			'/xrpc/sh.tangled.knot.listKnots',
+			'/xrpc/sh.tangled.spindle.listSpindles',
+			'/xrpc/sh.tangled.spindle.listMembers',
+			'/xrpc/sh.tangled.publicKey.listKeys',
+		])
+		expect(fetch.mock.calls.some((call) => String(call[0]).includes('listSecrets'))).toBe(false)
+	})
+
+	test('rejects unsafe arbitrary scope identifiers before issuing a request', async () => {
+		const fetch = fetchMock()
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.listLabelDefinitions('bad\nsubject')).rejects.toMatchObject({ kind: 'invalid-request' })
+		await expect(client.listStrings('')).rejects.toMatchObject({ kind: 'invalid-request' })
+		expect(fetch).not.toHaveBeenCalled()
+	})
+
 	test('passes issue state filters to the actor activity query', async () => {
 		const fetch = fetchMock().mockImplementation(async () => jsonResponse({ items: [] }))
 		const client = new BobbinClient({ fetch })
@@ -423,6 +468,62 @@ describe('BobbinClient', () => {
 		expect(url.searchParams.get('ref')).toBe('feature/a b')
 		expect(url.searchParams.get('prefix')).toBe('twisted/')
 		expect(init?.headers).toMatchObject({ range: 'bytes=0-9' })
+	})
+
+	test('resolves artifact records and preserves streamed blob metadata without buffering', async () => {
+		const artifactUri = 'at://did:plc:person/sh.tangled.repo.artifact/3mho6hukiei22'
+		const cid = 'bafyreicrfpnvmlnd7x5nvfsytxpehmpirnzx7u6kzwxebtdkd5npjxbsmy'
+		const stream = new ReadableStream<Uint8Array>()
+		const fetch = fetchMock()
+			.mockResolvedValueOnce(
+				jsonResponse({
+					did: 'did:plc:person',
+					handle: 'person.example',
+					pds: 'https://pds.example',
+					signing_key: 'did:key:zPerson',
+				}),
+			)
+			.mockResolvedValueOnce(
+				jsonResponse({
+					uri: artifactUri,
+					value: {
+						$type: 'sh.tangled.repo.artifact',
+						artifact: { $type: 'blob', mimeType: 'application/zip', ref: { $link: cid }, size: 100 },
+						createdAt: '2026-08-01T00:00:00.000Z',
+						name: 'build.zip',
+						tag: { $bytes: 'AAAAAAAAAAAAAAAAAAAAAAAAAAA=' },
+					},
+				}),
+			)
+			.mockResolvedValueOnce(
+				new Response(stream, {
+					status: 206,
+					headers: {
+						'content-disposition': 'attachment; filename="build.zip"',
+						'content-length': '10',
+						'content-range': 'bytes 0-9/100',
+						'content-type': 'application/zip',
+					},
+				}),
+			)
+		const client = new BobbinClient({ fetch })
+
+		await expect(client.getArtifactDownload(artifactUri, { range: 'bytes=0-9' })).resolves.toMatchObject({
+			body: stream,
+			status: 206,
+			contentLength: 10,
+			contentRange: 'bytes 0-9/100',
+			contentType: 'application/zip',
+			filename: 'build.zip',
+		})
+		const recordUrl = new URL(String(fetch.mock.calls[1][0]))
+		expect(recordUrl.origin).toBe('https://pds.example')
+		expect(recordUrl.pathname).toBe('/xrpc/com.atproto.repo.getRecord')
+		const [blobInput, blobInit] = fetch.mock.calls[2]
+		const blobUrl = new URL(String(blobInput))
+		expect(blobUrl.pathname).toBe('/xrpc/com.atproto.sync.getBlob')
+		expect(blobUrl.searchParams.get('cid')).toBe(cid)
+		expect(blobInit?.headers).toMatchObject({ range: 'bytes=0-9' })
 	})
 
 	test('uses Bobbin repository record identifiers for proxied blob queries', async () => {

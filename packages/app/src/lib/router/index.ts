@@ -251,7 +251,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/pipelines/:pipeline?',
 		name: 'pipelines',
-		component: domainPage,
+		component: () => import('@/views/RepositoryPipelinesPage.vue'),
 		meta: {
 			title: 'Pipelines',
 			section: 'Automation',
@@ -265,7 +265,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/repositories/:repo/artifacts/:artifact',
 		name: 'artifact',
-		component: domainPage,
+		component: () => import('@/views/ArtifactPage.vue'),
 		meta: {
 			title: 'Artifact',
 			section: 'Automation',
@@ -275,6 +275,12 @@ const routes: RouteRecordRaw[] = [
 			requirement: 'at-uri',
 			back: '/repositories',
 		},
+	},
+	{
+		path: '/strings',
+		name: 'strings',
+		component: () => import('@/views/StringsPage.vue'),
+		meta: { title: 'Strings', section: 'Social', description: 'Browse public Tangled strings by scope.' },
 	},
 	{
 		path: '/strings/:uri',
@@ -293,7 +299,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/infrastructure',
 		name: 'infrastructure',
-		component: domainPage,
+		component: () => import('@/views/InfrastructurePage.vue'),
 		meta: {
 			title: 'Knots & spindles',
 			section: 'Infrastructure',
@@ -303,7 +309,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/knots/:knot',
 		name: 'knot',
-		component: domainPage,
+		component: () => import('@/views/KnotPage.vue'),
 		meta: {
 			title: 'Knot',
 			section: 'Infrastructure',
@@ -317,7 +323,7 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/spindles/:spindle',
 		name: 'spindle',
-		component: domainPage,
+		component: () => import('@/views/SpindlePage.vue'),
 		meta: {
 			title: 'Spindle',
 			section: 'Infrastructure',
@@ -331,21 +337,21 @@ const routes: RouteRecordRaw[] = [
 	{
 		path: '/labels/:scope',
 		name: 'labels',
-		component: domainPage,
+		component: () => import('@/views/LabelsPage.vue'),
 		meta: {
 			title: 'Labels',
 			section: 'Infrastructure',
 			description: 'Browse label definitions and operation history for a scope.',
 			parameter: 'scope',
 			identifierLabel: 'Scope',
-			requirement: 'at-uri',
+			requirement: 'text',
 			back: '/infrastructure',
 		},
 	},
 	{
 		path: '/diagnostics/keys',
 		name: 'public-keys',
-		component: domainPage,
+		component: () => import('@/views/PublicKeysPage.vue'),
 		meta: {
 			title: 'Public keys',
 			section: 'Diagnostics',

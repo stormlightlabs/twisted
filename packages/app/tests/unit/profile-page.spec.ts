@@ -30,6 +30,8 @@ function routes() {
 			component: { template: '<div />' },
 		},
 		{ path: '/repositories/:repo', name: 'repository', component: { template: '<div />' } },
+		{ path: '/infrastructure', name: 'infrastructure', component: { template: '<div />' } },
+		{ path: '/diagnostics/keys', name: 'public-keys', component: { template: '<div />' } },
 	]
 }
 
@@ -77,6 +79,12 @@ describe('ProfilePage', () => {
 		await flushPromises()
 
 		expect(wrapper.get('h1').text()).toBe('@person.example')
+		expect(wrapper.get('.profile-identity__canonical').attributes()).toMatchObject({
+			href: 'https://tangled.org/@person.example',
+			rel: 'noopener noreferrer',
+			target: '_blank',
+		})
+		expect(wrapper.get('.profile-identity__canonical').text()).toBe('Open in Tangled')
 		expect(wrapper.text()).toContain(actorDid)
 		expect(wrapper.text()).toContain('Makes small, useful tools.')
 		expect(wrapper.text()).toContain('Chicago')

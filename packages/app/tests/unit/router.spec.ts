@@ -46,6 +46,12 @@ describe('application routes', () => {
 				params: { repo, artifact: 'build/linux arm64+debug.tgz' },
 				query: {},
 			},
+			{
+				location: links.labels('repo scope / arbitrary', 'at://did:plc:a/sh.tangled.label.definition/priority'),
+				params: { scope: 'repo scope / arbitrary' },
+				query: { definition: 'at://did:plc:a/sh.tangled.label.definition/priority' },
+			},
+			{ location: links.strings('scope / with spaces'), params: {}, query: { scope: 'scope / with spaces' } },
 		] as const
 
 		for (const routeCase of cases) {

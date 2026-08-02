@@ -57,6 +57,7 @@
 							<a v-if="sourceUrl" :href="sourceUrl" rel="noopener noreferrer" target="_blank">View source</a>
 							<a :href="archiveTarUrl" download>Download tar.gz</a>
 							<a :href="archiveZipUrl" download>Download zip</a>
+							<router-link :to="links.pipelines(repository.uri)">View automation</router-link>
 						</div>
 					</section>
 
@@ -132,7 +133,9 @@
 								noun="labels"
 								@retry="labelsRequest.retry" />
 							<ul v-if="labelsRequest.data.value?.length" class="label-list">
-								<li v-for="label in labelsRequest.data.value" :key="label.uri">{{ label.value.name }}</li>
+								<li v-for="label in labelsRequest.data.value" :key="label.uri">
+									<router-link :to="links.labels(repositoryDid, label.uri)">{{ label.value.name }}</router-link>
+								</li>
 							</ul>
 						</section>
 					</div>

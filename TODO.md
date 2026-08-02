@@ -120,50 +120,56 @@ vouches, and repo collaborators, with links to both ends of each edge.
 
 ### T19 - Read pipelines, statuses, and artifacts
 
-**What to build:** Add repo/spindle pipeline lists, pipeline details, status
-history, artifact metadata, and safe artifact downloads.
+**Status:** Complete
+
+**What was built:** Added repo and spindle pipeline lists, pipeline details,
+status history, artifact metadata, and streamed artifact downloads.
 
 **Blocked by:** T11
 
 **Acceptance criteria:**
 
-- [ ] Repo and spindle subject forms are validated and labeled.
-- [ ] Pipeline status history links actors and related records.
-- [ ] Artifact downloads preserve upstream content metadata and avoid buffering large bodies.
-- [ ] Empty, running, failed, unavailable, and incomplete-index states are covered.
+- [x] Repo and spindle subject forms are validated and labeled.
+- [x] Pipeline status history links actors and related records.
+- [x] Artifact downloads preserve upstream content metadata and avoid buffering large bodies.
+- [x] Empty, running, failed, unavailable, and incomplete-index states are covered.
 
 **Verification:** `bun run test:unit --run && bun run build`
 
 ### T20 - Read labels and Tangled strings
 
-**What to build:** Add label definition/operation views and string detail,
-listing, comment, and reaction flows.
+**Status:** Complete
+
+**What was built:** Added label definition and operation views plus string
+listing, detail, comment, and reaction flows.
 
 **Blocked by:** T07, T11
 
 **Acceptance criteria:**
 
-- [ ] Label scope, definition, operation author, target, and history are inspectable.
-- [ ] Repo label links open their definition when available.
-- [ ] Strings render safely and expose their valid discussion subjects.
-- [ ] Arbitrary scope identifiers are encoded and validated at the API boundary.
+- [x] Label scope, definition, operation author, target, and history are inspectable.
+- [x] Repo label links open their definition when available.
+- [x] Strings render safely and expose their valid discussion subjects.
+- [x] Arbitrary scope identifiers are encoded and validated at the API boundary.
 
 **Verification:** `bun run test:unit --run && bun run build`
 
 ### T21 - Read knots, spindles, memberships, and public keys
 
-**What to build:** Add public infrastructure views for owned services, members,
-owners, versions, knot keys, actor public keys, and freshness limitations.
+**Status:** Complete
+
+**What was built:** Added public infrastructure views for owned services,
+members, owners, versions, knot keys, actor public keys, and freshness limits.
 
 **Blocked by:** T09, T11
 
 **Acceptance criteria:**
 
-- [ ] Knot and spindle lists and memberships support every documented direction.
-- [ ] Bobbin's extra knot proxy parameter uses a narrow typed overlay.
-- [ ] Owners, versions, service keys, and actor public keys have copyable identifiers.
-- [ ] Views disclose that Bobbin coverage does not prove knot-roster freshness.
-- [ ] No secret-list or management endpoint is called.
+- [x] Knot and spindle lists and memberships support every documented direction.
+- [x] Bobbin's extra knot proxy parameter uses a narrow typed overlay.
+- [x] Owners, versions, service keys, and actor public keys have copyable identifiers.
+- [x] Views disclose that Bobbin coverage does not prove knot-roster freshness.
+- [x] No secret-list or management endpoint is called.
 
 **Verification:** `bun run test:unit --run && bun run build`
 

@@ -17,7 +17,14 @@
 							<span v-else aria-hidden="true">{{ initial }}</span>
 						</div>
 						<div>
-							<p class="section-label">Public profile</p>
+							<a
+								class="profile-identity__canonical section-label"
+								:href="tangledProfileUrl"
+								rel="noopener noreferrer"
+								target="_blank">
+								Open in Tangled
+								<ion-icon :icon="openOutline" aria-hidden="true" />
+							</a>
 							<h1>{{ displayHandle }}</h1>
 							<code>{{ identityRequest.data.value.did }}</code>
 							<p v-if="identityRequest.data.value.handle === 'handle.invalid'" class="profile-identity__warning">
@@ -28,6 +35,8 @@
 					<nav class="profile-links" aria-label="Profile views">
 						<router-link :to="links.actorActivity(actor, 'comments')">Browse public activity</router-link>
 						<router-link :to="links.actorRelationships(actor)">Browse relationships</router-link>
+						<router-link :to="links.infrastructureFor(identity.did)">Owned services</router-link>
+						<router-link :to="links.publicKeys(identity.did)">Public keys</router-link>
 					</nav>
 
 					<section class="profile-section" aria-labelledby="about-heading">
@@ -85,7 +94,8 @@ import OwnedRepositories from '@/features/profiles/OwnedRepositories.vue'
 import PinnedRepositories from '@/features/profiles/PinnedRepositories.vue'
 import { useRouteRequest } from '@/lib/requests'
 import { links } from '@/lib/router/links'
-import { IonContent, IonPage } from '@ionic/vue'
+import { IonContent, IonIcon, IonPage } from '@ionic/vue'
+import { openOutline } from 'ionicons/icons'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -110,6 +120,10 @@ const profile = computed(() => profileRequest.data.value?.value)
 const displayHandle = computed(() => {
 	const current = identityRequest.data.value
 	return current?.handle && current.handle !== 'handle.invalid' ? `@${current.handle}` : 'Tangled account'
+})
+const tangledProfileUrl = computed(() => {
+	const identifier = identity.value.handle !== 'handle.invalid' ? identity.value.handle : identity.value.did
+	return `https://tangled.org/@${encodeURIComponent(identifier)}`
 })
 const initial = computed(() =>
 	identityRequest.data.value?.handle === 'handle.invalid' ? '?' : displayHandle.value.slice(1, 2).toUpperCase(),
@@ -185,6 +199,16 @@ function linkLabel(link: string): string {
 	font-size: clamp(2.5rem, 8vw, 4.5rem);
 	letter-spacing: -0.055em;
 	overflow-wrap: anywhere;
+}
+.profile-identity__canonical {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	inline-size: fit-content;
+	text-decoration-thickness: 1px;
+}
+.profile-identity__canonical ion-icon {
+	font-size: 1rem;
 }
 .profile-identity code {
 	display: block;

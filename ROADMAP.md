@@ -71,6 +71,14 @@ link; later tickets replace the remaining compact availability notices with
 complete views. Capacitor has a starter app identifier and no checked-in
 Android or iOS project.
 
+The remaining read-only domains now have complete views. Repository and spindle
+automation pages show pipeline runs, workflow status history, and public
+artifacts. Label pages connect definitions to their operation history, while
+Tangled strings render as inert text with the shared discussion flow. Public
+infrastructure pages list owned knots and spindles, memberships, versions,
+service keys, and actor keys, with an explicit warning that Bobbin coverage does
+not prove a knot roster is current.
+
 The API contract is documented in [docs/api.md](docs/api.md). Bobbin is a new,
 read-only XRPC AppView whose hosted instance is `https://api.tangled.org`.
 

@@ -46,6 +46,7 @@ import { links } from '@/lib/router/links'
 import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonMenu, IonMenuToggle } from '@ionic/vue'
 import {
 	compassOutline,
+	documentTextOutline,
 	gitBranchOutline,
 	helpBuoyOutline,
 	homeOutline,
@@ -64,13 +65,14 @@ const navigation = [
 			{ label: 'Search', to: links.search(), activePath: '/search', icon: searchOutline },
 			{ label: 'Profiles', to: links.profiles, activePath: '/profiles', icon: peopleOutline },
 			{ label: 'Repositories', to: links.repositories, activePath: '/repositories', icon: gitBranchOutline },
+			{ label: 'Strings', to: links.strings(), activePath: '/strings', icon: documentTextOutline },
 		],
 	},
 	{
 		label: 'Infrastructure',
 		items: [
 			{ label: 'Knots & spindles', to: links.infrastructure, activePath: '/infrastructure', icon: compassOutline },
-			{ label: 'Public keys', to: links.publicKeys, activePath: '/diagnostics/keys', icon: helpBuoyOutline },
+			{ label: 'Public keys', to: links.publicKeys(), activePath: '/diagnostics/keys', icon: helpBuoyOutline },
 		],
 	},
 	{

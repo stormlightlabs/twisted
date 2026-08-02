@@ -26,6 +26,7 @@ const routes = [
 	{ path: '/knots/:knot', name: 'knot', component: { template: '<div />' } },
 	{ path: '/spindles/:spindle', name: 'spindle', component: { template: '<div />' } },
 	{ path: '/labels/:scope', name: 'labels', component: { template: '<div />' } },
+	{ path: '/repositories/:repo/pipelines/:pipeline?', name: 'pipelines', component: { template: '<div />' } },
 ]
 
 function repository() {
@@ -111,7 +112,8 @@ describe('RepositoryPage', () => {
 		expect(wrapper.text()).toContain('Welcome')
 		expect(wrapper.text()).toContain('refs/heads/main')
 		expect(wrapper.text()).toContain('4 Issues')
-		expect(wrapper.findAll('.repository-actions a')).toHaveLength(4)
+		expect(wrapper.findAll('.repository-actions a')).toHaveLength(5)
+		expect(wrapper.text()).toContain('View automation')
 		expect(fakeClient.getRepositoryLanguages).toHaveBeenCalledWith(repoUri, expect.any(Object))
 		expect(fakeClient.getRepositoryTree).toHaveBeenCalledWith(repoUri, { ref: 'HEAD' }, expect.any(Object))
 		expect(fakeClient.repositoryArchiveUrl).toHaveBeenCalledWith(repoUri, 'tar.gz')

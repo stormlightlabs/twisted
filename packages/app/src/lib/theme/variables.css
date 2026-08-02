@@ -150,6 +150,22 @@ ion-back-button {
 	line-height: 1.55;
 }
 
+.load-more {
+	min-block-size: 44px;
+	border: 1px solid var(--app-border);
+	border-radius: var(--radius-sm);
+	padding-inline: var(--space-5);
+	color: var(--app-text);
+	background: var(--app-surface);
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.load-more:disabled {
+	color: var(--app-text-muted);
+	cursor: wait;
+}
+
 .recovery-state {
 	display: flex;
 	align-items: flex-start;

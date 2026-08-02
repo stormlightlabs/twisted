@@ -119,6 +119,13 @@ work in `actor.getProfile`, `repo.getRepo`, `repo.getIssue`, or `repo.getPull`.
 Git proxy calls also receive the repository record AT-URI from Twisted. Bobbin
 resolves the record and forwards the matching repository to its knot.
 
+Bobbin does not publish single-record lookups for strings or artifacts. For a
+deep link to either record type, Twisted resolves the record author through
+Bobbin, reads the record from that author's public PDS with
+`com.atproto.repo.getRecord`, and validates the embedded value with the matching
+generated Tangled schema. This read is limited to the expected collection from
+the route; callers cannot use it as a generic record proxy.
+
 ## Common response shapes
 
 Single-record methods return a record view:
@@ -276,6 +283,11 @@ requests and preserves `Content-Type`, `Content-Length`, `Content-Range`,
 `Cache-Control`, `ETag`, `Last-Modified`, and the filename from
 `Content-Disposition`. Views link directly to archive URLs so the browser can
 download them without storing the archive in application state.
+
+Artifact files use the same streaming rule. Twisted resolves the validated blob
+reference to `com.atproto.sync.getBlob`, passes through range requests and
+response metadata, and gives the browser the upstream URL for downloads. The
+application does not convert artifact bodies to blobs or object URLs.
 
 The current knot responses use numeric offsets for branch and tag pages and a
 numeric page cursor for commit history. Twisted keeps those details inside its
