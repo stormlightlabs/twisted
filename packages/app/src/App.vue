@@ -6,6 +6,8 @@
 			<ion-router-outlet id="main-content" />
 		</ion-split-pane>
 		<mobile-tab-bar v-if="!isLanding" />
+		<pwa-status />
+		<p class="sr-only" aria-atomic="true" aria-live="polite">{{ liveMessage }}</p>
 	</ion-app>
 </template>
 
@@ -17,6 +19,8 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppMenu from './components/AppMenu.vue'
 import MobileTabBar from './components/MobileTabBar.vue'
+import PwaStatus from './components/PwaStatus.vue'
+import { liveMessage } from './lib/browser/live-region'
 import { links } from './lib/router/links'
 
 const router = useRouter()

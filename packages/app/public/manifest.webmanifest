@@ -2,9 +2,11 @@
 	"name": "Twisted — Tightly knit social coding",
 	"short_name": "Twisted",
 	"description": "Find projects, people, and public conversations on Tangled without signing in.",
+	"id": "/",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",
+	"categories": ["developer tools", "social"],
 	"background_color": "#212337",
 	"theme_color": "#212337",
 	"icons": [

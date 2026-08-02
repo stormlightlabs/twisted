@@ -106,6 +106,7 @@ import { localRecordLink } from '@/content/links'
 import { actorActivityDefinition, actorActivityDefinitions } from '@/features/activity/actor'
 import { recordExcerpt, recordTitle } from '@/features/discovery/records'
 import { useRouteRequest } from '@/lib/requests'
+import { announce } from '@/lib/browser'
 import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
 import { computed, ref } from 'vue'
@@ -198,6 +199,9 @@ async function loadNext(): Promise<void> {
 		})
 		appended.value.push(...page.items)
 		nextCursor.value = page.cursor
+		announce(
+			page.items.length === 1 ? '1 more activity item loaded.' : `${page.items.length} more activity items loaded.`,
+		)
 	} catch (error) {
 		requestedCursors.delete(cursor)
 		nextError.value = errorFromException(error)

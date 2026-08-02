@@ -1,14 +1,11 @@
 import { computed, readonly, ref } from 'vue'
-import { applyScheme, contrastRatio, mapSchemeToTokens, parseBase16Scheme } from './base16'
+import { applyScheme, parseBase16Scheme, themeContrastIssues } from './base16'
 import type { Base16Scheme } from './base16'
 import { BUNDLED_SCHEMES, DEFAULT_SCHEME_ID } from './schemes'
 
 export const THEME_STORAGE_KEY = 'twisted.theme.v1'
 
-interface ThemePreferences {
-	selectedId: string
-	imports: Base16Scheme[]
-}
+type ThemePreferences = { selectedId: string; imports: Base16Scheme[] }
 
 type ThemeReader = Pick<Storage, 'getItem'>
 type ThemeStorage = Pick<Storage, 'setItem'>
@@ -100,8 +97,11 @@ export function useTheme() {
 		if (bundledSchemes.some(({ id }) => id === imported.id)) {
 			throw new TypeError(`A bundled theme already uses the id “${imported.id}”`)
 		}
-		if (!hasAccessibleControls(imported)) {
-			throw new TypeError('The imported theme does not provide enough contrast for readable controls')
+		const contrastIssues = themeContrastIssues(imported)
+		if (contrastIssues.length > 0) {
+			throw new TypeError(
+				`Low contrast warning: ${contrastIssues.join(', ')} do not meet WCAG 2.2 AA. Twisted did not import this theme.`,
+			)
 		}
 		importedSchemes.value = [...importedSchemes.value.filter(({ id }) => id !== imported.id), imported]
 		selectedId.value = imported.id
@@ -120,14 +120,7 @@ export function useTheme() {
 }
 
 function hasAccessibleControls(scheme: Base16Scheme): boolean {
-	const tokens = mapSchemeToTokens(scheme)
-	return (
-		contrastRatio(tokens['--app-text'], tokens['--app-background']) >= 4.5 &&
-		contrastRatio(tokens['--app-text-muted'], tokens['--app-background']) >= 4.5 &&
-		contrastRatio(tokens['--app-accent'], tokens['--app-background']) >= 4.5 &&
-		contrastRatio(tokens['--app-accent-contrast'], tokens['--app-accent']) >= 4.5 &&
-		contrastRatio(tokens['--app-border'], tokens['--app-surface']) >= 3
-	)
+	return themeContrastIssues(scheme).length === 0
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

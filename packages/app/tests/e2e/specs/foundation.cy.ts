@@ -32,7 +32,7 @@ describe('Twisted foundation', () => {
 		cy.contains('label', 'Catppuccin Latte').click()
 		cy.get('html').should('have.attr', 'data-theme', 'catppuccin-latte')
 		cy.get('#service-url').clear().type('https://bobbin.example.com/')
-		cy.contains('button', 'Save data source').click()
+		cy.contains('button', 'Save Bobbin').click()
 		cy.reload()
 
 		cy.get('html').should('have.attr', 'data-theme', 'catppuccin-latte')

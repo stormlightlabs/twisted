@@ -94,7 +94,7 @@ describe('Base16 themes', () => {
 			),
 		}
 
-		expect(() => importTheme(unreadable)).toThrow('enough contrast')
+		expect(() => importTheme(unreadable)).toThrow('Low contrast warning')
 		expect(activeScheme.value.id).toBe(activeId)
 	})
 })

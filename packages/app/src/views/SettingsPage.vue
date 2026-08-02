@@ -41,7 +41,10 @@
 					<div class="import-control">
 						<label for="theme-import">Import Base16 JSON</label>
 						<input id="theme-import" accept="application/json,.json" type="file" @change="importFile" />
-						<p v-if="importMessage" :class="{ 'form-message--error': importError }" role="status">
+						<p
+							v-if="importMessage"
+							:class="{ 'form-message--error': importError }"
+							:role="importError ? 'alert' : 'status'">
 							{{ importMessage }}
 						</p>
 					</div>
@@ -183,6 +186,7 @@ function resetService(): void {
 
 .settings-section {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--space-6);
 	border-block-start: 1px solid var(--app-border);
 	padding-block-start: var(--space-6);

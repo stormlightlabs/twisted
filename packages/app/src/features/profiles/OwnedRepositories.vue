@@ -31,6 +31,7 @@ import type { BobbinError, ValidatedRecordView } from '@/lib/api'
 import { errorFromException, useBobbinClientProvider } from '@/lib/api'
 import RequestState from '@/components/RequestState.vue'
 import { useRouteRequest } from '@/lib/requests'
+import { announce } from '@/lib/browser'
 import type { ShTangledRepo } from '@atcute/tangled'
 import { computed, ref } from 'vue'
 import RepositoryCard from './RepositoryCard.vue'
@@ -66,6 +67,7 @@ async function loadNext(): Promise<void> {
 		const page = await getClient().listPdsRepos(props.did, props.pds, { cursor, limit: 20 })
 		appended.value.push(...page.items)
 		nextCursor.value = page.cursor
+		announce(page.items.length === 1 ? '1 more repository loaded.' : `${page.items.length} more repositories loaded.`)
 	} catch (error) {
 		requestedCursors.delete(cursor)
 		nextError.value = errorFromException(error)

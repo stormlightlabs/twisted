@@ -63,13 +63,12 @@ Repository overviews show identity, topics, links, hosts, languages, README
 content, labels, totals, collaborators, and recent code updates. They also make
 the repository record and repository DID easy to distinguish and copy. The
 repository experience now includes branch and tag shortcuts, commit patches,
-base-to-head comparisons, readable highlighted diffs, and streamed archive
-downloads. The public landing page and shared messages speak to readers rather than exposing
-implementation details. Shared content components sanitize Markdown and route
-supported record links to local views. Every planned domain has a stable deep
-link; later tickets replace the remaining compact availability notices with
-complete views. Capacitor has a starter app identifier and no checked-in
-Android or iOS project.
+base-to-head comparisons, readable highlighted diffs, Shiki-highlighted source
+blobs, and streamed archive downloads. The public landing page and shared
+messages speak to readers rather than exposing implementation details. Shared
+content components sanitize Markdown and route supported record links to local
+views. Every planned domain has a stable deep link and complete read view.
+Capacitor has a starter app identifier and no checked-in Android or iOS project.
 
 The remaining read-only domains now have complete views. Repository and spindle
 automation pages show pipeline runs, workflow status history, and public
@@ -78,6 +77,15 @@ Tangled strings render as inert text with the shared discussion flow. Public
 infrastructure pages list owned knots and spindles, memberships, versions,
 service keys, and actor keys, with an explicit warning that Bobbin coverage does
 not prove a knot roster is current.
+
+The web app is installable with final manifest metadata and icons. Its service
+worker precaches the application shell, caches same-origin application assets
+after use, and leaves every XRPC response network-only. Updates apply as one
+version after the user accepts a reload. Deterministic Cypress journeys cover
+the primary route families, failure states, 320-pixel layouts, 200% text sizing,
+reduced motion, theme persistence, and offline messaging. Reviewed Base16
+themes meet WCAG 2.2 AA; Twisted warns and rejects imported schemes whose
+semantic colors do not meet the same thresholds.
 
 The API contract is documented in [docs/api.md](docs/api.md). Bobbin is a new,
 read-only XRPC AppView whose hosted instance is `https://api.tangled.org`.

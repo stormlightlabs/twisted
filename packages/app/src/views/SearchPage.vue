@@ -96,6 +96,7 @@ import { localRecordLink } from '@/content/links'
 import { classifyIdentifier } from '@/features/discovery/identifiers'
 import { collectionName, recordExcerpt, recordTitle, searchableRecordSchemas } from '@/features/discovery/records'
 import { useRouteRequest } from '@/lib/requests'
+import { announce } from '@/lib/browser'
 import { links } from '@/lib/router/links'
 import { IonContent, IonPage } from '@ionic/vue'
 import { computed, reactive, ref, watch } from 'vue'
@@ -271,6 +272,9 @@ async function loadNext(): Promise<void> {
 		const page = await getClient().search(toSearchParams(normalizedRouteQuery(), cursor), searchableRecordSchemas)
 		appended.value.push(...(page.items as DisplayHit[]))
 		nextCursor.value = page.cursor
+		announce(
+			page.items.length === 1 ? '1 more search result loaded.' : `${page.items.length} more search results loaded.`,
+		)
 	} catch (error) {
 		requestedCursors.delete(cursor)
 		nextError.value = errorFromException(error)

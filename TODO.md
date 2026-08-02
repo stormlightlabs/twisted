@@ -154,51 +154,63 @@ responsive, deterministic under test, and honest about offline or stale data.
 
 ### T22 - Make Twisted an installable PWA
 
-**What to build:** Add manifest, install/update handling, icons, theme colors,
-and an offline application shell with explicit online-data states.
+**Status:** Complete
+
+**What was built:** Added install and update prompts, a version-safe Workbox
+application shell, final manifest metadata and icons, theme-aware browser chrome,
+and an offline notice that keeps live Tangled data explicitly online-only.
 
 **Blocked by:** T05
 
 **Acceptance criteria:**
 
-- [ ] Browser install checks pass with the final app identity and assets.
-- [ ] A previously loaded shell opens offline and identifies unavailable live data.
-- [ ] Service-worker updates never strand the app on mixed asset versions.
-- [ ] API payloads are not persisted by the service worker.
+- [x] Browser install checks pass with the final app identity and assets.
+- [x] A previously loaded shell opens offline and identifies unavailable live data.
+- [x] Service-worker updates never strand the app on mixed asset versions.
+- [x] API payloads are not persisted by the service worker.
 
-**Verification:** `bun run build` and a browser PWA audit
+**Verification:** `bun run build`, Cypress install/offline checks, and desktop and
+320-pixel browser audits
 
 ### T23 - Cover complete user journeys in Cypress
 
-**What to build:** Add intercepted end-to-end journeys for discovery, profiles,
-repos, source, collaboration, activity, infrastructure, settings, and failures.
+**Status:** Complete
+
+**What was built:** Added intercepted journeys for discovery, profiles,
+repositories, source, collaboration, activity, infrastructure, settings, PWA
+metadata, and recoverable failures.
 
 **Blocked by:** T08-T21
 
 **Acceptance criteria:**
 
-- [ ] Tests never depend on the live Bobbin service.
-- [ ] Fixtures cover success, partial, empty, invalid-record, offline, rate-limit, and upstream errors.
-- [ ] Theme persistence, deep links, pagination guards, and back navigation are covered.
-- [ ] At least one narrow viewport exercises every primary route family.
+- [x] Tests never depend on the live Bobbin service.
+- [x] Fixtures cover success, partial, empty, invalid-record, offline, rate-limit, and upstream errors.
+- [x] Theme persistence, deep links, pagination guards, and back navigation are covered.
+- [x] At least one narrow viewport exercises every primary route family.
 
-**Verification:** Start `bun run dev`, then run `bun run test:e2e`
+**Verification:** `bun run test:e2e` against the existing server on port 5173
 
 ### T24 - Complete accessibility and responsive review
 
-**What to build:** Audit every route family for keyboard, screen-reader,
-contrast, zoom, reduced motion, touch targets, safe areas, and long content.
+**Status:** Complete
+
+**What was built:** Added polite pagination announcements, named offline and
+update states, 44-pixel controls, zoom-safe viewport settings, reduced-motion
+coverage, low-contrast import warnings, and narrow-grid overflow guards. Source
+blobs now use theme-aware Shiki syntax highlighting without injecting HTML.
 
 **Blocked by:** T08-T23
 
 **Acceptance criteria:**
 
-- [ ] All interactive elements have an accessible name, focus state, and logical order.
-- [ ] Status changes and appended pages are announced without stealing focus.
-- [ ] Reviewed themes meet WCAG 2.2 AA and imported low-contrast themes warn the user.
-- [ ] Layout works at 320 CSS pixels, 200% zoom, and common tablet/desktop widths.
+- [x] All interactive elements have an accessible name, focus state, and logical order.
+- [x] Status changes and appended pages are announced without stealing focus.
+- [x] Reviewed themes meet WCAG 2.2 AA and imported low-contrast themes warn the user.
+- [x] Layout works at 320 CSS pixels, 200% zoom, and common tablet/desktop widths.
 
-**Verification:** `bun run test:unit --run && bun run test:e2e` plus manual assistive-technology review
+**Verification:** `bun run test:unit --run && bun run test:e2e`, plus keyboard,
+accessibility-tree, desktop, and 320-pixel browser review
 
 ## Milestone 4: Native apps
 

@@ -18,7 +18,7 @@
 		<i v-for="line in 3" :key="line" aria-hidden="true"></i>
 	</div>
 
-	<section v-else-if="empty" class="request-state request-state--empty">
+	<section v-else-if="empty" class="request-state request-state--empty" role="status">
 		<ion-icon :icon="fileTrayOutline" aria-hidden="true" />
 		<div>
 			<strong>No {{ noun }} found</strong>

@@ -33,9 +33,7 @@
 			<nav class="app-menu__links" aria-label="Tangled links">
 				<a href="https://tangled.org/" rel="noopener noreferrer" target="_blank">Tangled</a>
 				<a href="https://docs.tangled.org/" rel="noopener noreferrer" target="_blank">Docs</a>
-				<a href="https://tangled.org/desertthunder.dev/twisted" rel="noopener noreferrer" target="_blank"
-					>Twisted source</a
-				>
+				<a href="https://tangled.org/desertthunder.dev/twisted" rel="noopener noreferrer" target="_blank"> Source </a>
 			</nav>
 		</ion-content>
 	</ion-menu>

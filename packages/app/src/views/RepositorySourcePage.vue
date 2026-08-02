@@ -88,12 +88,11 @@
 							<p>This path points to another repository.</p>
 							<a v-if="submoduleUrl" :href="submoduleUrl" rel="noopener noreferrer" target="_blank">Open repository</a>
 						</div>
-						<ol v-else-if="blobText.kind === 'text'" :class="['code-lines', { 'code-lines--wrap': wrapLines }]">
-							<li v-for="(line, index) in blobText.lines" :id="`L${index + 1}`" :key="index">
-								<a :href="`#L${index + 1}`" :aria-label="`Line ${index + 1}`">{{ index + 1 }}</a>
-								<code>{{ line || ' ' }}</code>
-							</li>
-						</ol>
+						<highlighted-code
+							v-else-if="blobText.kind === 'text'"
+							:lines="blobText.lines"
+							:path="content.data.path"
+							:wrap="wrapLines" />
 						<div v-else class="source-empty">
 							<strong>{{ downloadMessage }}</strong>
 							<p>Download the file to view it with an app on your device.</p>
@@ -109,6 +108,7 @@
 import PageHeader from '@/components/PageHeader.vue'
 import RequestState from '@/components/RequestState.vue'
 import { presentBlobText } from '@/features/repositories/blobText'
+import HighlightedCode from '@/features/repositories/HighlightedCode.vue'
 import RepositoryNavigation from '@/features/repositories/RepositoryNavigation.vue'
 import { useRepositoryRoute } from '@/features/repositories/useRepositoryRoute'
 import { useRouteRequest } from '@/lib/requests'
@@ -346,40 +346,6 @@ function safeUrl(value: string | undefined) {
 	color: var(--app-text);
 	background: transparent;
 	cursor: pointer;
-}
-.code-lines {
-	margin: 0;
-	padding: var(--space-3) 0;
-	overflow-x: auto;
-	counter-reset: line;
-	background: var(--app-background);
-	list-style: none;
-}
-.code-lines li {
-	display: grid;
-	grid-template-columns: 4rem minmax(max-content, 1fr);
-	min-block-size: 1.55rem;
-	padding-inline-end: var(--space-4);
-}
-.code-lines li:target {
-	background: color-mix(in srgb, var(--app-accent) 14%, transparent);
-}
-.code-lines li > a {
-	padding-inline: var(--space-3);
-	color: var(--app-text-muted);
-	text-align: end;
-	text-decoration: none;
-	user-select: none;
-}
-.code-lines code {
-	white-space: pre;
-}
-.code-lines--wrap li {
-	grid-template-columns: 4rem minmax(0, 1fr);
-}
-.code-lines--wrap code {
-	overflow-wrap: anywhere;
-	white-space: pre-wrap;
 }
 .source-empty {
 	padding: var(--space-6);

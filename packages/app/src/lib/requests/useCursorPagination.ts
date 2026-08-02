@@ -1,5 +1,6 @@
 import type { BobbinError } from '@/lib/api'
 import { errorFromException } from '@/lib/api'
+import { announce } from '@/lib/browser'
 import { computed, onScopeDispose, readonly, ref, shallowRef, toValue, watch } from 'vue'
 import type { Ref, WatchSource } from 'vue'
 
@@ -47,8 +48,10 @@ export function useCursorPagination<T, TSource>(
 			const page = await load(toValue(source), next, controller.signal)
 			if (requestGeneration !== generation || controller.signal.aborted) return
 			const seen = new Set(items.value.map(key))
-			appended.value = [...appended.value, ...page.items.filter((item) => !seen.has(key(item)))]
+			const added = page.items.filter((item) => !seen.has(key(item)))
+			appended.value = [...appended.value, ...added]
 			cursor.value = page.cursor
+			announce(added.length === 1 ? '1 more item loaded.' : `${added.length} more items loaded.`)
 		} catch (reason) {
 			if (requestGeneration === generation) error.value = errorFromException(reason)
 		} finally {

@@ -21,7 +21,7 @@ export type Base16Slot = (typeof BASE16_SLOTS)[number]
 export type Base16Palette = Record<Base16Slot, string>
 
 /** A normalized Base16 scheme accepted by the application. */
-export interface Base16Scheme {
+export type Base16Scheme = {
 	id: string
 	name: string
 	author?: string
@@ -127,6 +127,18 @@ export function contrastRatio(foreground: string, background: string): number {
 	const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background))
 	const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background))
 	return (lighter + 0.05) / (darker + 0.05)
+}
+
+/** Lists WCAG 2.2 AA contrast failures for an imported scheme's application tokens. */
+export function themeContrastIssues(scheme: Base16Scheme): string[] {
+	const tokens = mapSchemeToTokens(scheme)
+	return [
+		contrastRatio(tokens['--app-text'], tokens['--app-background']) < 4.5 ? 'body text' : undefined,
+		contrastRatio(tokens['--app-text-muted'], tokens['--app-background']) < 4.5 ? 'secondary text' : undefined,
+		contrastRatio(tokens['--app-accent'], tokens['--app-background']) < 4.5 ? 'links and accents' : undefined,
+		contrastRatio(tokens['--app-accent-contrast'], tokens['--app-accent']) < 4.5 ? 'accent buttons' : undefined,
+		contrastRatio(tokens['--app-border'], tokens['--app-surface']) < 3 ? 'control boundaries' : undefined,
+	].filter((issue): issue is string => issue !== undefined)
 }
 
 function readName(input: Record<string, unknown>): string {

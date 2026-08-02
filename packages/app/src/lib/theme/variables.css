@@ -11,6 +11,17 @@
 	--app-warning: #f7c67f;
 	--app-success: #37f499;
 	--app-focus: #04d1f9;
+	--shiki-foreground: var(--app-text);
+	--shiki-background: var(--app-background);
+	--shiki-token-constant: var(--app-warning);
+	--shiki-token-string: var(--app-success);
+	--shiki-token-comment: var(--app-text-muted);
+	--shiki-token-keyword: var(--app-danger);
+	--shiki-token-parameter: var(--app-text);
+	--shiki-token-function: var(--app-accent);
+	--shiki-token-string-expression: var(--app-success);
+	--shiki-token-punctuation: var(--app-text-muted);
+	--shiki-token-link: var(--app-accent);
 
 	--font-body: 'Commissioner Variable', Commissioner, ui-sans-serif, system-ui, sans-serif;
 	--font-display: var(--font-body);
@@ -79,6 +90,14 @@ textarea {
 	font: inherit;
 }
 
+:where(button, input, select, summary) {
+	min-block-size: 44px;
+}
+
+:where(h1, h2, h3, p, dd, dt, li) {
+	overflow-wrap: break-word;
+}
+
 a {
 	color: var(--app-accent);
 	text-underline-offset: 0.2em;
@@ -124,6 +143,11 @@ ion-back-button {
 	margin-inline: auto;
 	padding: clamp(var(--space-6), 5vw, var(--space-10)) max(var(--space-5), var(--safe-right))
 		calc(var(--space-12) + var(--safe-bottom)) max(var(--space-5), var(--safe-left));
+}
+
+.page-frame > *,
+.page-frame fieldset {
+	min-inline-size: 0;
 }
 
 .page-frame--narrow {

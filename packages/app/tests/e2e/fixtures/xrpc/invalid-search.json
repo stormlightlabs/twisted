@@ -1,0 +1,10 @@
+{
+	"hits": [
+		{
+			"uri": "at://did:plc:invalid/sh.tangled.repo/broken",
+			"nsid": "sh.tangled.repo",
+			"score": 1,
+			"value": { "$type": "sh.tangled.repo", "name": 42 }
+		}
+	]
+}
